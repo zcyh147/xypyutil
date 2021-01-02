@@ -122,15 +122,15 @@ def build_default_logger(logdir, name=None, cfgfile=None, verbose=False):
             "disable_existing_loggers": False,
             "filters": {
                 "info_lpf": {
-                  "()": "util.LowPassLogFilter",
+                  "()": "kkpyutil.LowPassLogFilter",
                   "level": 10 if verbose else 20,
                 },
                 "info_bpf": {
-                  "()": "util.BandPassLogFilter",
+                  "()": "kkpyutil.BandPassLogFilter",
                   "levelbounds": [10, 20] if verbose else [20, 20],
                 },
                 "warn_hpf": {
-                  "()": "util.HighPassLogFilter",
+                  "()": "kkpyutil.HighPassLogFilter",
                   "level": 30
                 }
             },
