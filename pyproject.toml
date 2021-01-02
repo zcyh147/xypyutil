@@ -1,0 +1,29 @@
+[tool.poetry]
+name = "kkpyutil"
+version = "0.1.0"
+description = "Personal utility functions and classes frequently used by myself for daily Python work."
+authors = ["Beinan Li <li.beinan@gmail.com>"]
+maintainers = ["Todd Birchard <toddbirchard@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+homepage = ""
+repository = "https://github.com/kakyoism/kkpyutil/"
+documentation = "https://github.com/kakyoism/kkpyutil/README.md"
+keywords = [
+    "utility",
+    "logging",
+    "i/o",
+    "oop",
+]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.urls]
+issues = "https://github.com/kakyoism/kkpyutil/issues"
