@@ -31,16 +31,6 @@ import traceback
 from types import SimpleNamespace
 
 
-# Metadata
-__author__ = "Beinan Li"
-__copyright__ = "Copyright $year$, Beinan Li"
-__credits__ = ["Beinan Li"]
-__license__ = "MIT"
-__maintainer__ = "Beinan Li"
-__email__ = "li.beinan@gmail.com"
-__version__ = "0.6.0"
-
-
 #
 # Globals
 #
