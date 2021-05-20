@@ -28,6 +28,8 @@ import sys
 import tempfile
 import threading
 import traceback
+from types import SimpleNamespace
+
 
 # Metadata
 __author__ = "Beinan Li"
@@ -280,6 +282,21 @@ def load_json(path):
             text = f.read()
     # Add object_pairs_hook=collections.OrderedDict hook for py3.5 and lower.
     return json.loads(text, object_pairs_hook=collections.OrderedDict)
+
+def load_json_obj(path):
+    """
+    Load Json configuration file.
+    :param path: path to the config file
+    :return: config as an object
+    """
+    if is_python3():
+        with open(path, 'r', encoding=TXT_CODEC, errors='backslashreplace', newline=None) as f:
+            text = f.read()
+    else:
+        with open(path, 'rU') as f:
+            text = f.read()
+    # Add object_pairs_hook=collections.OrderedDict hook for py3.5 and lower.
+    return json.loads(text, object_hook=lambda d: SimpleNamespace(**d))
 
 
 def save_json(path, config):
