@@ -627,6 +627,18 @@ def profile_runs(funcname, modulefile, nruns=5):
     stats.print_stats()
 
 
+def get_local_tmp_dir():
+    plat = platform.system()
+    if plat == 'Windows':
+        return join(os.getenv('LOCALAPPDATA'), 'Temp')
+    elif plat == 'Darwin':
+        return join(expanduser('~'), 'Library', 'Caches')
+    elif plat == 'Linux'
+        return '/tmp'
+    else:
+        raise NotImplementedError(f'unsupported platform: {plat}')
+
+
 class RerunLock:
     """Lock process from reentering when seeing lock file on disk."""
     def __init__(self, name, folder=None, infohook=_logger.info, warnhook=_logger.warning, errorhook=_logger.error):
