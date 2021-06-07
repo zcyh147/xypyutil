@@ -633,7 +633,7 @@ def get_local_tmp_dir():
         return join(os.getenv('LOCALAPPDATA'), 'Temp')
     elif plat == 'Darwin':
         return join(expanduser('~'), 'Library', 'Caches')
-    elif plat == 'Linux'
+    elif plat == 'Linux':
         return '/tmp'
     else:
         raise NotImplementedError(f'unsupported platform: {plat}')
