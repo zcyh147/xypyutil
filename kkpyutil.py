@@ -654,18 +654,17 @@ class RerunLock:
                 pass
             return True
         else:
-            self.warnHook('Rerun disabled using file: {}. Unlock it before locking again. Aborted. You can ignore this message if your program is already running as planned.'.format(self.lockFile))
+            self.warnHook('Will not run the script while it is active with pid: {}.'.format(os.getpid()))
             return False
 
     def unlock(self):
         try:
             os.remove(self.lockFile)
-            self.infoHook('Rerun enabled after removing lock file: {}. You can ignore this message if your program finishes with success.'.format(self.lockFile))
         except FileNotFoundError:
-            self.warnHook('Failed to find lock file: {}. Rerun is enabled. Ignored.'.format(self.lockFile))
+            self.warnHook('Script reentrance is already enabled.')
         except Exception:
             failure = traceback.format_exc()
-            self.errorHook('{}\nFailed to enable rerun by deleting reentrance lock file: {}. You must delete it by hand to rerun your program. Ignored.'.format(failure, self.lockFile))
+            self.errorHook('{}\nFailed to unlock the script. You must delete the lock by hand: {}.'.format(failure, self.lockFile))
 
     def is_locked(self):
         return exists(self.lockFile)
@@ -682,7 +681,8 @@ def rerun_lock(name, folder=None, infohook=_logger.info, warnhook=_logger.warnin
                 if not my_lock.lock():
                     return 1
                 ret = f(*args, **kwargs)
-            finally:  # Leave exception to global handler.
+                my_lock.unlock()
+            except:  # Leave exception to global handler.
                 my_lock.unlock()
             return ret
         return wrapper
