@@ -176,7 +176,7 @@ def build_default_logger(logdir, name=None, cfgfile=None, verbose=False):
     return logging.getLogger(name or 'default')
 
 
-_logger = build_default_logger(logdir=join(_script_dir, os.pardir, 'temp'))
+_logger = build_default_logger(logdir=join(_script_dir, os.pardir, 'temp'), name=splitext(basename(__file__))[0])
 
 
 def catch_unknown_exception(exc_type, exc_value, exc_traceback):
@@ -676,6 +676,7 @@ def rerun_lock(name, folder=None, infohook=_logger.info, warnhook=_logger.warnin
         @functools.wraps(f)
         def wrapper(*args, **kwargs):
             my_lock = None
+            ret = None
             try:
                 my_lock = RerunLock(name, folder, infohook, warnhook, errorhook)
                 if not my_lock.lock():
