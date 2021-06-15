@@ -20,7 +20,7 @@ import logging
 import logging.config
 import multiprocessing
 import os
-from os.path import abspath, basename, dirname, exists, isfile, join, splitext
+from os.path import abspath, basename, dirname, expanduser, exists, isfile, join, splitext
 # from pprint import pprint, pformat
 import platform
 import pstats
@@ -684,8 +684,10 @@ def rerun_lock(name, folder=None, infohook=_logger.info, warnhook=_logger.warnin
                     return 1
                 ret = f(*args, **kwargs)
                 my_lock.unlock()
-            except:  # Leave exception to global handler.
+            except Exception as e:  
                 my_lock.unlock()
+                # leave exception to its upper handler or let the program crash
+                raise e
             return ret
         return wrapper
     return decorator
