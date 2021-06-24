@@ -23,6 +23,7 @@ import os
 from os.path import abspath, basename, dirname, expanduser, exists, isfile, join, splitext
 # from pprint import pprint, pformat
 import platform
+import plistlib
 import pstats
 # import subprocess
 import sys
@@ -638,6 +639,25 @@ def get_local_tmp_dir():
         return '/tmp'
     else:
         raise NotImplementedError(f'unsupported platform: {plat}')
+
+
+def write_plist_fields(cfg_file, my_map):
+    plist = {}
+    with open(cfg_file, 'rb') as fp:
+        plist = plistlib.load(fp, fmt=plistlib.FMT_XML)
+    plist.update(my_map)
+    with open(path, 'wb') as fp:
+        plistlib.dump(plist, fp)
+
+
+def substitute_keywords_in_file(file, str_map):
+    updated = ''
+    with open(dest) as f:
+        original = f.read()
+        updated = original % str_map
+    with open(dest, 'w') as f:
+        f.write(updated)
+
 
 
 class RerunLock:
