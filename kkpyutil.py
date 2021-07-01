@@ -694,6 +694,14 @@ def convert_to_wine_path(path, drive='Z:'):
     return drive + path
 
 
+def kill_process_by_name(name):
+    if platform.system() == 'Windows':
+        cmd = ['taskkill', '/IM', name, '/F']
+    else:
+        cmd = ['pkill', name]
+    subprocess.run(cmd)
+
+
 class RerunLock:
     """Lock process from reentering when seeing lock file on disk."""
     def __init__(self, name, folder=None, infohook=_logger.info, warnhook=_logger.warning, errorhook=_logger.error):
