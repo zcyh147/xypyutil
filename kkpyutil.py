@@ -20,6 +20,7 @@ import logging
 import logging.config
 import multiprocessing
 import os
+import subprocess
 from os.path import abspath, basename, dirname, expanduser, exists, isfile, join, splitext
 # from pprint import pprint, pformat
 import platform
@@ -31,6 +32,7 @@ import tempfile
 import threading
 import traceback
 from types import SimpleNamespace
+import uuid
 
 
 #
@@ -658,6 +660,33 @@ def substitute_keywords_in_file(file, str_map):
     with open(file, 'w') as f:
         f.write(updated)
 
+
+def is_uuid(text, version=4):
+    try:
+        uuid_obj = uuid.UUID(text, version=4)
+        return True
+    except ValueError:
+        return False
+
+
+def get_clipboard_content():
+    import tkinter as tk
+    root = tk.Tk()
+    # keep the window from showing
+    root.withdraw()
+    content = root.clipboard_get()
+    root.quit()
+    return content
+
+
+def alert(title, content, action='Close'):
+    if platform.system() == 'Windows':
+        cmd = ['mshta', f'vbscript:Execute("msgbox ""{content}"", 0,""{title}"":{action}")']
+    elif platform.system() == 'Darwin':
+        cmd = ['osascript', '-e', f'display alert "{title}" message "{content}"']
+    else:
+        cmd = ['echo', f'{title}: {content}: {action}']
+    subprocess.run(cmd)
 
 
 class RerunLock:
