@@ -689,6 +689,11 @@ def alert(title, content, action='Close'):
     subprocess.run(cmd)
 
 
+def convert_to_wine_path(path, drive='Z:'):
+    path = abspath(path).replace('/', '\\')
+    return drive + path
+
+
 class RerunLock:
     """Lock process from reentering when seeing lock file on disk."""
     def __init__(self, name, folder=None, infohook=_logger.info, warnhook=_logger.warning, errorhook=_logger.error):
