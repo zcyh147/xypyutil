@@ -14,6 +14,7 @@ import argparse
 import collections
 import cProfile as profile
 import functools
+import gettext
 import hashlib
 import json
 import logging
@@ -700,6 +701,22 @@ def kill_process_by_name(name):
     else:
         cmd = ['pkill', name]
     subprocess.run(cmd)
+
+
+def init_translator(localedir, domain='all', langs=None):
+    """
+    - select locale and set up translator based on system language
+    - the leading language in langs, if any, is selected to override current locale
+    """
+    cur_langs = None
+    if langs:
+        cur_langs = langs
+    else:
+        cur_locale, encoding = locale.getdefaultlocale()
+        cur_langs = [cur_locale] if cur_locale else ['en']
+    translator = gettext.translation(domain, localedir=localedir, languages=cur_langs)
+    translator.install()
+    return translator
 
 
 class RerunLock:
