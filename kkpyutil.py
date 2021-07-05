@@ -653,11 +653,17 @@ def write_plist_fields(cfg_file, my_map):
         plistlib.dump(plist, fp)
 
 
-def substitute_keywords_in_file(file, str_map):
+def substitute_keywords_in_file(file, str_map, useliteral=False):
     updated = ''
     with open(file) as f:
         original = f.read()
-        updated = original % str_map
+        if not useliteral:
+            updated = original % str_map 
+        else:
+            updated = original
+            for src, dest in str_map.items():
+                tmp = updated
+                updated = updated.replace(src, dest)
     with open(file, 'w') as f:
         f.write(updated)
 
