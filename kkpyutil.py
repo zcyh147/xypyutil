@@ -726,6 +726,17 @@ def init_translator(localedir, domain='all', langs=None):
     return translator.gettext
 
 
+def match_files_except_lines(file1, file2, excluded=None):
+    with open(file1) as fp:
+        content1 = fp.readlines()
+    with open(file2) as fp:
+        content2 = fp.readlines()
+    if excluded:
+        content1 = [cont for c, cont in enumerated(content1) if c not in excluded]
+        content2 = [cont for c, cont in enumerated(content2) if c not in excluded]
+    return content1 == content2
+
+
 class RerunLock:
     """Lock process from reentering when seeing lock file on disk."""
     def __init__(self, name, folder=None, infohook=_logger.info, warnhook=_logger.warning, errorhook=_logger.error):
