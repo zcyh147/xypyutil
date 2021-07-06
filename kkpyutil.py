@@ -732,8 +732,8 @@ def match_files_except_lines(file1, file2, excluded=None):
     with open(file2) as fp:
         content2 = fp.readlines()
     if excluded:
-        content1 = [cont for c, cont in enumerated(content1) if c not in excluded]
-        content2 = [cont for c, cont in enumerated(content2) if c not in excluded]
+        content1 = [cont for c, cont in enumerate(content1) if c not in excluded]
+        content2 = [cont for c, cont in enumerate(content2) if c not in excluded]
     return content1 == content2
 
 
