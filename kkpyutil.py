@@ -17,6 +17,7 @@ import functools
 import gettext
 import hashlib
 import json
+import locale
 import logging
 import logging.config
 import multiprocessing
