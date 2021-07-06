@@ -723,7 +723,7 @@ def init_translator(localedir, domain='all', langs=None):
         cur_langs = [cur_locale] if cur_locale else ['en']
     translator = gettext.translation(domain, localedir=localedir, languages=cur_langs)
     translator.install()
-    return translator
+    return translator.gettext
 
 
 class RerunLock:
