@@ -721,13 +721,13 @@ def init_translator(localedir, domain='all', langs=None):
     else:
         cur_locale, encoding = locale.getdefaultlocale()
         cur_langs = [cur_locale] if cur_locale else ['en']
-    trans = ()
     try:
         translator = gettext.translation(domain, localedir=localedir, languages=cur_langs)
         translator.install()
         trans = translator.gettext
     except FileNotFoundError as e:
-        print('No translation template found. Ignore this message if called for the first time.')
+        print(f'No translation files found for domain: {domain}. Ignore this message if called for the first time.')
+        trans = str
     return trans
 
 
