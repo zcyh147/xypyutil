@@ -22,13 +22,13 @@ import logging
 import logging.config
 import multiprocessing
 import os
-import subprocess
 from os.path import abspath, basename, dirname, expanduser, exists, isfile, join, splitext
 # from pprint import pprint, pformat
 import platform
 import plistlib
 import pstats
-# import subprocess
+import shlex
+import subprocess
 import sys
 import tempfile
 import threading
@@ -690,7 +690,9 @@ def get_clipboard_content():
 def alert(title, content, action='Close'):
     if platform.system() == 'Windows':
         cmd = ['mshta', f'vbscript:Execute("msgbox ""{content}"", 0,""{title}"":{action}")']
-    elif platform.system() == 'Darwin':
+        os.system(' '.join(cmd))
+        return
+    if platform.system() == 'Darwin':
         cmd = ['osascript', '-e', f'display alert "{title}" message "{content}"']
     else:
         cmd = ['echo', f'{title}: {content}: {action}']
@@ -826,9 +828,9 @@ class Singleton(_Singleton('SingletonMeta', (object,), {})):
     pass
 
 
-def test():
+def _test():
     pass
 
 
 if __name__ == '__main__':
-    test()
+    _test()
