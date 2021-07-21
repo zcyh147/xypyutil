@@ -840,10 +840,9 @@ def append_to_os_paths(bindir):
                     user_paths += f'{bindir}'
                     winreg.SetValueEx(key, 'Path', 0, winreg.REG_EXPAND_SZ, user_paths)
     else:
-        cfg_file = os.expanduser('~/.bash_profile') if platform.system() == 'macOS' else os.expanduser('~/.bashrc')
+        cfg_file = os.path.expanduser('~/.bash_profile') if platform.system() == 'Darwin' else os.path.expanduser('~/.bashrc')
         with open(cfg_file, 'a') as fp:
-            fp.write([f'\nexport PATH=$PATH:{bindir}\n\n'])
-        subprocess.run(['source', cfg_file])
+            fp.write(f'\nexport PATH="$PATH:{bindir}"\n\n')
 
 
 def prepend_to_os_paths(bindir):
@@ -856,14 +855,18 @@ def prepend_to_os_paths(bindir):
                     user_paths = f'{bindir};' + user_paths
                     winreg.SetValueEx(key, 'Path', 0, winreg.REG_EXPAND_SZ, user_paths)
     else:
-        cfg_file = os.expanduser('~/.bash_profile') if platform.system() == 'macOS' else os.expanduser('~/.bashrc')
-        with open(cfg_file, 'a') as fp:
-            fp.write([f'\nexport PATH={bindir}:$PATH\n\n'])
-        subprocess.run(['source', cfg_file])
+        cfg_file = os.path.expanduser('~/.bash_profile') if platform.system() == 'Darwin' else os.path.expanduser('~/.bashrc')
+        lines = []
+        with open(cfg_file) as fp:
+            lines = fp.readlines()
+        lines = [f'\nexport PATH="{bindir}:$PATH"\n\n'] + lines
+        with open(cfg_file, 'w') as fp:
+            fp.writelines(lines)
 
 
 def _test():
-    pass
+    prepend_to_os_paths('/path/to/my/bin')
+    print(os.environ['PATH'])
 
 
 if __name__ == '__main__':
