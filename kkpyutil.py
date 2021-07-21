@@ -829,6 +829,9 @@ def rerun_lock(name, folder=None, infohook=_logger.info, warnhook=_logger.warnin
 
 
 def append_to_os_paths(bindir):
+    """
+    On macOS, PATH update will only take effect after calling `source ~/.bash_profile` directly in shell. It won't work 
+    """
     if platform.system() == 'Windows':
         import winreg
         with winreg.ConnectRegistry(None, winreg.HKEY_CURRENT_USER) as reg:
@@ -841,6 +844,8 @@ def append_to_os_paths(bindir):
                     winreg.SetValueEx(key, 'Path', 0, winreg.REG_EXPAND_SZ, user_paths)
     else:
         cfg_file = os.path.expanduser('~/.bash_profile') if platform.system() == 'Darwin' else os.path.expanduser('~/.bashrc')
+        if bindir in os.environ['PATH']:
+            return
         with open(cfg_file, 'a') as fp:
             fp.write(f'\nexport PATH="$PATH:{bindir}"\n\n')
 
@@ -856,6 +861,8 @@ def prepend_to_os_paths(bindir):
                     winreg.SetValueEx(key, 'Path', 0, winreg.REG_EXPAND_SZ, user_paths)
     else:
         cfg_file = os.path.expanduser('~/.bash_profile') if platform.system() == 'Darwin' else os.path.expanduser('~/.bashrc')
+        if bindir in os.environ['PATH']:
+            return
         lines = []
         with open(cfg_file) as fp:
             lines = fp.readlines()
@@ -864,9 +871,43 @@ def prepend_to_os_paths(bindir):
             fp.writelines(lines)
 
 
+def remove_from_os_paths(bindir):
+    if platform.system() == 'Windows':
+        import winreg
+        with winreg.ConnectRegistry(None, winreg.HKEY_CURRENT_USER) as reg:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r'Environment', 0, winreg.KEY_ALL_ACCESS) as key:
+                user_paths, _ = winreg.QueryValueEx(key, 'Path')
+                start = user_paths.find(bindir)
+                if not bindir in user_paths:
+                    return
+                import re
+                # escape to handle metachars
+                pattern = re.compile('|'.join(map(re.escape, bindir)))
+                pattern.sub('', user_paths)
+                winreg.SetValueEx(key, 'Path', 0, winreg.REG_EXPAND_SZ, user_paths)
+    else:
+        cfg_file = os.path.expanduser('~/.bash_profile') if platform.system() == 'Darwin' else os.path.expanduser('~/.bashrc')
+        if not bindir in os.environ['PATH']:
+            return
+        keyword = r'^[\s](*)export PATH="{}:$PATH"'.format(bindir)
+        # escape to handle metachars
+        pattern_prepend = f'export PATH="{bindir}:$PATH"'
+        pattern_append = f'export PATH="$PATH:{bindir}"'
+        lines = []
+        with open(cfg_file) as fp:
+            lines = fp.readlines()
+        for l, line in enumerate(lines):
+            line = line.strip()
+            if line.startswith(pattern_prepend):
+                lines[l] = line.replace(pattern_prepend, '')
+            if line.startswith(pattern_append):
+                lines[l] = line.replace(pattern_append, '')
+        with open(cfg_file, 'w') as fp:
+            fp.writelines(lines)
+
+
 def _test():
-    prepend_to_os_paths('/path/to/my/bin')
-    print(os.environ['PATH'])
+    pass
 
 
 if __name__ == '__main__':
