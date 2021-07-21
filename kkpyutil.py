@@ -46,6 +46,36 @@ MAIN_CFG_FILENAME = 'app.json'
 DEFAULT_CFG_FILENAME = 'default.json'
 
 
+class SingletonDecorator:
+    """
+    Decorator to build Singleton class, single-inheritance only.
+    Usage:
+        class MyClass: ...
+        myobj = SingletonDecorator(MyClass, args, kwargs)
+    """
+    def __init__(self, klass):
+        self.klass = klass
+        self.instance = None
+
+    def __call__(self, *args, **kwargs):
+        if self.instance is None:
+            self.instance = self.klass(*args, **kwargs)
+        return self.instance
+
+
+class _Singleton(type):
+    _instances = {}
+
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            cls._instances[cls] = super(_Singleton, cls).__call__(*args, **kwargs)
+        return cls._instances[cls]
+
+
+class Singleton(_Singleton('SingletonMeta', (object,), {})):
+    pass
+
+
 class LowPassLogFilter(object):
     """
     Logging filter: Show log messages below input level.
@@ -798,34 +828,38 @@ def rerun_lock(name, folder=None, infohook=_logger.info, warnhook=_logger.warnin
     return decorator
 
 
-class SingletonDecorator:
-    """
-    Decorator to build Singleton class, single-inheritance only.
-    Usage:
-        class MyClass: ...
-        myobj = SingletonDecorator(MyClass, args, kwargs)
-    """
-    def __init__(self, klass):
-        self.klass = klass
-        self.instance = None
-
-    def __call__(self, *args, **kwargs):
-        if self.instance is None:
-            self.instance = self.klass(*args, **kwargs)
-        return self.instance
-
-
-class _Singleton(type):
-    _instances = {}
-
-    def __call__(cls, *args, **kwargs):
-        if cls not in cls._instances:
-            cls._instances[cls] = super(_Singleton, cls).__call__(*args, **kwargs)
-        return cls._instances[cls]
+def append_to_os_paths(bindir):
+    if platform.system() == 'Windows':
+        import winreg
+        with winreg.ConnectRegistry(None, winreg.HKEY_CURRENT_USER) as reg:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r'Environment', 0, winreg.KEY_ALL_ACCESS) as key:
+                user_paths, _ = winreg.QueryValueEx(key, 'Path')
+                if bindir not in user_paths:
+                    if user_paths[-1] != ';':
+                        user_paths += ';'
+                    user_paths += f'{bindir}'
+                    winreg.SetValueEx(key, 'Path', 0, winreg.REG_EXPAND_SZ, user_paths)
+    else:
+        cfg_file = os.expanduser('~/.bash_profile') if platform.system() == 'macOS' else os.expanduser('~/.bashrc')
+        with open(cfg_file, 'a') as fp:
+            fp.write([f'\nexport PATH=$PATH:{bindir}\n\n'])
+        subprocess.run(['source', cfg_file])
 
 
-class Singleton(_Singleton('SingletonMeta', (object,), {})):
-    pass
+def prepend_to_os_paths(bindir):
+    if platform.system() == 'Windows':
+        import winreg
+        with winreg.ConnectRegistry(None, winreg.HKEY_CURRENT_USER) as reg:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r'Environment', 0, winreg.KEY_ALL_ACCESS) as key:
+                user_paths, _ = winreg.QueryValueEx(key, 'Path')
+                if bindir not in user_paths:
+                    user_paths = f'{bindir};' + user_paths
+                    winreg.SetValueEx(key, 'Path', 0, winreg.REG_EXPAND_SZ, user_paths)
+    else:
+        cfg_file = os.expanduser('~/.bash_profile') if platform.system() == 'macOS' else os.expanduser('~/.bashrc')
+        with open(cfg_file, 'a') as fp:
+            fp.write([f'\nexport PATH={bindir}:$PATH\n\n'])
+        subprocess.run(['source', cfg_file])
 
 
 def _test():
