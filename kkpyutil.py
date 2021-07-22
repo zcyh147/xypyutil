@@ -848,6 +848,7 @@ def append_to_os_paths(bindir):
             return
         with open(cfg_file, 'a') as fp:
             fp.write(f'\nexport PATH="$PATH:{bindir}"\n\n')
+    os.environ['PATH'] += os.pathsep + bindir
 
 
 def prepend_to_os_paths(bindir):
@@ -869,6 +870,7 @@ def prepend_to_os_paths(bindir):
         lines = [f'\nexport PATH="{bindir}:$PATH"\n\n'] + lines
         with open(cfg_file, 'w') as fp:
             fp.writelines(lines)
+    os.environ['PATH'] = bindir + os.pathsep + os.environ['PATH']
 
 
 def remove_from_os_paths(bindir):
@@ -904,6 +906,7 @@ def remove_from_os_paths(bindir):
                 lines[l] = line.replace(pattern_append, '')
         with open(cfg_file, 'w') as fp:
             fp.writelines(lines)
+    os.environ['PATH'] = os.environ['PATH'].replace(bindir, '')
 
 
 def _test():
