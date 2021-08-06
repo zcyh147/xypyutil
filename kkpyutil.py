@@ -734,6 +734,15 @@ def convert_to_wine_path(path, drive='Z:'):
     return drive + path
 
 
+def convert_from_wine_path(path):
+    path = path.strip()
+    if path.startswith('Z:') or path.startswith('z:'):
+        return path[2:].replace('\\', '/') if len(path) > 2 else '/'
+    elif path.startswith('Y:') or path.startswith('y:'):
+        return join(os.environ['HOME'], path[2:].replace('\\', '/').strip('/'))
+    return path
+
+
 def kill_process_by_name(name):
     if platform.system() == 'Windows':
         cmd = ['taskkill', '/IM', name, '/F']
