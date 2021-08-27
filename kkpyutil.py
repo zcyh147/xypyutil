@@ -767,7 +767,8 @@ def init_translator(localedir, domain='all', langs=None):
         translator.install()
         trans = translator.gettext
     except FileNotFoundError as e:
-        print(f'No translation files found for domain: {domain}. Ignore this message if called for the first time.')
+        # No translation files found for domain. 
+        # Ignore this message if called for the first time.
         trans = str
     return trans
 
