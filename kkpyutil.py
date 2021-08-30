@@ -919,6 +919,15 @@ def remove_from_os_paths(bindir):
     os.environ['PATH'] = os.environ['PATH'].replace(bindir, '')
 
 
+def run_cmd(cmd, cwd='.'):
+    try:
+        proc = subprocess.run(cmd, check=True, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
+        _logger.debug(proc.stdout.decode(TXT_CODEC))
+    except subprocess.CalledProcessError as e:
+        _logger.error(f'stderr: {e.stderr.decode(TXT_CODEC)}')
+        raise e
+
+
 def _test():
     pass
 
