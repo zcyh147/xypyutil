@@ -928,8 +928,61 @@ def run_cmd(cmd, cwd='.'):
         raise e
 
 
+def extract_call_args(file, caller, callee):
+    """
+    - only support literal args
+    - will throw if an arg value is a function call itself
+    """
+    import ast
+    import importlib
+    import inspect
+    mod = splitext(basename(file))[0]
+    sys.path.insert(0, dirname(file))
+    mod = importlib.import_module(mod)
+    parsed = ast.parse(inspect.getsource(mod))
+    calls = { # lineno, args, keywords
+        'func': [],
+        'method': []
+    }
+    for node in parsed.body:
+        if not isinstance(node, ast.FunctionDef) or node.name != caller:
+            continue
+        for node in ast.walk(node):
+            if not isinstance(node, ast.Call):
+                continue
+            call_type = None
+            found_func_call = 'id' in dir(node.func) and node.func.id == callee
+            found_method_call = 'attr' in dir(node.func) and node.func.attr == callee
+            if found_func_call:
+                call_type = 'func'
+            elif found_method_call:
+                call_type = 'method'
+            else:
+                continue
+            
+            call = {
+                'lineno': node.func.lineno,
+                'args': [ast.literal_eval(val) for val in node.args],
+                'kwargs': None
+            }
+            kwargs = []
+            if node.keywords:
+                for kw in node.keywords:
+                    is_const = isinstance(kw.value, ast.Constant)
+                    if is_const:
+                        kwargs.append((kw.arg, ast.literal_eval(kw.value)))
+                    else:
+                        kwargs.append((kw.arg, None))
+            call['kwargs'] = kwargs
+            calls[call_type].append(call)
+    return calls['func'], calls['method']
+
+
 def _test():
-    pass
+    import pprint as pp
+    fc, mc = extract_call_args('/Users/bin.luo/Desktop/_dev/miatech/create_py_proj/src/cli.py', 'add_arguments', 'add_argument')
+    pp.pprint(fc)
+    pp.pprint(mc)
 
 
 if __name__ == '__main__':
