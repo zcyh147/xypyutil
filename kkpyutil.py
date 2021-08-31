@@ -973,16 +973,13 @@ def extract_call_args(file, caller, callee):
                         kwargs.append((kw.arg, ast.literal_eval(kw.value)))
                     else:
                         kwargs.append((kw.arg, None))
-            call['kwargs'] = kwargs
+            call['kwargs'] = {k: v for k, v in kwargs}
             calls[call_type].append(call)
     return calls['func'], calls['method']
 
 
 def _test():
-    import pprint as pp
-    fc, mc = extract_call_args('/Users/bin.luo/Desktop/_dev/miatech/create_py_proj/src/cli.py', 'add_arguments', 'add_argument')
-    pp.pprint(fc)
-    pp.pprint(mc)
+    pass
 
 
 if __name__ == '__main__':
