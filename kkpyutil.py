@@ -788,6 +788,7 @@ def match_files_except_lines(file1, file2, excluded=None):
 class RerunLock:
     """Lock process from reentering when seeing lock file on disk."""
     def __init__(self, name, folder=None, infohook=_logger.info, warnhook=_logger.warning, errorhook=_logger.error):
+        os.makedirs(folder, exist_ok=True)
         filename = 'lock_{}'.format(name) if name else 'lock_{}'.format(next(tempfile._get_candidate_names()))
         self.lockFile = join(folder, filename) if folder else join(_script_dir, os.pardir, filename)
         self.infoHook = infohook
