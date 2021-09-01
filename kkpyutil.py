@@ -929,6 +929,17 @@ def run_cmd(cmd, cwd='.'):
         raise e
 
 
+def run_daemon(cmd, cwd='.'):
+    proc = None
+    try:
+        proc = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
+    except subprocess.CalledProcessError as e:
+        _logger.error(f'stderr: {e.stderr.decode(TXT_CODEC)}')
+        raise e
+    return proc
+
+
+
 def extract_call_args(file, caller, callee):
     """
     - only support literal args
@@ -980,7 +991,9 @@ def extract_call_args(file, caller, callee):
 
 
 def _test():
-    pass
+    os.chdir('/Users/bin.luo/Desktop/_dev/miatech/create_py_proj')
+    cmd = ['poetry', 'run', 'python', join('src', 'backend.py')]
+    run_daemon(cmd)
 
 
 if __name__ == '__main__':
