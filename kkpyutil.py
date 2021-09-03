@@ -990,10 +990,64 @@ def extract_call_args(file, caller, callee):
     return calls['func'], calls['method']
 
 
+def extract_class_attributes(file, classname):
+    """
+    assume
+    - class is defined at the top-level of source file
+    - attributes all use type-annotated assignemts
+    - all assgiments are from attributes
+    """
+    import ast
+    import importlib
+    import inspect
+    mod = splitext(basename(file))[0]
+    sys.path.insert(0, dirname(file))
+    mod = importlib.import_module(mod)
+    parsed = ast.parse(inspect.getsource(mod))
+    
+    class_node = None
+    for node in parsed.body:
+        if not isinstance(node, ast.ClassDef):
+            continue
+        if node.name != classname:
+            continue
+        class_node = node
+    if not class_node:
+        return None
+    # found class and parse
+    names = [node.attr for node in ast.walk(class_node) if isinstance(node, ast.Attribute)]
+    types = [node.annotation.id for node in ast.walk(class_node) if isinstance(node, ast.AnnAssign)]
+    attributes = [{'name': n, 'type': t} for n, t in zip(names, types)]
+    return attributes
+
+
+def substitute_lines_between_keywords(lines, file, opkey, edkey):
+    """
+    assume input lines all have line ends
+    """
+    all_lines = []
+    with open(file) as fp:
+        all_lines = fp.readlines()
+    # find range
+    rg_insert = [-1, -1]
+    for l, line in enumerate(all_lines):
+        raw = line.strip()
+        if raw.startswith(opkey):
+            rg_insert[0] = l
+        if raw.startswith(edkey):
+            rg_insert[1] = l
+            break
+    # remove lines in b/w
+    n_lines_btw = rg_insert[1] - rg_insert[0]
+    if n_lines_btw > 1:
+        del all_lines[rg_insert[0]+1 : rg_insert[1]]
+    all_lines[rg_insert[0]+1 : rg_insert[0]+1] = lines
+    with open(file, 'w') as fp:
+        fp.writelines(all_lines)
+
+
 def _test():
-    os.chdir('/Users/bin.luo/Desktop/_dev/miatech/create_py_proj')
-    cmd = ['poetry', 'run', 'python', join('src', 'backend.py')]
-    run_daemon(cmd)
+    pass
 
 
 if __name__ == '__main__':
