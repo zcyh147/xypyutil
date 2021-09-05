@@ -952,41 +952,54 @@ def extract_call_args(file, caller, callee):
     sys.path.insert(0, dirname(file))
     mod = importlib.import_module(mod)
     parsed = ast.parse(inspect.getsource(mod))
-    calls = { # lineno, args, keywords
+    raw_calls = { # lineno, args, keywords
         'func': [],
         'method': []
     }
     for node in parsed.body:
-        if not isinstance(node, ast.FunctionDef) or node.name != caller:
+        if not isinstance(node, ast.FunctionDef) \
+            or node.name != caller:
             continue
-        for node in ast.walk(node):
-            if not isinstance(node, ast.Call):
+        # hit function definition: add_arguments
+        # next: find function calls in this function
+        caller_def = node
+        callee_calls = []
+        for node in caller_def.body:
+            if not isinstance(node.value, ast.Call):
                 continue
+            print(node.value.func)
+            # hit a function/method call
             call_type = None
-            found_func_call = 'id' in dir(node.func) and node.func.id == callee
-            found_method_call = 'attr' in dir(node.func) and node.func.attr == callee
+            found_func_call = isinstance(node.value.func, ast.Name) and node.value.func.id == callee
+            found_method_call = isinstance(node.value.func, ast.Attribute) and node.value.func.attr == callee
             if found_func_call:
                 call_type = 'func'
             elif found_method_call:
                 call_type = 'method'
             else:
                 continue
-            
-            call = {
-                'lineno': node.func.lineno,
-                'args': [ast.literal_eval(val) for val in node.args],
-                'kwargs': None
-            }
+            raw_calls[call_type].append(node.value)
+
+    # collect args and kwargs
+    calls = { # lineno, args, keywords
+        'func': [],
+        'method': []
+    }
+    for calltype, rc in raw_calls.items():
+        for call in rc:
+            args = []
             kwargs = []
-            if node.keywords:
-                for kw in node.keywords:
-                    is_const = isinstance(kw.value, ast.Constant)
-                    if is_const:
-                        kwargs.append((kw.arg, ast.literal_eval(kw.value)))
-                    else:
-                        kwargs.append((kw.arg, None))
-            call['kwargs'] = {k: v for k, v in kwargs}
-            calls[call_type].append(call)
+            for arg in call.args:
+                args.append(arg.value)
+            for kw in call.keywords:
+                key = kw.arg
+                value = kw.value.value if isinstance(kw.value, ast.Constant) else kw.value.id
+                kwargs.append((key, value))
+            call = {
+                'args': args,
+                'kwargs': kwargs
+            }
+            calls[calltype].append(call)
     return calls['func'], calls['method']
 
 
