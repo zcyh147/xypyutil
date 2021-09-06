@@ -1021,7 +1021,7 @@ def extract_call_args(file, caller, callee):
                 kwargs.append((key, value))
             call = {
                 'args': args,
-                'kwargs': kwargs
+                'kwargs': {k: v for k, v in kwargs}
             }
             calls[calltype].append(call)
     return calls['func'], calls['method']

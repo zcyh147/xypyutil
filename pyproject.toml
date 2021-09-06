@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "kkpyutil"
-version = "0.20.2"
+version = "0.20.3"
 description = "Personal utility functions and classes frequently used by myself for daily Python work."
 authors = ["Beinan Li <li.beinan@gmail.com>"]
 maintainers = ["Beinan Li <li.beinan@gmail.com>"]
