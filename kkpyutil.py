@@ -985,6 +985,22 @@ def extract_call_args(file, caller, callee):
         'func': [],
         'method': []
     }
+    def get_kwarg_value_const(kw):
+        return kw.value.value
+    def get_kwarg_value_name(kw):
+        return kw.value.id
+    def get_kwarg_value_list(kw):
+        nodes = kw.value.elts
+        values = []
+        for node in nodes:
+            if not isinstance(node, ast.Constant):
+                values.append(None)
+                continue
+            values.append(node.value)
+        return values
+    def get_kwarg_value_misc(kw):
+        return None
+
     for calltype, rc in raw_calls.items():
         for call in rc:
             args = []
@@ -993,7 +1009,15 @@ def extract_call_args(file, caller, callee):
                 args.append(arg.value)
             for kw in call.keywords:
                 key = kw.arg
-                value = kw.value.value if isinstance(kw.value, ast.Constant) else kw.value.id
+                if isinstance(kw.value, ast.Constant):
+                    value = get_kwarg_value_const(kw)
+                elif isinstance(kw.value, ast.Name):
+                    value = get_kwarg_value_name(kw)
+                elif isinstance(kw.value, (ast.List, ast.Tuple)):
+                    value = get_kwarg_value_list(kw)
+                else:
+                    print(f'Unsupported syntax node: {kw.value}. Will fallback to None.')
+                    value = None
                 kwargs.append((key, value))
             call = {
                 'args': args,
@@ -1060,7 +1084,7 @@ def substitute_lines_between_keywords(lines, file, opkey, edkey):
 
 
 def _test():
-    pass
+    print(extract_call_args('/Users/bin.luo/Desktop/_dev/miatech/create_nodered_proj/src/cli.py', 'add_arguments', 'add_argument'))
 
 
 if __name__ == '__main__':
