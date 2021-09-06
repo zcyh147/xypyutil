@@ -1084,7 +1084,7 @@ def substitute_lines_between_keywords(lines, file, opkey, edkey):
 
 
 def _test():
-    print(extract_call_args('/Users/bin.luo/Desktop/_dev/miatech/create_nodered_proj/src/cli.py', 'add_arguments', 'add_argument'))
+    pass
 
 
 if __name__ == '__main__':
