@@ -1054,7 +1054,22 @@ def extract_class_attributes(file, classname):
     # found class and parse
     names = [node.attr for node in ast.walk(class_node) if isinstance(node, ast.Attribute)]
     types = [node.annotation.id for node in ast.walk(class_node) if isinstance(node, ast.AnnAssign)]
-    attributes = [{'name': n, 'type': t} for n, t in zip(names, types)]
+    values = []
+    for node in ast.walk(class_node):
+        if not isinstance(node, ast.AnnAssign):
+            continue
+        if isinstance(node.value, ast.Constant):
+            values.append(node.value.value)
+        elif isinstance(node.value, (ast.List, ast.Tuple)):
+            nodes = node.value.elts
+            raw_values = []
+            for node in nodes:
+                # only support constants inside list
+                # non-consts are taken as None
+                rv = node.value if isinstance(node, ast.Constant) else None
+                raw_values.append(rv)
+            values.append(raw_values)
+    attributes = [{'name': n, 'type': t, 'value': v} for n, t, v in zip(names, types, values)]
     return attributes
 
 
@@ -1084,7 +1099,7 @@ def substitute_lines_between_keywords(lines, file, opkey, edkey):
 
 
 def _test():
-    pass
+    print(extract_class_attributes('/Users/bin.luo/Desktop/_dev/miatech/create_py_proj/test/proto_gen/_ref_org/core.py', 'Output'))
 
 
 if __name__ == '__main__':
