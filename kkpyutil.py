@@ -1024,6 +1024,7 @@ def extract_call_args(file, caller, callee):
                 'kwargs': {k: v for k, v in kwargs}
             }
             calls[calltype].append(call)
+    sys.modules.pop(mod)
     return calls['func'], calls['method']
 
 
@@ -1070,6 +1071,7 @@ def extract_class_attributes(file, classname):
                 raw_values.append(rv)
             values.append(raw_values)
     attributes = [{'name': n, 'type': t, 'value': v} for n, t, v in zip(names, types, values)]
+    sys.modules.pop(mod)
     return attributes
 
 
