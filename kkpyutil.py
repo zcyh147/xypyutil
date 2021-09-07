@@ -948,9 +948,11 @@ def extract_call_args(file, caller, callee):
     import ast
     import importlib
     import inspect
-    mod = splitext(basename(file))[0]
+    mod_name = splitext(basename(file))[0]
+    if mod_name in sys.modules:
+        sys.modules.pop(mod_name)
     sys.path.insert(0, dirname(file))
-    mod = importlib.import_module(mod)
+    mod = importlib.import_module(mod_name)
     parsed = ast.parse(inspect.getsource(mod))
     raw_calls = { # lineno, args, keywords
         'func': [],
@@ -1024,7 +1026,8 @@ def extract_call_args(file, caller, callee):
                 'kwargs': {k: v for k, v in kwargs}
             }
             calls[calltype].append(call)
-    sys.modules.pop(mod)
+    if mod_name in sys.modules:
+        sys.modules.pop(mod_name)
     return calls['func'], calls['method']
 
 
@@ -1038,9 +1041,11 @@ def extract_class_attributes(file, classname):
     import ast
     import importlib
     import inspect
-    mod = splitext(basename(file))[0]
+    mod_name = splitext(basename(file))[0]
+    if mod_name in sys.modules:
+        sys.modules.pop(mod_name)
     sys.path.insert(0, dirname(file))
-    mod = importlib.import_module(mod)
+    mod = importlib.import_module(mod_name)
     parsed = ast.parse(inspect.getsource(mod))
     
     class_node = None
@@ -1071,7 +1076,8 @@ def extract_class_attributes(file, classname):
                 raw_values.append(rv)
             values.append(raw_values)
     attributes = [{'name': n, 'type': t, 'value': v} for n, t, v in zip(names, types, values)]
-    sys.modules.pop(mod)
+    if mod_name in sys.modules:
+        sys.modules.pop(mod_name)
     return attributes
 
 
@@ -1101,7 +1107,7 @@ def substitute_lines_between_keywords(lines, file, opkey, edkey):
 
 
 def _test():
-    print(extract_class_attributes('/Users/bin.luo/Desktop/_dev/miatech/create_py_proj/test/proto_gen/_ref_org/core.py', 'Output'))
+    pass
 
 
 if __name__ == '__main__':
