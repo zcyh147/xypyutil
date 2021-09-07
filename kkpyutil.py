@@ -939,7 +939,6 @@ def run_daemon(cmd, cwd='.'):
     return proc
 
 
-
 def extract_call_args(file, caller, callee):
     """
     - only support literal args
@@ -969,7 +968,6 @@ def extract_call_args(file, caller, callee):
         for node in caller_def.body:
             if not isinstance(node.value, ast.Call):
                 continue
-            print(node.value.func)
             # hit a function/method call
             call_type = None
             found_func_call = isinstance(node.value.func, ast.Name) and node.value.func.id == callee
