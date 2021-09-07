@@ -1035,8 +1035,10 @@ def extract_class_attributes(file, classname):
     """
     assume
     - class is defined at the top-level of source file
-    - attributes all use type-annotated assignemts
-    - all assgiments are from attributes
+    - all attributes are defined in constructor
+    - all assignments must be about attributes, no local variable are allowed
+    - attributes can use type-annotated assignemts (taa)
+    - types of attributes without taa can be inferred from constant values
     """
     import ast
     import importlib
@@ -1057,15 +1059,29 @@ def extract_class_attributes(file, classname):
         class_node = node
     if not class_node:
         return None
-    # found class and parse
-    names = [node.attr for node in ast.walk(class_node) if isinstance(node, ast.Attribute)]
-    types = [node.annotation.id for node in ast.walk(class_node) if isinstance(node, ast.AnnAssign)]
-    values = []
+    ctor = None
     for node in ast.walk(class_node):
-        if not isinstance(node, ast.AnnAssign):
+        if isinstance(node, ast.FunctionDef) and node.name == '__init__':
+            ctor = node
+            break;
+    if not ctor:
+        return None
+    # parse ctor
+    names = [node.attr for node in ast.walk(ctor) if isinstance(node, ast.Attribute)]
+    # types = [node.annotation.id for node in ast.walk(ctor) if isinstance(node, ast.AnnAssign)]
+    types = []
+    values = []
+    for node in ast.walk(ctor):
+        if not isinstance(node, (ast.AnnAssign, ast.Assign)):
             continue
+        attr_type = None
+        attr_value = None
+        if isinstance(node, ast.AnnAssign):
+            attr_type = node.annotation.id
         if isinstance(node.value, ast.Constant):
-            values.append(node.value.value)
+            if not attr_type:
+                attr_type = type(node.value.value).__name__
+            attr_value = node.value.value
         elif isinstance(node.value, (ast.List, ast.Tuple)):
             nodes = node.value.elts
             raw_values = []
@@ -1074,7 +1090,11 @@ def extract_class_attributes(file, classname):
                 # non-consts are taken as None
                 rv = node.value if isinstance(node, ast.Constant) else None
                 raw_values.append(rv)
-            values.append(raw_values)
+            if not attr_type:
+                attr_type = 'list' if isinstance(node.value, ast.List) else 'tuple'
+            attr_value = raw_values
+        types.append(attr_type)
+        values.append(attr_value)
     attributes = [{'name': n, 'type': t, 'value': v} for n, t, v in zip(names, types, values)]
     if mod_name in sys.modules:
         sys.modules.pop(mod_name)
