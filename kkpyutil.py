@@ -967,7 +967,7 @@ def extract_call_args(file, caller, callee):
         caller_def = node
         callee_calls = []
         for node in caller_def.body:
-            if not isinstance(node.value, ast.Call):
+            if 'value' not in dir(node) or not isinstance(node.value, ast.Call):
                 continue
             # hit a function/method call
             call_type = None
