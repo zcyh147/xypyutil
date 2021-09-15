@@ -1100,7 +1100,7 @@ def extract_class_attributes(file, classname):
     return attributes
 
 
-def substitute_lines_between_keywords(lines, file, opkey, edkey):
+def substitute_lines_between_keywords(lines, file, opkey, edkey, skipifeq=False):
     """
     assume input lines all have line ends
     """
@@ -1115,15 +1115,18 @@ def substitute_lines_between_keywords(lines, file, opkey, edkey):
             rg_insert[0] = l
         if raw.startswith(edkey):
             rg_insert[1] = l
-            break
+            break    
     # remove lines in b/w
     n_lines_btw = rg_insert[1] - rg_insert[0]
+    lines_to_replace = all_lines[rg_insert[0]+1 : rg_insert[0]+1]
+    if skipifeq and all_lines[rg_insert[0]+1 : rg_insert[0]+1] == lines:
+        return False
     if n_lines_btw > 1:
         del all_lines[rg_insert[0]+1 : rg_insert[1]]
     all_lines[rg_insert[0]+1 : rg_insert[0]+1] = lines
     with open(file, 'w') as fp:
         fp.writelines(all_lines)
-
+    return True
 
 def _test():
     pass
