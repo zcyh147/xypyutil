@@ -921,13 +921,14 @@ def remove_from_os_paths(bindir):
 
 
 def run_cmd(cmd, cwd='.'):
+    proc = None
     try:
         proc = subprocess.run(cmd, check=True, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
         _logger.debug(proc.stdout.decode(TXT_CODEC))
     except subprocess.CalledProcessError as e:
         _logger.error(f'stderr: {e.stderr.decode(TXT_CODEC)}')
         raise e
-
+    return proc
 
 def run_daemon(cmd, cwd='.'):
     proc = None
