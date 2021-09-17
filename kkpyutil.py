@@ -1094,7 +1094,7 @@ def extract_class_attributes(file, classname):
             attr_value = raw_values
         types.append(attr_type)
         values.append(attr_value)
-    attributes = [{'name': n, 'type': t, 'value': v} for n, t, v in zip(names, types, values)]
+    attributes = [{'name': n, 'type': t, 'default': v} for n, t, v in zip(names, types, values)]
     if mod_name in sys.modules:
         sys.modules.pop(mod_name)
     return attributes
