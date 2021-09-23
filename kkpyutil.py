@@ -962,7 +962,7 @@ def extract_call_args(file, caller, callee):
         if not isinstance(node, ast.FunctionDef) \
             or node.name != caller:
             continue
-        # hit function definition: add_arguments
+        # hit function definition
         # next: find function calls in this function
         caller_def = node
         callee_calls = []
@@ -1098,6 +1098,50 @@ def extract_class_attributes(file, classname):
     if mod_name in sys.modules:
         sys.modules.pop(mod_name)
     return attributes
+
+
+def extract_local_assignments_to_var(file, caller, varname):
+    """
+    - only support regular assignments (var_name = literal_value)
+    """
+    value = None
+    import ast
+    import importlib
+    import inspect
+    mod_name = splitext(basename(file))[0]
+    if mod_name in sys.modules:
+        sys.modules.pop(mod_name)
+    sys.path.insert(0, dirname(file))
+    mod = importlib.import_module(mod_name)
+    parsed = ast.parse(inspect.getsource(mod))
+    raw_calls = { # lineno, args, keywords
+        'func': [],
+        'method': []
+    }
+    assignments = []
+    for node in parsed.body:
+        if not isinstance(node, ast.FunctionDef) \
+            or node.name != caller:
+            continue
+        # hit function definition
+        # next: find function calls in this function
+        func_def = node
+        for node in ast.walk(func_def):
+            if not isinstance(node, ast.Assign) or len(node.targets) > 1:
+                continue
+            var = node.targets[0]
+            if not isinstance(var, ast.Name) or var.id != varname:
+                continue
+            if not isinstance(node.value, ast.Constant):
+                continue
+            ass = {
+                'lineno': node.lineno,
+                'value': node.value.value
+            }
+            assignments.append(ass)
+    if mod_name in sys.modules:
+        sys.modules.pop(mod_name)
+    return assignments
 
 
 def substitute_lines_between_keywords(lines, file, opkey, edkey, skipifeq=False):
