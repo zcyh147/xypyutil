@@ -1144,6 +1144,38 @@ def extract_local_assignments_to_var(file, caller, varname):
     return assignments
 
 
+def extract_imported_modules(file):
+    def _extract_import_module(node):
+        return [alias.name for alias in node.names]
+
+    def _extract_from_module_import(node):
+        return node.module
+    imported = []
+    import ast
+    import importlib
+    import inspect
+    mod_name = splitext(basename(file))[0]
+    if mod_name in sys.modules:
+        sys.modules.pop(mod_name)
+    sys.path.insert(0, dirname(file))
+    mod = importlib.import_module(mod_name)
+    parsed = ast.parse(inspect.getsource(mod))
+    for node in ast.walk(parsed):
+        if not isinstance(node, (ast.Import, ast.ImportFrom)):
+            continue
+        if isinstance(node, ast.Import):
+            extracted = _extract_import_module(node)
+            if extracted:
+                imported += extracted
+            continue
+        extracted = _extract_from_module_import(node)
+        if extracted:
+            imported.append(extracted)
+    if mod_name in sys.modules:
+        sys.modules.pop(mod_name)
+    return sorted(list(set(imported)))
+
+
 def substitute_lines_between_keywords(lines, file, opkey, edkey, skipifeq=False):
     """
     assume input lines all have line ends
