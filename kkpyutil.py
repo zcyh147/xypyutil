@@ -1183,7 +1183,7 @@ def extract_imported_modules(file):
     return sorted(list(set(imported)))
 
 
-def substitute_lines_between_keywords(lines, file, opkey, edkey, istartline=0, withindent=True):
+def substitute_lines_between_keywords(lines, file, opkey, edkey, startlineno=0, withindent=True):
     """
     - assume input lines all have line ends
     - align inserted text with tags via identical indents
@@ -1193,7 +1193,7 @@ def substitute_lines_between_keywords(lines, file, opkey, edkey, istartline=0, w
     all_lines = []
     with open(file) as fp:
         all_lines = fp.readlines()
-    selected_lines = all_lines[istartline:] if istartline > 0 else all_lines
+    selected_lines = all_lines[startlineno:] if startlineno > 0 else all_lines
     # find range
     rg_insert = [None, None]
     rg_insert[0] = next((l for l, line in enumerate(selected_lines) if line.strip().startswith(opkey) ), None)
@@ -1201,9 +1201,9 @@ def substitute_lines_between_keywords(lines, file, opkey, edkey, istartline=0, w
         return rg_insert
     rg_insert[1] = next((l for l, line in enumerate(selected_lines[rg_insert[0]:]) if line.strip().startswith(edkey) ), None)
     if not rg_insert[1]:
-        return (istartline+rg_insert[0], None)
+        return (startlineno+rg_insert[0], None)
     # back to all lines with offset applied
-    rg_insert[0] += istartline
+    rg_insert[0] += startlineno
     rg_insert[1] += rg_insert[0]
     if withindent:
         indent = all_lines[rg_insert[0]].find(opkey)
