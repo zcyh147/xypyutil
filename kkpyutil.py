@@ -1176,36 +1176,44 @@ def extract_imported_modules(file):
     return sorted(list(set(imported)))
 
 
-def substitute_lines_between_keywords(lines, file, opkey, edkey, skipifeq=False):
+def substitute_lines_between_keywords(lines, file, opkey, edkey, istartline=0, withindent=True):
     """
-    assume input lines all have line ends
+    - assume input lines all have line ends
+    - align inserted text with tags via identical indents
+    - optimize with search range slicing
+    - returns original indices
     """
     all_lines = []
     with open(file) as fp:
         all_lines = fp.readlines()
+    selected_lines = all_lines[istartline:] if istartline > 0 else all_lines
     # find range
-    rg_insert = [-1, -1]
-    for l, line in enumerate(all_lines):
-        raw = line.strip()
-        if raw.startswith(opkey):
-            rg_insert[0] = l
-        if raw.startswith(edkey):
-            rg_insert[1] = l
-            break    
+    rg_insert = [None, None]
+    rg_insert[0] = next((l for l, line in enumerate(selected_lines) if line.strip().startswith(opkey) ), None)
+    if not rg_insert[0]:
+        return rg_insert
+    rg_insert[1] = next((l for l, line in enumerate(selected_lines[rg_insert[0]:]) if line.strip().startswith(edkey) ), None)
+    if not rg_insert[1]:
+        return (istartline+rg_insert[0], None)
+    # back to all lines with offset applied
+    rg_insert[0] += istartline
+    rg_insert[1] += rg_insert[0]
+    if withindent:
+        indent = all_lines[rg_insert[0]].find(opkey)
+        assert indent >= 0
+        lines = ['{}{}'.format(' '*indent, line) for line in lines]
     # remove lines in b/w
-    n_lines_btw = rg_insert[1] - rg_insert[0]
-    lines_to_replace = all_lines[rg_insert[0]+1 : rg_insert[0]+1]
-    if skipifeq and all_lines[rg_insert[0]+1 : rg_insert[0]+1] == lines:
-        return False
-    if n_lines_btw > 1:
+    has_lines_between_keywords = rg_insert[1] - rg_insert[0] > 1
+    if has_lines_between_keywords:
         del all_lines[rg_insert[0]+1 : rg_insert[1]]
     all_lines[rg_insert[0]+1 : rg_insert[0]+1] = lines
     with open(file, 'w') as fp:
         fp.writelines(all_lines)
-    return True
+    rg_inserted = [rg_insert[0], rg_insert[0]+len(lines)]
+    return rg_inserted
 
 def _test():
-    pass
+    substitute_lines_between_keywords(['hello, inserted\n', 'hello, inserted another\n'], '/Users/bin.luo/Desktop/test.toml', '// <TEST', '// TEST>', 10)
 
 
 if __name__ == '__main__':
