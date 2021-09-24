@@ -1020,11 +1020,13 @@ def extract_call_args(file, caller, callee):
                     print(f'Unsupported syntax node: {kw.value}. Will fallback to None.')
                     value = None
                 kwargs.append((key, value))
-            call = {
+            record = {
                 'args': args,
-                'kwargs': {k: v for k, v in kwargs}
+                'kwargs': {k: v for k, v in kwargs},
+                'lineno': call.lineno,
+                'end_lineno': call.end_lineno,
             }
-            calls[calltype].append(call)
+            calls[calltype].append(record)
     if mod_name in sys.modules:
         sys.modules.pop(mod_name)
     return calls['func'], calls['method']
@@ -1057,7 +1059,7 @@ def extract_class_attributes(file, classname):
             continue
         class_node = node
     if not class_node:
-        return None
+        return None    
     ctor = None
     for node in ast.walk(class_node):
         if isinstance(node, ast.FunctionDef) and node.name == '__init__':
@@ -1070,6 +1072,8 @@ def extract_class_attributes(file, classname):
     # types = [node.annotation.id for node in ast.walk(ctor) if isinstance(node, ast.AnnAssign)]
     types = []
     values = []
+    linenos = []
+    end_linenos = []
     for node in ast.walk(ctor):
         if not isinstance(node, (ast.AnnAssign, ast.Assign)):
             continue
@@ -1084,23 +1088,25 @@ def extract_class_attributes(file, classname):
         elif isinstance(node.value, (ast.List, ast.Tuple)):
             nodes = node.value.elts
             raw_values = []
-            for node in nodes:
+            for nd in nodes:
                 # only support constants inside list
                 # non-consts are taken as None
-                rv = node.value if isinstance(node, ast.Constant) else None
+                rv = nd.value if isinstance(nd, ast.Constant) else None
                 raw_values.append(rv)
             if not attr_type:
-                attr_type = 'list' if isinstance(node.value, ast.List) else 'tuple'
+                attr_type = 'list' if isinstance(nd.value, ast.List) else 'tuple'
             attr_value = raw_values
         types.append(attr_type)
         values.append(attr_value)
-    attributes = [{'name': n, 'type': t, 'default': v} for n, t, v in zip(names, types, values)]
+        linenos.append(node.lineno)
+        end_linenos.append(node.end_lineno)
+    attributes = [{'name': n, 'type': t, 'default': v, 'lineno': l, 'end_lineno': e} for n, t, v, l, e in zip(names, types, values, linenos, end_linenos)]
     if mod_name in sys.modules:
         sys.modules.pop(mod_name)
     return attributes
 
 
-def extract_local_assignments_to_var(file, caller, varname):
+def extract_local_var_assignments(file, caller, varname):
     """
     - only support regular assignments (var_name = literal_value)
     """
@@ -1136,6 +1142,7 @@ def extract_local_assignments_to_var(file, caller, varname):
                 continue
             ass = {
                 'lineno': node.lineno,
+                'end_lineno': node.end_lineno,
                 'value': node.value.value
             }
             assignments.append(ass)
@@ -1213,7 +1220,7 @@ def substitute_lines_between_keywords(lines, file, opkey, edkey, istartline=0, w
     return rg_inserted
 
 def _test():
-    substitute_lines_between_keywords(['hello, inserted\n', 'hello, inserted another\n'], '/Users/bin.luo/Desktop/test.toml', '// <TEST', '// TEST>', 10)
+    pass
 
 
 if __name__ == '__main__':
