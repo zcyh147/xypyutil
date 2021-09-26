@@ -1219,8 +1219,20 @@ def substitute_lines_between_keywords(lines, file, opkey, edkey, startlineno=0, 
     rg_inserted = [rg_insert[0], rg_insert[0]+len(lines)]
     return rg_inserted
 
+
+def convert_compound_cases(snake_text, style='pascal'):
+    if style == 'SNAKE':
+        return snake_text.upper()
+    if style == 'kebab':
+        return snake_text.replace('_', '-')
+    out_text = [s.capitalize() for s in snake_text.split('_')]
+    if style == 'camel':
+        out_text[0] = out_text[0].lower()
+    return ''.join(out_text)
+
+
 def _test():
-    pass
+    print(convert_compound_cases('open_wwise_proj', style='SNAKE'))
 
 
 if __name__ == '__main__':
