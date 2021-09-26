@@ -1231,8 +1231,13 @@ def convert_compound_cases(snake_text, style='pascal'):
     return ''.join(out_text)
 
 
+def append_lineends_to_lines(lines, style='posix'):
+    lineend = '\r\n' if style == 'windows' else '\n'
+    return [line + lineend for line in lines]
+
+
 def _test():
-    print(convert_compound_cases('open_wwise_proj', style='SNAKE'))
+    pass
 
 
 if __name__ == '__main__':
