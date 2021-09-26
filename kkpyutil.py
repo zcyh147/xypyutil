@@ -1221,6 +1221,10 @@ def substitute_lines_between_keywords(lines, file, opkey, edkey, startlineno=0, 
 
 
 def convert_compound_cases(snake_text, style='pascal'):
+    if style == 'oneword':
+        return snake_text.replace('_', '').lower()
+    if style == 'ONEWORD':
+        return snake_text.replace('_', '').upper()
     if style == 'SNAKE':
         return snake_text.upper()
     if style == 'kebab':
@@ -1231,13 +1235,26 @@ def convert_compound_cases(snake_text, style='pascal'):
     return ''.join(out_text)
 
 
+def combine_words(words, style='snake'):
+    out_text = '_'.join(words)
+    if style == 'snake':
+        return out_text
+    if style == 'sentence':
+        return ' '.join(words)
+    if style == 'Sentence':
+        return ' '.join(words).capitalize()
+    if style == 'title':
+        return ' '.join([word.capitalize() for word in words])
+    return convert_compound_cases(out_text, style)
+
+
 def append_lineends_to_lines(lines, style='posix'):
     lineend = '\r\n' if style == 'windows' else '\n'
     return [line + lineend for line in lines]
 
 
 def _test():
-    pass
+    print(combine_words(['hello', 'world'], 'Sentence'))
 
 
 if __name__ == '__main__':
