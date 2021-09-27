@@ -1222,8 +1222,11 @@ def substitute_lines_between_keywords(lines, file, opkey, edkey, startlineno=0, 
     rg_insert[1] += rg_insert[0]
     if withindent:
         indent = all_lines[rg_insert[0]].find(opkey)
-        assert indent >= 0
-        lines = ['{}{}'.format(' '*indent, line) for line in lines]
+        indent_by_spaces = 0
+        for idt in range(indent):
+            indent_by_spaces += 4 if all_lines[rg_insert[0]][idt] == '\t' else 1
+        assert indent_by_spaces >= 0
+        lines = ['{}{}'.format(' '*indent_by_spaces, line) for line in lines]
     # remove lines in b/w
     has_lines_between_keywords = rg_insert[1] - rg_insert[0] > 1
     if has_lines_between_keywords:
@@ -1269,7 +1272,7 @@ def append_lineends_to_lines(lines, style='posix'):
 
 
 def _test():
-    pass
+    substitute_lines_between_keywords(['name: py_proj\n'], '/Users/bin.luo/Desktop/_dev/miatech/create_py_proj/test/node_gen/py_proj/node/node.js', '// <NAME', '// NAME>')
 
 
 if __name__ == '__main__':
