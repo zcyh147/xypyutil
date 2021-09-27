@@ -926,7 +926,11 @@ def run_cmd(cmd, cwd='.'):
         proc = subprocess.run(cmd, check=True, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
         _logger.debug(proc.stdout.decode(TXT_CODEC))
     except subprocess.CalledProcessError as e:
+        _logger.info(f'stdout: {e.stdout.decode(TXT_CODEC)}')
         _logger.error(f'stderr: {e.stderr.decode(TXT_CODEC)}')
+        raise e
+    except Exception as e:
+        _logger.error(e)
         raise e
     return proc
 
@@ -935,6 +939,7 @@ def run_daemon(cmd, cwd='.'):
     try:
         proc = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
     except subprocess.CalledProcessError as e:
+        _logger.info(f'stdout: {e.stdout.decode(TXT_CODEC)}')
         _logger.error(f'stderr: {e.stderr.decode(TXT_CODEC)}')
         raise e
     return proc
@@ -1254,7 +1259,7 @@ def append_lineends_to_lines(lines, style='posix'):
 
 
 def _test():
-    print(combine_words(['hello', 'world'], 'Sentence'))
+    pass
 
 
 if __name__ == '__main__':
