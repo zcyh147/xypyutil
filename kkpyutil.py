@@ -937,13 +937,20 @@ def run_cmd(cmd, cwd='.', logger=None):
         raise e
     return proc
 
-def run_daemon(cmd, cwd='.'):
+def run_daemon(cmd, cwd='.', logger=None):
     proc = None
     try:
         proc = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
+        if logger:
+            logger.debug(proc.stdout.decode(TXT_CODEC))
     except subprocess.CalledProcessError as e:
-        _logger.info(f'stdout: {e.stdout.decode(TXT_CODEC)}')
-        _logger.error(f'stderr: {e.stderr.decode(TXT_CODEC)}')
+        if logger:
+            logger.info(f'stdout: {e.stdout.decode(TXT_CODEC)}')
+            logger.error(f'stderr: {e.stderr.decode(TXT_CODEC)}')
+        raise e
+    except Exception as e:
+        if logger:
+            logger.error(e)
         raise e
     return proc
 
