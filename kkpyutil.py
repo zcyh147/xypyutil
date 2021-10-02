@@ -22,6 +22,7 @@ import logging
 import logging.config
 import multiprocessing
 import os
+import os.path as osp
 from os.path import abspath, basename, dirname, expanduser, exists, isfile, join, splitext
 # from pprint import pprint, pformat
 import platform
@@ -921,15 +922,27 @@ def remove_from_os_paths(bindir):
 
 
 def run_cmd(cmd, cwd='.', logger=None):
+    if logger:
+            logger.debug(' '.join(cmd))
+    else:
+        print(' '.join(cmd))
     proc = None
     try:
         proc = subprocess.run(cmd, check=True, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
+        log = proc.stdout.decode(TXT_CODEC)
         if logger:
-            logger.debug(proc.stdout.decode(TXT_CODEC))
+            logger.debug(log)
+        else:
+            print(log)
     except subprocess.CalledProcessError as e:
+        log = f'stdout: {e.stdout.decode(TXT_CODEC)}'
+        err = f'stderr: {e.stderr.decode(TXT_CODEC)}'
         if logger:
-            logger.info(f'stdout: {e.stdout.decode(TXT_CODEC)}')
-            logger.error(f'stderr: {e.stderr.decode(TXT_CODEC)}')
+            logger.info(log)
+            logger.error(err)
+        else:
+            print(log)
+            print(err)
         raise e
     except Exception as e:
         if logger:
@@ -1271,8 +1284,69 @@ def append_lineends_to_lines(lines, style='posix'):
     return [line + lineend for line in lines]
 
 
+def zip_dir(srcdir, dstbasename=None):
+    """
+    zip the entire folder into a zip file under the same parent folder.
+    """
+    def _zip_dir_windows(srcdir, dstbasename):
+        src_par, src_name = osp.split(srcdir)
+        if not dstbasename:
+            dstbasename = src_name
+        elif dstbasename != src_name:
+            dst_dir = osp.join(src_par, dstbasename)
+            duplicate_dir(srcdir, dst_dir)
+        out_file = osp.join(src_par, dstbasename+'.zip')
+        cmd = ['tar', '-cf', out_file, '-C', src_par, dstbasename]
+        run_cmd(cmd, src_par)
+
+    def _zip_dir_macos(srcdir, dstbasename):
+        src_par, src_name = osp.split(srcdir)
+        rename_option = []
+        if not dstbasename:
+            dstbasename = src_name
+        elif dstbasename != src_name:
+            dst_dir = osp.join(src_par, dstbasename)
+            rename_option = ['-s', f'/^{src_name}/{dstbasename}/']
+        out_file = osp.join(src_par, dstbasename+'.zip')
+        cmd = ['tar', '-czf', out_file, '--exclude', '.DS_Store', '--exclude', '*/__MACOSX'] + rename_option + ['-C', src_par, f'{src_name.strip(os.path.sep)}/']
+        run_cmd(cmd, src_par)
+
+    if platform.system() == 'Windows':
+        _zip_dir_windows(srcdir, dstbasename)
+        return
+    _zip_dir_macos(srcdir, dstbasename)
+
+
+def unzip_dir(srcball, destpardir):
+    """
+    assume srcball has a top-level folder "product".
+    unzip to destpardir/product.
+    """
+    untar_option = '-xf' if platform.system() == 'Windows' else '-xzf'
+    os.makedirs(destpardir, exist_ok=True)
+    cmd = ['tar', untar_option, srcball, '-C', destpardir]
+    run_cmd(cmd, destpardir)
+    
+
+def duplicate_dir(srcdir, dstdir):
+    def _dup_dir_posix(srcdir, dstdir):
+        if not srcdir.endswith('/'):
+            srcdir += '/'
+        cmd = ['rsync', '-a', '--delete', srcdir, dstdir.strip('/')]
+        run_cmd(cmd, '/')
+
+    def _dup_dir_windows(srcdir, dstdir):
+        cmd = ['xcopy', '/I', '/E', '/Q', '/Y', srcdir, f'{dstdir}\\']
+        run_cmd(cmd, srcdir)
+
+    if platform.system() == 'Windows':
+        _dup_dir_windows(srcdir, dstdir)
+        return
+    _dup_dir_posix(srcdir, dstdir)
+
+
 def _test():
-    substitute_lines_between_keywords(['name: py_proj\n'], '/Users/bin.luo/Desktop/_dev/miatech/create_py_proj/test/node_gen/py_proj/node/node.js', '// <NAME', '// NAME>')
+    pass
 
 
 if __name__ == '__main__':
