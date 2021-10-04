@@ -13,6 +13,7 @@ Covering areas:
 import argparse
 import collections
 import cProfile as profile
+import difflib
 import functools
 import gettext
 import hashlib
@@ -1343,6 +1344,24 @@ def duplicate_dir(srcdir, dstdir):
         _dup_dir_windows(srcdir, dstdir)
         return
     _dup_dir_posix(srcdir, dstdir)
+
+
+def compare_textfiles(file1, file2, showdiff=False, contextonly=True, logger=None):
+    with open(file1) as fp1, open(file2) as fp2:
+        lines1 = fp1.readlines()
+        lines2 = fp2.readlines()
+        if showdiff:
+            diff_func = difflib.context_diff if contextonly else difflib.Differ().compare
+            diff = diff_func(lines1, lines2)
+            lazy_logging(''.join(diff))
+    assert lines1 == lines2, f'content different: {file1} vs. {file2}'
+
+
+def lazy_logging(msg, logger=None):
+    if logger:
+        logger.info(msg)
+    else:
+        print(msg)
 
 
 def _test():
