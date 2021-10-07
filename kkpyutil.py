@@ -30,6 +30,7 @@ import platform
 import plistlib
 import pstats
 import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -1362,6 +1363,18 @@ def lazy_logging(msg, logger=None):
         logger.info(msg)
     else:
         print(msg)
+
+
+def copy_file(src, dst, isdstdir=False):
+    if isdstdir:
+        par_dir = dst
+    else:
+        par_dir = osp.split(dst)[0]
+    os.makedirs(par_dir, exist_ok=True)
+    try:
+        shutil.copy(src, dst)
+    except shutil.SameFileError:
+        _logger.warning(f'source and destination are identical. will not copy: {osp.abspath(src)} -> {osp.abspath(dest)}. skipped.')
 
 
 def _test():
