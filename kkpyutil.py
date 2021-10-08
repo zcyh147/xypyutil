@@ -14,6 +14,7 @@ import argparse
 import collections
 import cProfile as profile
 import difflib
+import fnmatch
 import functools
 import gettext
 import hashlib
@@ -28,6 +29,7 @@ from os.path import abspath, basename, dirname, expanduser, exists, isfile, join
 # from pprint import pprint, pformat
 import platform
 import plistlib
+import pprint as pp
 import pstats
 import shlex
 import shutil
@@ -1375,6 +1377,40 @@ def copy_file(src, dst, isdstdir=False):
         shutil.copy(src, dst)
     except shutil.SameFileError:
         _logger.warning(f'source and destination are identical. will not copy: {osp.abspath(src)} -> {osp.abspath(dest)}. skipped.')
+
+
+def compare_dirs(dir1, dir2, ignoreddirpatterns=(), ignoredfilepatterns=(), showdiff=True):
+    def _collect_folders_files(my_dir):
+        n_truncates = len(my_dir)
+        my_dir_contents = {
+            'dirs': [],
+            'files': [],
+        }
+        for root, folders, files in os.walk(my_dir):
+            for folder in folders:
+                folder_matching_pattern = next((pat for pat in ignoreddirpatterns if pat in folder), None)
+                if folder_matching_pattern:
+                    continue
+                my_dir_contents['dirs'].append(osp.join(root, folder)[n_truncates+1:])
+            for file in files:
+                file_matching_pattern = next((pat for pat in ignoredfilepatterns if fnmatch.fnmatch(file, pat)), None)
+                if file_matching_pattern:
+                    continue
+                my_dir_contents['files'].append(osp.join(root, file)[n_truncates+1:])
+        
+        my_dir_contents['dirs'] = sorted(my_dir_contents['dirs'])
+        my_dir_contents['files'] = sorted(my_dir_contents['files'])
+        return my_dir_contents
+    if showdiff:
+        import filecmp
+        dc = filecmp.dircmp(dir1, dir2, ignore=list(ignoreddirpatterns))
+        dc.report_full_closure()
+        pp.pprint(f'dir1: {dir1_contents}')
+        pp.pprint(f'dir2: {dir2_contents}')
+    dir1_contents = _collect_folders_files(dir1)
+    dir2_contents = _collect_folders_files(dir2)
+    assert dir1_contents['dirs'] == dir2_contents['dirs'], 'folders different:\n{}\n\nvs.\n\n{}'.format(pp.pformat(dir1_contents['dirs'], indent=2), pp.pformat(dir2_contents['dirs'], indent=2))
+    assert dir1_contents['files'] == dir2_contents['files'], 'files different:\n{}\n\nvs.\n\n{}'.format(pp.pformat(dir1_contents['files'], indent=2), pp.pformat(dir2_contents['files'], indent=2))
 
 
 def _test():
