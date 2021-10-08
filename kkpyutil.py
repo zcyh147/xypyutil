@@ -1401,14 +1401,14 @@ def compare_dirs(dir1, dir2, ignoreddirpatterns=(), ignoredfilepatterns=(), show
         my_dir_contents['dirs'] = sorted(my_dir_contents['dirs'])
         my_dir_contents['files'] = sorted(my_dir_contents['files'])
         return my_dir_contents
+    dir1_contents = _collect_folders_files(dir1)
+    dir2_contents = _collect_folders_files(dir2)
     if showdiff:
         import filecmp
         dc = filecmp.dircmp(dir1, dir2, ignore=list(ignoreddirpatterns))
         dc.report_full_closure()
         pp.pprint(f'dir1: {dir1_contents}')
         pp.pprint(f'dir2: {dir2_contents}')
-    dir1_contents = _collect_folders_files(dir1)
-    dir2_contents = _collect_folders_files(dir2)
     assert dir1_contents['dirs'] == dir2_contents['dirs'], 'folders different:\n{}\n\nvs.\n\n{}'.format(pp.pformat(dir1_contents['dirs'], indent=2), pp.pformat(dir2_contents['dirs'], indent=2))
     assert dir1_contents['files'] == dir2_contents['files'], 'files different:\n{}\n\nvs.\n\n{}'.format(pp.pformat(dir1_contents['files'], indent=2), pp.pformat(dir2_contents['files'], indent=2))
 
