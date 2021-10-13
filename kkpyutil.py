@@ -1413,17 +1413,27 @@ def compare_dirs(dir1, dir2, ignoreddirpatterns=(), ignoredfilepatterns=(), show
     assert dir1_contents['files'] == dir2_contents['files'], 'files different:\n{}\n\nvs.\n\n{}'.format(pp.pformat(dir1_contents['files'], indent=2), pp.pformat(dir2_contents['files'], indent=2))
 
 
-def pack_obj(obj, topic=None, envelope=('<KK-ENV>', '</KK-ENV>')):
+def pack_obj(obj, topic=None, envelope=('<KK-ENV>', '</KK-ENV>'), classes=()):
     """
     for cross-language rpc only, so no need for an unpack()
-    obj must have only json-serializable attributes
-    pickle is good enough for local transmission.
+    pickle is already good enough for local transmission.
     """
     if not topic:
         topic = type(obj).__name__
     from types import SimpleNamespace
     msg = SimpleNamespace(payload=obj, topic=topic)
-    msg_str = json.dumps(msg, default=lambda o: o.__dict__, indent=4)
+    if classes:
+        class CustomJsonEncoder(json.JSONEncoder):
+            def default(self, o):
+                if isinstance(o, classes):
+                    return o.__dict__
+                else:
+                    return json.JSONEncoder.encode(self, o)
+        classes = tuple([SimpleNamespace]+list(classes))
+        msg_str = json.dumps(msg, cls=CustomJsonEncoder)
+    else:
+        msg_str = json.dumps(msg, default=lambda o: o.__dict__)
+
     return f'{envelope[0]}{msg_str}{envelope[1]}'
 
 
