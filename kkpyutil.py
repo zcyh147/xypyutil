@@ -1376,7 +1376,7 @@ def copy_file(src, dst, isdstdir=False):
     try:
         shutil.copy(src, dst)
     except shutil.SameFileError:
-        _logger.warning(f'source and destination are identical. will not copy: {osp.abspath(src)} -> {osp.abspath(dest)}. skipped.')
+        _logger.warning(f'source and destination are identical. will not copy: {osp.abspath(src)} -> {osp.abspath(dst)}. skipped.')
 
 
 def compare_dirs(dir1, dir2, ignoreddirpatterns=(), ignoredfilepatterns=(), showdiff=True):
