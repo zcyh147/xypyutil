@@ -336,6 +336,8 @@ def save_json(path, config):
     Unicode as you write, then use json.dump() to write to that file.
     Validate keys to avoid JSON and program out-of-sync.
     """
+    par_dir = osp.split(path)[0]
+    os.makedirs(par_dir, exist_ok=True)
     if is_python3():
         with open(path, 'w', encoding=TXT_CODEC) as f:
             json.dump(config, f, ensure_ascii=False, indent=4)
