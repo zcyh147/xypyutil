@@ -1217,7 +1217,7 @@ def extract_imported_modules(file):
     return sorted(list(set(imported)))
 
 
-def substitute_lines_between_keywords(lines, file, opkey, edkey, startlineno=0, withindent=True, useappend=False):
+def substitute_lines_between_keywords(lines, file, opkey, edkey, startlineno=0, withindent=True, useappend=False, skipdups=True):
     """
     - assume input lines all have line ends
     - align inserted text with tags via identical indents
@@ -1246,13 +1246,15 @@ def substitute_lines_between_keywords(lines, file, opkey, edkey, startlineno=0, 
             indent_by_spaces += 4 if all_lines[rg_insert[0]][idt] == '\t' else 1
         assert indent_by_spaces >= 0
         lines = ['{}{}'.format(' '*indent_by_spaces, line) for line in lines]
-    if useappend:
-        rg_insert[0] = rg_insert[1]-1
-    else:
-        # remove lines in b/w
-        has_lines_between_keywords = rg_insert[1] - rg_insert[0] > 1
+    # remove duplicates
+    lines_to_insert = all_lines[rg_insert[0]+1 : rg_insert[1]] + lines if useappend else lines
+    if skipdups:
+        lines_to_insert = list(dict.fromkeys(lines_to_insert))
+    # remove lines in b/w
+    has_lines_between_keywords = rg_insert[1] - rg_insert[0] > 1
+    if has_lines_between_keywords:
         del all_lines[rg_insert[0]+1 : rg_insert[1]]
-    all_lines[rg_insert[0]+1 : rg_insert[0]+1] = lines
+    all_lines[rg_insert[0]+1 : rg_insert[0]+1] = lines_to_insert
     with open(file, 'w') as fp:
         fp.writelines(all_lines)
     rg_inserted = [rg_insert[0], rg_insert[0]+len(lines)]
@@ -1442,8 +1444,7 @@ def pack_obj(obj, topic=None, envelope=('<KK-ENV>', '</KK-ENV>'), classes=()):
 
 
 def _test():
-    ret = substitute_lines_between_keywords(['line 1\n', 'line 2\n'], '/Users/bin.luo/Desktop/tmp.txt', '<TAG', 'TAG>', useappend=True)
-    print(ret)
+    pass
 
 
 if __name__ == '__main__':
