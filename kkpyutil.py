@@ -1257,7 +1257,7 @@ def substitute_lines_between_keywords(lines, file, opkey, edkey, startlineno=0, 
     all_lines[rg_insert[0]+1 : rg_insert[0]+1] = lines_to_insert
     with open(file, 'w') as fp:
         fp.writelines(all_lines)
-    rg_inserted = [rg_insert[0], rg_insert[0]+len(lines)]
+    rg_inserted = [rg_insert[0], rg_insert[0]+len(lines_to_insert)]
     return rg_inserted
 
 
