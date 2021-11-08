@@ -1217,7 +1217,7 @@ def extract_imported_modules(file):
     return sorted(list(set(imported)))
 
 
-def substitute_lines_between_keywords(lines, file, opkey, edkey, startlineno=0, withindent=True, useappend=False, skipdups=True):
+def substitute_lines_between_keywords(lines, file, opkey, edkey, startlineno=0, withindent=True, useappend=False, skipdups=False):
     """
     - assume input lines all have line ends
     - align inserted text with tags via identical indents
