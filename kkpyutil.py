@@ -1217,7 +1217,7 @@ def extract_imported_modules(file):
     return sorted(list(set(imported)))
 
 
-def substitute_lines_between_keywords(lines, file, opkey, edkey, startlineno=0, withindent=True):
+def substitute_lines_between_keywords(lines, file, opkey, edkey, startlineno=0, withindent=True, useappend=False):
     """
     - assume input lines all have line ends
     - align inserted text with tags via identical indents
@@ -1231,10 +1231,10 @@ def substitute_lines_between_keywords(lines, file, opkey, edkey, startlineno=0, 
     # find range
     rg_insert = [None, None]
     rg_insert[0] = next((l for l, line in enumerate(selected_lines) if line.strip().startswith(opkey) ), None)
-    if not rg_insert[0]:
+    if rg_insert[0] is None:
         return rg_insert
     rg_insert[1] = next((l for l, line in enumerate(selected_lines[rg_insert[0]:]) if line.strip().startswith(edkey) ), None)
-    if not rg_insert[1]:
+    if rg_insert[1] is None:
         return (startlineno+rg_insert[0], None)
     # back to all lines with offset applied
     rg_insert[0] += startlineno
@@ -1246,9 +1246,11 @@ def substitute_lines_between_keywords(lines, file, opkey, edkey, startlineno=0, 
             indent_by_spaces += 4 if all_lines[rg_insert[0]][idt] == '\t' else 1
         assert indent_by_spaces >= 0
         lines = ['{}{}'.format(' '*indent_by_spaces, line) for line in lines]
-    # remove lines in b/w
-    has_lines_between_keywords = rg_insert[1] - rg_insert[0] > 1
-    if has_lines_between_keywords:
+    if useappend:
+        rg_insert[0] = rg_insert[1]-1
+    else:
+        # remove lines in b/w
+        has_lines_between_keywords = rg_insert[1] - rg_insert[0] > 1
         del all_lines[rg_insert[0]+1 : rg_insert[1]]
     all_lines[rg_insert[0]+1 : rg_insert[0]+1] = lines
     with open(file, 'w') as fp:
@@ -1440,7 +1442,8 @@ def pack_obj(obj, topic=None, envelope=('<KK-ENV>', '</KK-ENV>'), classes=()):
 
 
 def _test():
-    pass
+    ret = substitute_lines_between_keywords(['line 1\n', 'line 2\n'], '/Users/bin.luo/Desktop/tmp.txt', '<TAG', 'TAG>', useappend=True)
+    print(ret)
 
 
 if __name__ == '__main__':
