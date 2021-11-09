@@ -796,7 +796,7 @@ class RerunLock:
     """Lock process from reentering when seeing lock file on disk."""
     def __init__(self, name, folder=None, logger=_logger):
         os.makedirs(folder, exist_ok=True)
-        filename = 'lock_{}'.format(name) if name else 'lock_{}'.format(next(tempfile._get_candidate_names()))
+        filename = 'lock_{}.json'.format(name) if name else 'lock_{}.json'.format(next(tempfile._get_candidate_names()))
         self.lockFile = osp.join(folder, filename) if folder else join(get_local_tmp_dir(), filename)
         self.infoHook = logger.info
         self.warnHook = logger.warn
