@@ -794,37 +794,36 @@ def match_files_except_lines(file1, file2, excluded=None):
 
 class RerunLock:
     """Lock process from reentering when seeing lock file on disk."""
-    def __init__(self, name, folder=None, infohook=_logger.info, warnhook=_logger.warning, errorhook=_logger.error):
+    def __init__(self, name, folder=None, logger=_logger):
         os.makedirs(folder, exist_ok=True)
         filename = 'lock_{}'.format(name) if name else 'lock_{}'.format(next(tempfile._get_candidate_names()))
-        self.lockFile = join(folder, filename) if folder else join(_script_dir, os.pardir, filename)
-        self.infoHook = infohook
-        self.warnHook = warnhook
-        self.errorHook = errorhook
+        self.lockFile = osp.join(folder, filename) if folder else join(get_local_tmp_dir(), filename)
+        self.infoHook = logger.info
+        self.warnHook = logger.warn
+        self.errorHook = logger.error
 
     def lock(self):
         if not self.is_locked():
-            with open(self.lockFile, 'w') as f:
-                pass
+            save_json(self.lockFile, {'pid': os.getpid()})
             return True
         else:
-            self.warnHook('Will not run the script while it is active with pid: {}.'.format(os.getpid()))
+            self.warnHook('Locked by pid: {}. Will stay locked until it ends.'.format(os.getpid()))
             return False
 
     def unlock(self):
         try:
             os.remove(self.lockFile)
         except FileNotFoundError:
-            self.warnHook('Script reentrance is already enabled.')
+            self.warnHook('Already unlocked. Aborted.')
         except Exception:
             failure = traceback.format_exc()
-            self.errorHook('{}\nFailed to unlock the script. You must delete the lock by hand: {}.'.format(failure, self.lockFile))
+            self.errorHook('{}\nFailed to unlock. Must delete the lock by hand: {}.'.format(failure, self.lockFile))
 
     def is_locked(self):
-        return exists(self.lockFile)
+        return osp.isfile(self.lockFile)
 
 
-def rerun_lock(name, folder=None, infohook=_logger.info, warnhook=_logger.warning, errorhook=_logger.error):
+def rerun_lock(name, folder=None, logger=_logger):
     """Decorator for reentrance locking on functions"""
     def decorator(f):
         @functools.wraps(f)
@@ -832,7 +831,7 @@ def rerun_lock(name, folder=None, infohook=_logger.info, warnhook=_logger.warnin
             my_lock = None
             ret = None
             try:
-                my_lock = RerunLock(name, folder, infohook, warnhook, errorhook)
+                my_lock = RerunLock(name, folder, logger)
                 if not my_lock.lock():
                     return 1
                 ret = f(*args, **kwargs)
