@@ -780,7 +780,7 @@ class RerunLock:
     """Lock process from reentering when seeing lock file on disk."""
     def __init__(self, name, folder=None, logger=_logger):
         os.makedirs(folder, exist_ok=True)
-        filename = 'lock_{}.json'.format(name) if name else 'lock_{}.json'.format(next(tempfile._get_candidate_names()))
+        filename = f'lock_{name}.json' if name else 'lock_{}.json'.format(next(tempfile._get_candidate_names()))
         self.lockFile = osp.join(folder, filename) if folder else join(get_local_tmp_dir(), filename)
         self.infoHook = logger.info
         self.warnHook = logger.warning
@@ -875,7 +875,7 @@ def prepend_to_os_paths(bindir):
 def remove_from_os_paths(bindir):
     if platform.system() == 'Windows':
         import winreg
-        with winreg.ConnectRegistry(None, winreg.HKEY_CURRENT_USER) as reg:
+        with winreg.ConnectRegistry(None, winreg.HKEY_CURRENT_USER):
             with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r'Environment', 0, winreg.KEY_ALL_ACCESS) as key:
                 user_paths, _ = winreg.QueryValueEx(key, 'Path')
                 if bindir not in user_paths:
@@ -939,8 +939,7 @@ def run_cmd(cmd, cwd='.', logger=None):
 def run_daemon(cmd, cwd='.', logger=None):
     try:
         proc = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
-        if logger:
-            logger.debug(proc.stdout.decode(TXT_CODEC))
+        # won't be able to retrieve log from background
     except subprocess.CalledProcessError as e:
         if logger:
             logger.info(f'stdout: {e.stdout.decode(TXT_CODEC)}')
@@ -1131,18 +1130,17 @@ def substitute_lines_between_keywords(lines, file, opkey, edkey, startlineno=0, 
     - optimize with search range slicing
     - returns original indices
     """
-    all_lines = []
     with open(file) as fp:
         all_lines = fp.readlines()
     selected_lines = all_lines[startlineno:] if startlineno > 0 else all_lines
     # find range
     rg_insert = [None, None]
-    rg_insert[0] = next((l for l, line in enumerate(selected_lines) if line.strip().startswith(opkey) ), None)
+    rg_insert[0] = next((li for li, line in enumerate(selected_lines) if line.strip().startswith(opkey)), None)
     if rg_insert[0] is None:
         return rg_insert
-    rg_insert[1] = next((l for l, line in enumerate(selected_lines[rg_insert[0]:]) if line.strip().startswith(edkey) ), None)
+    rg_insert[1] = next((li for li, line in enumerate(selected_lines[rg_insert[0]:]) if line.strip().startswith(edkey)), None)
     if rg_insert[1] is None:
-        return (startlineno+rg_insert[0], None)
+        return startlineno+rg_insert[0], None
     # back to all lines with offset applied
     rg_insert[0] += startlineno
     rg_insert[1] += rg_insert[0]
@@ -1154,14 +1152,14 @@ def substitute_lines_between_keywords(lines, file, opkey, edkey, startlineno=0, 
         assert indent_by_spaces >= 0
         lines = ['{}{}'.format(' '*indent_by_spaces, line) for line in lines]
     # remove duplicates
-    lines_to_insert = all_lines[rg_insert[0]+1 : rg_insert[1]] + lines if useappend else lines
+    lines_to_insert = all_lines[rg_insert[0]+1: rg_insert[1]] + lines if useappend else lines
     if skipdups:
         lines_to_insert = list(dict.fromkeys(lines_to_insert))
     # remove lines in b/w
     has_lines_between_keywords = rg_insert[1] - rg_insert[0] > 1
     if has_lines_between_keywords:
-        del all_lines[rg_insert[0]+1 : rg_insert[1]]
-    all_lines[rg_insert[0]+1 : rg_insert[0]+1] = lines_to_insert
+        del all_lines[rg_insert[0]+1: rg_insert[1]]
+    all_lines[rg_insert[0]+1: rg_insert[0]+1] = lines_to_insert
     with open(file, 'w') as fp:
         fp.writelines(all_lines)
     rg_inserted = [rg_insert[0], rg_insert[0]+len(lines_to_insert)]
@@ -1205,26 +1203,25 @@ def zip_dir(srcdir, dstbasename=None):
     """
     zip the entire folder into a zip file under the same parent folder.
     """
-    def _zip_dir_windows(srcdir, dstbasename):
-        src_par, src_name = osp.split(srcdir)
-        if not dstbasename:
-            dstbasename = src_name
-        elif dstbasename != src_name:
-            dst_dir = osp.join(src_par, dstbasename)
-            duplicate_dir(srcdir, dst_dir)
-        out_file = osp.join(src_par, dstbasename+'.zip')
-        cmd = ['tar', '-cf', out_file, '-C', src_par, dstbasename]
+    def _zip_dir_windows(sdir, dstbn):
+        src_par, src_name = osp.split(sdir)
+        if not dstbn:
+            dstbn = src_name
+        elif dstbn != src_name:
+            dst_dir = osp.join(src_par, dstbn)
+            duplicate_dir(sdir, dst_dir)
+        out_file = osp.join(src_par, dstbn + '.zip')
+        cmd = ['tar', '-cf', out_file, '-C', src_par, dstbn]
         run_cmd(cmd, src_par)
 
-    def _zip_dir_macos(srcdir, dstbasename):
-        src_par, src_name = osp.split(srcdir)
+    def _zip_dir_macos(sdir, dstbn):
+        src_par, src_name = osp.split(sdir)
         rename_option = []
-        if not dstbasename:
-            dstbasename = src_name
-        elif dstbasename != src_name:
-            dst_dir = osp.join(src_par, dstbasename)
-            rename_option = ['-s', f'/^{src_name}/{dstbasename}/']
-        out_file = osp.join(src_par, dstbasename+'.zip')
+        if not dstbn:
+            dstbn = src_name
+        elif dstbn != src_name:
+            rename_option = ['-s', f'/^{src_name}/{dstbn}/']
+        out_file = osp.join(src_par, dstbn + '.zip')
         cmd = ['tar', '-czf', out_file, '--exclude', '.DS_Store', '--exclude', '*/__MACOSX'] + rename_option + ['-C', src_par, f'{src_name.strip(os.path.sep)}/']
         run_cmd(cmd, src_par)
 
@@ -1246,15 +1243,15 @@ def unzip_dir(srcball, destpardir):
     
 
 def duplicate_dir(srcdir, dstdir):
-    def _dup_dir_posix(srcdir, dstdir):
-        if not srcdir.endswith('/'):
-            srcdir += '/'
-        cmd = ['rsync', '-a', '--delete', srcdir, dstdir.strip('/')]
+    def _dup_dir_posix(sdir, ddir):
+        if not sdir.endswith('/'):
+            sdir += '/'
+        cmd = ['rsync', '-a', '--delete', sdir, ddir.strip('/')]
         run_cmd(cmd, '/')
 
-    def _dup_dir_windows(srcdir, dstdir):
-        cmd = ['xcopy', '/I', '/E', '/Q', '/Y', srcdir, f'{dstdir}\\']
-        run_cmd(cmd, srcdir)
+    def _dup_dir_windows(sdir, ddir):
+        cmd = ['xcopy', '/I', '/E', '/Q', '/Y', sdir, f'{ddir}\\']
+        run_cmd(cmd, sdir)
 
     if platform.system() == 'Windows':
         _dup_dir_windows(srcdir, dstdir)
@@ -1269,7 +1266,7 @@ def compare_textfiles(file1, file2, showdiff=False, contextonly=True, logger=Non
         if showdiff:
             diff_func = difflib.context_diff if contextonly else difflib.Differ().compare
             diff = diff_func(lines1, lines2)
-            lazy_logging(''.join(diff))
+            lazy_logging(''.join(diff), logger)
     assert lines1 == lines2, f'content different: {file1} vs. {file2}'
 
 
@@ -1355,9 +1352,7 @@ def lazy_expand_sys_path(paths):
 
 
 def _test():
-    import pprint as pp
-    # pp.pprint(extract_call_args('/Users/kakyo/Desktop/_tmp/cli.py', 'add_arguments', 'add_argument'))
-    pp.pprint(extract_local_var_assignments('/Users/kakyo/Desktop/_tmp/cli.py', 'get_program_info', 'remarks'))
+    pass
 
 
 if __name__ == '__main__':
