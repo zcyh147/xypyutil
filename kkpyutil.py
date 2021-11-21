@@ -128,13 +128,8 @@ def build_default_logger(logdir, name=None, cfgfile=None, verbose=False):
     :cfgfile: config file in the format of dictConfig.
     :return: logger object.
     """
-    try:
-        os.makedirs(logdir)
-    except:
-        pass
-
+    os.makedirs(logdir, exist_ok=True)
     cfg_file = cfgfile or join(_script_dir, 'logging.json')
-    logging_config = None
     try:
         if sys.version_info.major > 2:
             with open(cfg_file, 'r', encoding=TXT_CODEC,
@@ -144,8 +139,7 @@ def build_default_logger(logdir, name=None, cfgfile=None, verbose=False):
             with open(cfg_file, 'rU') as f:
                 text = f.read()
         # Add object_pairs_hook=coll.OrderedDict hook for py3.5 and lower.
-        logging_config = json.loads(text,
-                                    object_pairs_hook=collections.OrderedDict)
+        logging_config = json.loads(text, object_pairs_hook=collections.OrderedDict)
         logging_config['handlers']['file']['filename'] = join(logdir, logging_config['handlers']['file']['filename'])
     except Exception:
         filename = name or basename(basename(logdir.strip('\\/')))
@@ -536,17 +530,17 @@ def logprogress(msg='Task', loghook=_logger.info, errorhook=_logger.error):
     return wrap
 
 
-def logcall(msg='trace', loghook=_logger.debug, errorhook=_logger.error):
+def logcall(msg='trace', logger=_logger):
     def wrap(function):
         @functools.wraps(function)
         def wrapper(*args, **kwargs):
-            loghook("Calling function '{}' with args={} kwargs={}: {}.".format(function.__name__, args, kwargs, msg))
+            logger.debug("Calling function '{}' with args={} kwargs={}: {}.".format(function.__name__, args, kwargs, msg))
             try:
                 response = function(*args, **kwargs)
             except Exception as error:
-                loghook("Function '{}' raised {} with error '{}'.".format(function.__name__, error.__class__.__name__, str(error)))
+                logger.error("Function '{}' raised {} with error '{}'.".format(function.__name__, error.__class__.__name__, str(error)))
                 raise error
-            loghook("Function '{}' returned {}.".format(function.__name__, response))
+            logger.debug("Function '{}' returned {}.".format(function.__name__, response))
             return response
         return wrapper
     return wrap
@@ -652,10 +646,7 @@ def execute_concurrency(worker, shared, lock, algorithm):
 def profile_runs(funcname, modulefile, nruns=5):
     module_name = splitext(basename(modulefile))[0]
     stats_dir = join(abspath(dirname(modulefile)), 'stats')
-    try:
-        os.makedirs(stats_dir)
-    except Exception:
-        traceback.print_exc()
+    os.makedirs(stats_dir, exist_ok=True)
     for i in range(nruns):
         stats_file = join(stats_dir, 'profile_{}_{}.pstats.log'.format(funcname, i))
         profile.runctx('import {}; print({}, {}.{}())'.format(module_name, i, module_name, funcname), globals(), locals(), stats_file)
@@ -683,7 +674,6 @@ def get_local_tmp_dir():
 
 
 def write_plist_fields(cfg_file, my_map):
-    plist = {}
     with open(cfg_file, 'rb') as fp:
         plist = plistlib.load(fp, fmt=plistlib.FMT_XML)
     plist.update(my_map)
@@ -692,7 +682,6 @@ def write_plist_fields(cfg_file, my_map):
 
 
 def substitute_keywords_in_file(file, str_map, useliteral=False):
-    updated = ''
     with open(file) as f:
         original = f.read()
         if not useliteral:
@@ -700,7 +689,6 @@ def substitute_keywords_in_file(file, str_map, useliteral=False):
         else:
             updated = original
             for src, dest in str_map.items():
-                tmp = updated
                 updated = updated.replace(src, dest)
     with open(file, 'w') as f:
         f.write(updated)
@@ -708,7 +696,7 @@ def substitute_keywords_in_file(file, str_map, useliteral=False):
 
 def is_uuid(text, version=4):
     try:
-        uuid_obj = uuid.UUID(text, version=version)
+        _ = uuid.UUID(text, version=version)
     except ValueError:
         return False
     return True
@@ -751,10 +739,7 @@ def convert_from_wine_path(path):
 
 
 def kill_process_by_name(name):
-    if platform.system() == 'Windows':
-        cmd = ['taskkill', '/IM', name, '/F']
-    else:
-        cmd = ['pkill', name]
+    cmd = ['taskkill', '/IM', name, '/F'] if platform.system() == 'Windows' else ['pkill', name]
     subprocess.run(cmd)
 
 
@@ -828,7 +813,6 @@ def rerun_lock(name, folder=None, logger=_logger):
         @functools.wraps(f)
         def wrapper(*args, **kwargs):
             my_lock = None
-            ret = None
             try:
                 my_lock = RerunLock(name, folder, logger)
                 if not my_lock.lock():
@@ -850,7 +834,7 @@ def append_to_os_paths(bindir):
     """
     if platform.system() == 'Windows':
         import winreg
-        with winreg.ConnectRegistry(None, winreg.HKEY_CURRENT_USER) as reg:
+        with winreg.ConnectRegistry(None, winreg.HKEY_CURRENT_USER):
             with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r'Environment', 0, winreg.KEY_ALL_ACCESS) as key:
                 user_paths, _ = winreg.QueryValueEx(key, 'Path')
                 if bindir not in user_paths:
@@ -870,7 +854,7 @@ def append_to_os_paths(bindir):
 def prepend_to_os_paths(bindir):
     if platform.system() == 'Windows':
         import winreg
-        with winreg.ConnectRegistry(None, winreg.HKEY_CURRENT_USER) as reg:
+        with winreg.ConnectRegistry(None, winreg.HKEY_CURRENT_USER):
             with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r'Environment', 0, winreg.KEY_ALL_ACCESS) as key:
                 user_paths, _ = winreg.QueryValueEx(key, 'Path')
                 if bindir not in user_paths:
@@ -880,7 +864,6 @@ def prepend_to_os_paths(bindir):
         cfg_file = os.path.expanduser('~/.bash_profile') if platform.system() == 'Darwin' else os.path.expanduser('~/.bashrc')
         if bindir in os.environ['PATH']:
             return
-        lines = []
         with open(cfg_file) as fp:
             lines = fp.readlines()
         lines = [f'\nexport PATH="{bindir}:$PATH"\n\n'] + lines
@@ -895,8 +878,7 @@ def remove_from_os_paths(bindir):
         with winreg.ConnectRegistry(None, winreg.HKEY_CURRENT_USER) as reg:
             with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r'Environment', 0, winreg.KEY_ALL_ACCESS) as key:
                 user_paths, _ = winreg.QueryValueEx(key, 'Path')
-                start = user_paths.find(bindir)
-                if not bindir in user_paths:
+                if bindir not in user_paths:
                     return
                 import re
                 # escape to handle metachars
@@ -905,21 +887,20 @@ def remove_from_os_paths(bindir):
                 winreg.SetValueEx(key, 'Path', 0, winreg.REG_EXPAND_SZ, user_paths)
     else:
         cfg_file = os.path.expanduser('~/.bash_profile') if platform.system() == 'Darwin' else os.path.expanduser('~/.bashrc')
-        if not bindir in os.environ['PATH']:
+        if bindir not in os.environ['PATH']:
             return
-        keyword = r'^[\s](*)export PATH="{}:$PATH"'.format(bindir)
+        # keyword = r'^[\s](*)export PATH="{}:$PATH"'.format(bindir)
         # escape to handle metachars
         pattern_prepend = f'export PATH="{bindir}:$PATH"'
         pattern_append = f'export PATH="$PATH:{bindir}"'
-        lines = []
         with open(cfg_file) as fp:
             lines = fp.readlines()
-        for l, line in enumerate(lines):
+        for li, line in enumerate(lines):
             line = line.strip()
             if line.startswith(pattern_prepend):
-                lines[l] = line.replace(pattern_prepend, '')
-            if line.startswith(pattern_append):
-                lines[l] = line.replace(pattern_append, '')
+                lines[li] = line.replace(pattern_prepend, '')
+            elif line.startswith(pattern_append):
+                lines[li] = line.replace(pattern_append, '')
         with open(cfg_file, 'w') as fp:
             fp.writelines(lines)
     os.environ['PATH'] = os.environ['PATH'].replace(bindir, '')
@@ -956,7 +937,6 @@ def run_cmd(cmd, cwd='.', logger=None):
 
 
 def run_daemon(cmd, cwd='.', logger=None):
-    proc = None
     try:
         proc = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
         if logger:
@@ -998,36 +978,24 @@ def extract_call_args(file, caller, callee):
     mod = importlib.import_module(mod_name)
     parsed = ast.parse(inspect.getsource(mod))
     # lineno, args, keywords
+    caller_def = next((node for node in parsed.body if isinstance(node, ast.FunctionDef) and node.name == caller), None)
+    if not caller_def:
+        return None, None
+    func_method_calls = [def_node for def_node in caller_def.body if 'value' in dir(def_node) and isinstance(def_node.value, ast.Call)]
     raw_calls = {
-        'func': [],
-        'method': []
+        'func': [def_node for def_node in func_method_calls if isinstance(def_node.value.func, ast.Name) and def_node.value.func.id == callee],
+        'method': [def_node for def_node in func_method_calls if isinstance(def_node.value.func, ast.Attribute) and def_node.value.func.attr == callee]
     }
-    for node in parsed.body:
-        is_func_def = isinstance(node, ast.FunctionDef) and node.name == caller
-        if not is_func_def:
-            continue
-        # next: find function calls in this function
-        caller_def = node
-        for def_node in caller_def.body:
-            is_func_or_method_call = 'value' in dir(def_node) and isinstance(def_node.value, ast.Call)
-            if not is_func_or_method_call:
-                continue
-            found_target_func_call = isinstance(def_node.value.func, ast.Name) and def_node.value.func.id == callee
-            found_target_method_call = isinstance(def_node.value.func, ast.Attribute) and def_node.value.func.attr == callee
-            if not found_target_func_call and not found_target_method_call:
-                continue
-            call_type = 'func' if found_target_func_call else 'method'
-            raw_calls[call_type].append(def_node.value)
     # collect args and kwargs: lineno, args, keywords
     calls = {
         'func': [],
-        'method': []
+        'method': [],
     }
     for calltype, rc in raw_calls.items():
         for call in rc:
             record = {
-                'args': [arg.value for arg in call.args],
-                'kwargs': {kw.arg: get_kwarg_value_by_type(kw) for kw in call.keywords},
+                'args': [arg.value for arg in call.value.args],
+                'kwargs': {kw.arg: get_kwarg_value_by_type(kw) for kw in call.value.keywords},
                 'lineno': call.lineno,
                 'end_lineno': call.end_lineno,
             }
@@ -1046,6 +1014,22 @@ def extract_class_attributes(file, classname):
     - attributes can use type-annotated assignemts (taa)
     - types of attributes without taa can be inferred from constant values
     """
+    def _get_attr_by_type(node):
+        is_type_annotated = isinstance(node, ast.AnnAssign)
+        is_assigned_with_const = isinstance(node.value, ast.Constant)
+        is_assigned_with_seq = isinstance(node.value, (ast.List, ast.Tuple))
+        attr_type = node.annotation.id if is_type_annotated \
+            else type(node.value.value).__name__ if is_assigned_with_const\
+            else None
+        if is_assigned_with_seq:
+            attr_type = 'list' if isinstance(node.value, ast.List) else 'tuple'
+        # only support constants inside list
+        # non-consts are taken as None
+        attr_value = node.value.value if is_assigned_with_const \
+            else [elem.value if isinstance(elem, ast.Constant) else None for elem in node.value.elts] if is_assigned_with_seq \
+            else None
+        return attr_type, attr_value
+
     import ast
     import importlib
     import inspect
@@ -1056,53 +1040,20 @@ def extract_class_attributes(file, classname):
     mod = importlib.import_module(mod_name)
     parsed = ast.parse(inspect.getsource(mod))
     
-    class_node = None
-    for node in parsed.body:
-        if not isinstance(node, ast.ClassDef):
-            continue
-        if node.name != classname:
-            continue
-        class_node = node
+    class_node = next((node for node in parsed.body if isinstance(node, ast.ClassDef) and node.name == classname), None)
     if not class_node:
-        return None    
-    ctor = None
-    for node in ast.walk(class_node):
-        if isinstance(node, ast.FunctionDef) and node.name == '__init__':
-            ctor = node
-            break;
+        return None
+    ctor = next((node for node in ast.walk(class_node) if isinstance(node, ast.FunctionDef) and node.name == '__init__'), None)
     if not ctor:
         return None
     # parse ctor
     names = [node.attr for node in ast.walk(ctor) if isinstance(node, ast.Attribute)]
-    # types = [node.annotation.id for node in ast.walk(ctor) if isinstance(node, ast.AnnAssign)]
-    types = []
-    values = []
-    linenos = []
-    end_linenos = []
-    for node in ast.walk(ctor):
-        if not isinstance(node, (ast.AnnAssign, ast.Assign)):
-            continue
-        attr_type = None
-        attr_value = None
-        if isinstance(node, ast.AnnAssign):
-            attr_type = node.annotation.id
-        if isinstance(node.value, ast.Constant):
-            if not attr_type:
-                attr_type = type(node.value.value).__name__
-            attr_value = node.value.value
-        elif isinstance(node.value, (ast.List, ast.Tuple)):
-            nodes = node.value.elts
-            raw_values = []
-            for nd in nodes:
-                # only support constants inside list
-                # non-consts are taken as None
-                rv = nd.value if isinstance(nd, ast.Constant) else None
-                raw_values.append(rv)
-            if not attr_type:
-                attr_type = 'list' if isinstance(nd.value, ast.List) else 'tuple'
-            attr_value = raw_values
-        types.append(attr_type)
-        values.append(attr_value)
+    assigns = [node for node in ast.walk(ctor) if isinstance(node, (ast.AnnAssign, ast.Assign))]
+    types, values, linenos, end_linenos = [], [], [], []
+    for node in assigns:
+        atype, avalue = _get_attr_by_type(node)
+        types.append(atype)
+        values.append(avalue)
         linenos.append(node.lineno)
         end_linenos.append(node.end_lineno)
     attributes = [{'name': n, 'type': t, 'default': v, 'lineno': l, 'end_lineno': e} for n, t, v, l, e in zip(names, types, values, linenos, end_linenos)]
@@ -1115,7 +1066,6 @@ def extract_local_var_assignments(file, caller, varname):
     """
     - only support regular assignments (var_name = literal_value)
     """
-    value = None
     import ast
     import importlib
     import inspect
@@ -1125,36 +1075,21 @@ def extract_local_var_assignments(file, caller, varname):
     sys.path.insert(0, dirname(file))
     mod = importlib.import_module(mod_name)
     parsed = ast.parse(inspect.getsource(mod))
-    # lineno, args, keywords
-    raw_calls = {
-        'func': [],
-        'method': []
-    }
-    assignments = []
-    for node in parsed.body:
-        if not isinstance(node, ast.FunctionDef) \
-                or node.name != caller:
-            continue
-        # hit function definition
-        # next: find function calls in this function
-        func_def = node
-        for node in ast.walk(func_def):
-            if not isinstance(node, ast.Assign) or len(node.targets) > 1:
-                continue
-            var = node.targets[0]
-            if not isinstance(var, ast.Name) or var.id != varname:
-                continue
-            if not isinstance(node.value, ast.Constant):
-                continue
-            ass = {
-                'lineno': node.lineno,
-                'end_lineno': node.end_lineno,
-                'value': node.value.value
-            }
-            assignments.append(ass)
+
+    caller_def = next((node for node in parsed.body if isinstance(node, ast.FunctionDef) and node.name == caller), None)
+    if not caller_def:
+        return None
+    single_literal_assigns = [node for node in ast.walk(caller_def) if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.value, ast.Constant)]
+    assigns = [{
+        'lineno': node.lineno,
+        'end_lineno': node.end_lineno,
+        'value': node.value.value,
+    } for node in single_literal_assigns
+        if isinstance(node.targets[0], ast.Name) and node.targets[0].id == varname
+    ]
     if mod_name in sys.modules:
         sys.modules.pop(mod_name)
-    return assignments
+    return assigns
 
 
 def extract_imported_modules(file):
@@ -1421,7 +1356,8 @@ def lazy_expand_sys_path(paths):
 
 def _test():
     import pprint as pp
-    pp.pprint(extract_call_args('/Users/kakyo/Desktop/_tmp/cli.py', 'add_arguments', 'add_argument'))
+    # pp.pprint(extract_call_args('/Users/kakyo/Desktop/_tmp/cli.py', 'add_arguments', 'add_argument'))
+    pp.pprint(extract_local_var_assignments('/Users/kakyo/Desktop/_tmp/cli.py', 'get_program_info', 'remarks'))
 
 
 if __name__ == '__main__':
