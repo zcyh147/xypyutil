@@ -1351,6 +1351,13 @@ def lazy_expand_sys_path(paths):
     sys.path = list(dict.fromkeys(sys.path+paths))
 
 
+def get_parent_dirs(file, subs=(), depth=1):
+    script_dir = osp.abspath(osp.dirname(file))
+    par_seq = osp.normpath('../'*depth)
+    root = osp.abspath(osp.join(script_dir, par_seq))
+    return script_dir, root, *[osp.join(root, sub) for sub in subs]
+
+
 def _test():
     pass
 
