@@ -314,6 +314,7 @@ def load_json(path):
     # Add object_pairs_hook=collections.OrderedDict hook for py3.5 and lower.
     return json.loads(text, object_pairs_hook=collections.OrderedDict)
 
+
 def load_json_obj(path):
     """
     Load Json configuration file.
@@ -444,7 +445,7 @@ def query_yes_no(question, default=True):
     Side Effects:
         Blocks program execution until valid input(y/n) is given.
     """
-    input_ = input if sys.version_info.major > 2 else raw_input
+    input_ = input
     yes_list = ['yes', 'y']
     no_list = ['no', 'n']
 
@@ -678,8 +679,7 @@ def get_local_tmp_dir():
         return join(expanduser('~'), 'Library', 'Caches')
     elif plat == 'Linux':
         return '/tmp'
-    else:
-        raise NotImplementedError(f'unsupported platform: {plat}')
+    raise NotImplementedError(f'unsupported platform: {plat}')
 
 
 def write_plist_fields(cfg_file, my_map):
@@ -708,10 +708,10 @@ def substitute_keywords_in_file(file, str_map, useliteral=False):
 
 def is_uuid(text, version=4):
     try:
-        uuid_obj = uuid.UUID(text, version=4)
-        return True
+        uuid_obj = uuid.UUID(text, version=version)
     except ValueError:
         return False
+    return True
 
 
 def get_clipboard_content():
@@ -763,7 +763,6 @@ def init_translator(localedir, domain='all', langs=None):
     - select locale and set up translator based on system language
     - the leading language in langs, if any, is selected to override current locale
     """
-    cur_langs = None
     if langs:
         cur_langs = langs
     else:
@@ -928,7 +927,7 @@ def remove_from_os_paths(bindir):
 
 def run_cmd(cmd, cwd='.', logger=None):
     if logger:
-            logger.debug(' '.join(cmd))
+        logger.debug(' '.join(cmd))
     else:
         print(' '.join(cmd))
     proc = None
@@ -955,6 +954,7 @@ def run_cmd(cmd, cwd='.', logger=None):
         raise e
     return proc
 
+
 def run_daemon(cmd, cwd='.', logger=None):
     proc = None
     try:
@@ -978,6 +978,16 @@ def extract_call_args(file, caller, callee):
     - only support literal args
     - will throw if an arg value is a function call itself
     """
+    def get_kwarg_value_by_type(kwarg):
+        if isinstance(kwarg.value, ast.Constant):
+            return kwarg.value.value
+        elif isinstance(kwarg.value, ast.Name):
+            return kwarg.value.id
+        elif isinstance(kwarg.value, (ast.List, ast.Tuple)):
+            return [elem.value if isinstance(elem, ast.Constant) else None for elem in kwarg.value.elts]
+        print(f'Unsupported syntax node: {kwarg.value}. Will fallback to None.')
+        return None
+
     import ast
     import importlib
     import inspect
@@ -987,75 +997,37 @@ def extract_call_args(file, caller, callee):
     sys.path.insert(0, dirname(file))
     mod = importlib.import_module(mod_name)
     parsed = ast.parse(inspect.getsource(mod))
-    raw_calls = { # lineno, args, keywords
+    # lineno, args, keywords
+    raw_calls = {
         'func': [],
         'method': []
     }
     for node in parsed.body:
-        if not isinstance(node, ast.FunctionDef) \
-            or node.name != caller:
+        is_func_def = isinstance(node, ast.FunctionDef) and node.name == caller
+        if not is_func_def:
             continue
-        # hit function definition
         # next: find function calls in this function
         caller_def = node
-        callee_calls = []
-        for node in caller_def.body:
-            if 'value' not in dir(node) or not isinstance(node.value, ast.Call):
+        for def_node in caller_def.body:
+            is_func_or_method_call = 'value' in dir(def_node) and isinstance(def_node.value, ast.Call)
+            if not is_func_or_method_call:
                 continue
-            # hit a function/method call
-            call_type = None
-            found_func_call = isinstance(node.value.func, ast.Name) and node.value.func.id == callee
-            found_method_call = isinstance(node.value.func, ast.Attribute) and node.value.func.attr == callee
-            if found_func_call:
-                call_type = 'func'
-            elif found_method_call:
-                call_type = 'method'
-            else:
+            found_target_func_call = isinstance(def_node.value.func, ast.Name) and def_node.value.func.id == callee
+            found_target_method_call = isinstance(def_node.value.func, ast.Attribute) and def_node.value.func.attr == callee
+            if not found_target_func_call and not found_target_method_call:
                 continue
-            raw_calls[call_type].append(node.value)
-
-    # collect args and kwargs
-    calls = { # lineno, args, keywords
+            call_type = 'func' if found_target_func_call else 'method'
+            raw_calls[call_type].append(def_node.value)
+    # collect args and kwargs: lineno, args, keywords
+    calls = {
         'func': [],
         'method': []
     }
-    def get_kwarg_value_const(kw):
-        return kw.value.value
-    def get_kwarg_value_name(kw):
-        return kw.value.id
-    def get_kwarg_value_list(kw):
-        nodes = kw.value.elts
-        values = []
-        for node in nodes:
-            if not isinstance(node, ast.Constant):
-                values.append(None)
-                continue
-            values.append(node.value)
-        return values
-    def get_kwarg_value_misc(kw):
-        return None
-
     for calltype, rc in raw_calls.items():
         for call in rc:
-            args = []
-            kwargs = []
-            for arg in call.args:
-                args.append(arg.value)
-            for kw in call.keywords:
-                key = kw.arg
-                if isinstance(kw.value, ast.Constant):
-                    value = get_kwarg_value_const(kw)
-                elif isinstance(kw.value, ast.Name):
-                    value = get_kwarg_value_name(kw)
-                elif isinstance(kw.value, (ast.List, ast.Tuple)):
-                    value = get_kwarg_value_list(kw)
-                else:
-                    print(f'Unsupported syntax node: {kw.value}. Will fallback to None.')
-                    value = None
-                kwargs.append((key, value))
             record = {
-                'args': args,
-                'kwargs': {k: v for k, v in kwargs},
+                'args': [arg.value for arg in call.args],
+                'kwargs': {kw.arg: get_kwarg_value_by_type(kw) for kw in call.keywords},
                 'lineno': call.lineno,
                 'end_lineno': call.end_lineno,
             }
@@ -1153,14 +1125,15 @@ def extract_local_var_assignments(file, caller, varname):
     sys.path.insert(0, dirname(file))
     mod = importlib.import_module(mod_name)
     parsed = ast.parse(inspect.getsource(mod))
-    raw_calls = { # lineno, args, keywords
+    # lineno, args, keywords
+    raw_calls = {
         'func': [],
         'method': []
     }
     assignments = []
     for node in parsed.body:
         if not isinstance(node, ast.FunctionDef) \
-            or node.name != caller:
+                or node.name != caller:
             continue
         # hit function definition
         # next: find function calls in this function
@@ -1185,11 +1158,11 @@ def extract_local_var_assignments(file, caller, varname):
 
 
 def extract_imported_modules(file):
-    def _extract_import_module(node):
-        return [alias.name for alias in node.names]
+    def _get_import_aliases(importmod):
+        return [alias.name for alias in importmod.names]
 
-    def _extract_from_module_import(node):
-        return node.module
+    def _extract_from_module_import(modnode):
+        return modnode.module
     imported = []
     import ast
     import importlib
@@ -1204,7 +1177,7 @@ def extract_imported_modules(file):
         if not isinstance(node, (ast.Import, ast.ImportFrom)):
             continue
         if isinstance(node, ast.Import):
-            extracted = _extract_import_module(node)
+            extracted = _get_import_aliases(node)
             if extracted:
                 imported += extracted
             continue
@@ -1447,7 +1420,8 @@ def lazy_expand_sys_path(paths):
 
 
 def _test():
-    pass
+    import pprint as pp
+    pp.pprint(extract_call_args('/Users/kakyo/Desktop/_tmp/cli.py', 'add_arguments', 'add_argument'))
 
 
 if __name__ == '__main__':
