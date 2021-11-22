@@ -1347,7 +1347,7 @@ def pack_obj(obj, topic=None, envelope=('<KK-ENV>', '</KK-ENV>'), classes=()):
     return f'{envelope[0]}{msg_str}{envelope[1]}'
 
 
-def lazy_expand_sys_path(paths):
+def lazy_extend_sys_path(paths):
     sys.path = list(dict.fromkeys(sys.path+paths))
 
 
