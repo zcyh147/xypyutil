@@ -1285,7 +1285,7 @@ def compare_textfiles(file1, file2, showdiff=False, contextonly=True, logger=Non
             diff_func = difflib.context_diff if contextonly else difflib.Differ().compare
             diff = diff_func(lines1, lines2)
             lazy_logging(''.join(diff), logger)
-    assert lines1 == lines2, f'content different: {file1} vs. {file2}'
+    return lines1 == lines2
 
 
 def lazy_logging(msg, logger=None):
