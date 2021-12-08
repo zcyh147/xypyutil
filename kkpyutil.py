@@ -1393,12 +1393,14 @@ def read_lines(file, striplineend=False, posix=True):
         lines = fp.readlines()
     if striplineend:
         line_end = '\n' if posix else '\r\n'
-        for f, file in enumerate(lines):
-            lines[f].rstrip(line_end)
+        for f, line in enumerate(lines):
+            lines[f] = line.strip(line_end)
     return lines
 
 
 def _test():
+    l = read_lines('/Users/bin.luo/Desktop/_dev/miatech/batch_move_files/test/default/_ref/files.txt', striplineend=True)
+    print(l)
     pass
 
 
