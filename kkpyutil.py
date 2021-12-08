@@ -1304,7 +1304,19 @@ def copy_file(src, dst, isdstdir=False):
     try:
         shutil.copy(src, dst)
     except shutil.SameFileError:
-        _logger.warning(f'source and destination are identical. will not copy: {osp.abspath(src)} -> {osp.abspath(dst)}. skipped.')
+        _logger.warning(f'source and destination are identical. will SKIP: {osp.abspath(src)} -> {osp.abspath(dst)}.')
+
+
+def move_file(src, dst, isdstdir=False):
+    if isdstdir:
+        par_dir = dst
+    else:
+        par_dir = osp.split(dst)[0]
+    os.makedirs(par_dir, exist_ok=True)
+    try:
+        shutil.move(src, dst)
+    except shutil.SameFileError:
+        _logger.warning(f'source and destination are identical. will SKIP: {osp.abspath(src)} -> {osp.abspath(dst)}.')
 
 
 def compare_dirs(dir1, dir2, ignoreddirpatterns=(), ignoredfilepatterns=(), showdiff=True):
@@ -1374,6 +1386,16 @@ def get_parent_dirs(file, subs=(), depth=1):
     par_seq = osp.normpath('../'*depth)
     root = osp.abspath(osp.join(script_dir, par_seq)) if depth > 0 else script_dir
     return script_dir, root, *[osp.join(root, sub) for sub in subs]
+
+
+def read_lines(file, striplineend=False, posix=True):
+    with open(file) as fp:
+        lines = fp.readlines()
+    if striplineend:
+        line_end = '\n' if posix else '\r\n'
+        for f, file in enumerate(lines):
+            lines[f].strip(line_end)
+    return lines
 
 
 def _test():
