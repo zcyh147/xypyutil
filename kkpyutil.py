@@ -1394,7 +1394,7 @@ def read_lines(file, striplineend=False, posix=True):
     if striplineend:
         line_end = '\n' if posix else '\r\n'
         for f, file in enumerate(lines):
-            lines[f].strip(line_end)
+            lines[f].rstrip(line_end)
     return lines
 
 
