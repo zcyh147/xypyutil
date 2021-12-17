@@ -1141,6 +1141,20 @@ def extract_imported_modules(file):
     return sorted(list(set(imported)))
 
 
+def find_first_line_in_range(lines, keyword, linerange=(0,), algo='startswith'):
+    is_bandpass = len(linerange) > 1
+    if is_bandpass:
+        assert linerange[1] > linerange[0]
+    criteria = {
+        'startswith': lambda l, k: l.strip().startswith(k),
+        'endswith': lambda l, k: l.strip().endswith(k),
+        'contains': lambda l, k: k in l,
+    }
+    subs = lines[linerange[0]: linerange[1]] if is_bandpass else lines[linerange[0]:]
+    lineno_in_between = next((l for l, line in enumerate(subs) if criteria[algo](line, keyword)), None)
+    return lineno_in_between + linerange[0] if lineno_in_between is not None else None
+
+
 def substitute_lines_between_keywords(lines, file, opkey, edkey, startlineno=0, withindent=True, useappend=False, skipdups=False):
     """
     - assume input lines all have line ends
@@ -1399,8 +1413,6 @@ def read_lines(file, striplineend=False, posix=True):
 
 
 def _test():
-    l = read_lines('/Users/bin.luo/Desktop/_dev/miatech/batch_move_files/test/default/_ref/files.txt', striplineend=True)
-    print(l)
     pass
 
 
