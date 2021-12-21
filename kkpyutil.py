@@ -1402,6 +1402,10 @@ def get_parent_dirs(file, subs=(), depth=1):
     return script_dir, root, *[osp.join(root, sub) for sub in subs]
 
 
+def get_child_dirs(root, subs=()):
+    return root, *[osp.join(root, sub) for sub in subs]
+
+
 def read_lines(file, striplineend=False, posix=True):
     with open(file) as fp:
         lines = fp.readlines()
