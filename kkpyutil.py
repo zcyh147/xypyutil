@@ -1035,16 +1035,30 @@ def extract_class_attributes(file, classname):
         is_type_annotated = isinstance(node, ast.AnnAssign)
         is_assigned_with_const = isinstance(node.value, ast.Constant)
         is_assigned_with_seq = isinstance(node.value, (ast.List, ast.Tuple))
-        attr_type = node.annotation.id if is_type_annotated \
-            else type(node.value.value).__name__ if is_assigned_with_const\
-            else None
-        if is_assigned_with_seq:
+        is_typed_coll = is_type_annotated and 'slice' in node.annotation._fields
+        if is_typed_coll:
+            coll_type = node.annotation.value.id
+            elem_type = node.annotation.slice.id if coll_type == 'list' else node.annotation.slice.dims[0].id
+            attr_type = f'{coll_type}[{elem_type}]'
+        elif is_type_annotated:
+            attr_type = node.annotation.id
+        elif is_assigned_with_const:
+            attr_type = type(node.value.value).__name__
+        else:
+            attr_type = None
+        if not is_typed_coll and is_assigned_with_seq:
             attr_type = 'list' if isinstance(node.value, ast.List) else 'tuple'
         # only support constants inside list
         # non-consts are taken as None
         attr_value = node.value.value if is_assigned_with_const \
             else [elem.value if isinstance(elem, ast.Constant) else None for elem in node.value.elts] if is_assigned_with_seq \
             else None
+        if coll_type_value_mismatch := attr_type == 'tuple' and isinstance(attr_value, list):
+            attr_value = tuple(attr_value)
+        # CAUTION: must not merge with type above, but as 2nd-pass after value-fix
+        if can_infer_elem_type := not is_typed_coll and is_assigned_with_seq and len(attr_value) > 0:
+            elem_type = type(attr_value[0]).__name__
+            attr_type = f'{attr_type}[{elem_type}]'
         return attr_type, attr_value
 
     import ast
@@ -1417,6 +1431,7 @@ def read_lines(file, striplineend=False, posix=True):
 
 
 def _test():
+    pp.pprint(extract_class_attributes('/Users/kakyo/Desktop/_task/miatech/dropin_files_folders/src/output.py', 'Output'))
     pass
 
 
