@@ -1431,7 +1431,6 @@ def read_lines(file, striplineend=False, posix=True):
 
 
 def _test():
-    pp.pprint(extract_class_attributes('/Users/kakyo/Desktop/_task/miatech/dropin_files_folders/src/output.py', 'Output'))
     pass
 
 
