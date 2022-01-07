@@ -1171,13 +1171,15 @@ def find_first_line_in_range(lines, keyword, linerange=(0,), algo='startswith'):
 
 def substitute_lines_between_keywords(lines, file, opkey, edkey, startlineno=0, withindent=True, useappend=False, skipdups=False):
     """
-    - assume input lines all have line ends
-    - align inserted text with tags via identical indents
+    - lazy-append line-ends to input lines
+    - lazy-create list if input lines is a string (a single line)
+    - smart-indent lines according to tag indentation
     - optimize with search range slicing
     - returns original indices
     """
+    lines = [lines] if isinstance(lines, str) else lines
     with open(file) as fp:
-        all_lines = fp.readlines()
+        all_lines = [line if line.endswith('\n') else f'{line}\n' for line in fp.readlines()]
     selected_lines = all_lines[startlineno:] if startlineno > 0 else all_lines
     # find range
     rg_insert = [None, None]
