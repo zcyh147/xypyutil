@@ -1178,8 +1178,9 @@ def substitute_lines_between_keywords(lines, file, opkey, edkey, startlineno=0, 
     - returns original indices
     """
     lines = [lines] if isinstance(lines, str) else lines
+    lines = [line if line.endswith('\n') else f'{line}\n' for line in lines]
     with open(file) as fp:
-        all_lines = [line if line.endswith('\n') else f'{line}\n' for line in fp.readlines()]
+        all_lines = fp.readlines()
     selected_lines = all_lines[startlineno:] if startlineno > 0 else all_lines
     # find range
     rg_insert = [None, None]
