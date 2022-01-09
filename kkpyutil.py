@@ -1433,9 +1433,9 @@ def read_lines(file, striplineend=False, posix=True):
     return lines
 
 
-def open_in_browser(file, window='tab'):
+def open_in_browser(path, window='tab', islocal=True):
     import webbrowser as wb
-    url = f'file://{file}'
+    url = f'file://{path}' if islocal else path
     api = {
         'current': wb.open,
         'tab': wb.open_new_tab,
