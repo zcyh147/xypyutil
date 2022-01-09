@@ -1433,6 +1433,17 @@ def read_lines(file, striplineend=False, posix=True):
     return lines
 
 
+def open_in_browser(file, window='tab'):
+    import webbrowser as wb
+    url = f'file://{file}'
+    api = {
+        'current': wb.open,
+        'tab': wb.open_new_tab,
+        'window': wb.open_new,
+    }
+    api[window](url)
+
+
 def _test():
     pass
 
