@@ -724,9 +724,18 @@ def alert(title, content, action='Close'):
     subprocess.run(cmd)
 
 
-def convert_to_wine_path(path, drive='Z:'):
-    path = abspath(path).replace('/', '\\')
-    return drive + path
+def convert_to_wine_path(path, drive=None):
+    full_path = abspath(expanduser(path))
+    home_folder = os.environ['HOME']
+    if leading_homefolder := full_path.startswith(home_folder):
+        mapped_drive = 'Y:'
+        full_path = full_path.removeprefix(home_folder)
+    else:
+        mapped_drive = 'Z:'
+    if drive:
+        mapped_drive = drive
+    full_path = full_path.replace('/', '\\')
+    return mapped_drive + full_path
 
 
 def convert_from_wine_path(path):
