@@ -1453,6 +1453,16 @@ def open_in_browser(path, window='tab', islocal=True):
     api[window](url)
 
 
+def open_in_editor(path):
+    cmds = {
+        'Windows': 'start',
+        'Darwin': 'open',
+        'Linux': 'xdg-open',  # ubuntu
+    }
+    cmd = [cmds[platform.system()], path]
+    run_cmd(cmd)
+
+
 def _test():
     pass
 
