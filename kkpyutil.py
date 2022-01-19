@@ -1465,7 +1465,6 @@ def open_in_editor(path):
 
 
 def _test():
-    open_in_editor('D:\\desktop\\_dev\\miatech\\ww_install_menu\\src\\core.py')
     pass
 
 
