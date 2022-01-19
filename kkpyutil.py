@@ -933,14 +933,14 @@ def remove_from_os_paths(bindir, usesyspath=True):
     os.environ[path_var] = os.environ[path_var].replace(bindir, '')
 
 
-def run_cmd(cmd, cwd='.', logger=None):
+def run_cmd(cmd, cwd='.', logger=None, check=True):
     if logger:
         logger.debug(' '.join(cmd))
     else:
         print(' '.join(cmd))
     proc = None
     try:
-        proc = subprocess.run(cmd, check=True, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
+        proc = subprocess.run(cmd, check=check, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
         log = proc.stdout.decode(TXT_CODEC)
         if logger:
             logger.debug(log)
@@ -1455,15 +1455,17 @@ def open_in_browser(path, window='tab', islocal=True):
 
 def open_in_editor(path):
     cmds = {
-        'Windows': 'start',
+        'Windows': 'explorer',
         'Darwin': 'open',
         'Linux': 'xdg-open',  # ubuntu
     }
     cmd = [cmds[platform.system()], path]
-    run_cmd(cmd)
+    check = platform.system() != 'Windows'
+    run_cmd(cmd, check=check)
 
 
 def _test():
+    open_in_editor('D:\\desktop\\_dev\\miatech\\ww_install_menu\\src\\core.py')
     pass
 
 
