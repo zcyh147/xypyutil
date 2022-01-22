@@ -33,6 +33,7 @@ import pprint as pp
 import pstats
 import shlex
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -791,29 +792,57 @@ class RerunLock:
         os.makedirs(folder, exist_ok=True)
         filename = f'lock_{name}.json' if name else 'lock_{}.json'.format(next(tempfile._get_candidate_names()))
         self.lockFile = osp.join(folder, filename) if folder else join(get_local_tmp_dir(), filename)
-        self.infoHook = logger.info
-        self.warnHook = logger.warning
-        self.errorHook = logger.error
+        self.logger = logger
+        common_sigs = [
+            signal.SIGABRT,
+            signal.SIGALRM,
+            signal.SIGFPE,
+            signal.SIGILL,
+            signal.SIGINT,
+            signal.SIGSEGV,
+            signal.SIGTERM,
+        ]
+        plat_sigs = [
+            signal.SIGBREAK,
+            signal.CTRL_C_EVENT,
+            signal.CTRL_BREAK_EVENT,
+        ] if platform.system() == 'Windows' else [
+            # CAUTION: SIGKILL can't be handled here
+            signal.SIGBUS,
+            signal.SIGCHLD,
+            signal.SIGCONT,
+            signal.SIGHUP,
+            signal.SIGPIPE,
+        ]
+        for sig in common_sigs + plat_sigs:
+            # breakpoint()
+            signal.signal(sig, self.handle_signal)
 
     def lock(self):
         if not self.is_locked():
             save_json(self.lockFile, {'pid': os.getpid()})
             return True
         else:
-            self.warnHook('Locked by pid: {}. Will stay locked until it ends.'.format(os.getpid()))
+            self.logger.warning('Locked by pid: {}. Will stay locked until it ends.'.format(os.getpid()))
             return False
 
     def unlock(self):
         try:
             os.remove(self.lockFile)
         except FileNotFoundError:
-            self.warnHook('Already unlocked. Aborted.')
+            self.logger.warning('Already unlocked. Aborted.')
         except Exception:
             failure = traceback.format_exc()
-            self.errorHook('{}\nFailed to unlock. Must delete the lock by hand: {}.'.format(failure, self.lockFile))
+            self.logger.error('{}\nFailed to unlock. Must delete the lock by hand: {}.'.format(failure, self.lockFile))
 
     def is_locked(self):
         return osp.isfile(self.lockFile)
+
+    def handle_signal(self, sig, frame):
+        msg = f'Terminated due to signal: {signal.Signals(sig).name}; Will unlock'
+        self.logger.warning(msg)
+        self.unlock()
+        raise RuntimeError(msg)
 
 
 def rerun_lock(name, folder=None, logger=_logger):
@@ -828,7 +857,7 @@ def rerun_lock(name, folder=None, logger=_logger):
                     return 1
                 ret = f(*args, **kwargs)
                 my_lock.unlock()
-            except Exception as e:  
+            except Exception as e:
                 my_lock.unlock()
                 # leave exception to its upper handler or let the program crash
                 raise e
