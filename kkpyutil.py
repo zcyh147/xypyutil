@@ -807,11 +807,14 @@ class RerunLock:
             signal.CTRL_C_EVENT,
             signal.CTRL_BREAK_EVENT,
         ] if platform.system() == 'Windows' else [
-            # CAUTION: SIGKILL can't be handled here
+            # CAUTION:
+            # - sigchld is safe to ignore
+            # - sigkill must be handled by os
             signal.SIGBUS,
-            signal.SIGCHLD,
+            # signal.SIGCHLD,
             signal.SIGCONT,
             signal.SIGHUP,
+            # signal.SIGKILL,
             signal.SIGPIPE,
         ]
         for sig in common_sigs + plat_sigs:
