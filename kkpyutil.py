@@ -795,7 +795,6 @@ class RerunLock:
         self.logger = logger
         common_sigs = [
             signal.SIGABRT,
-            signal.SIGALRM,
             signal.SIGFPE,
             signal.SIGILL,
             signal.SIGINT,
@@ -804,12 +803,15 @@ class RerunLock:
         ]
         plat_sigs = [
             signal.SIGBREAK,
-            signal.CTRL_C_EVENT,
-            signal.CTRL_BREAK_EVENT,
+            # CAUTION
+            # - CTRL_C_EVENT, CTRL_BREAK_EVENT not working on Windows
+            # signal.CTRL_C_EVENT,
+            # signal.CTRL_BREAK_EVENT,
         ] if platform.system() == 'Windows' else [
             # CAUTION:
-            # - sigchld is safe to ignore
-            # - sigkill must be handled by os
+            # - SIGCHLD as an alias is safe to ignore
+            # - SIGKILL must be handled by os.kill()
+            signal.SIGALRM,
             signal.SIGBUS,
             # signal.SIGCHLD,
             signal.SIGCONT,
