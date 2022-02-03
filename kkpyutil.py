@@ -23,6 +23,7 @@ import locale
 import logging
 import logging.config
 import multiprocessing
+import operator
 import os
 import os.path as osp
 from os.path import abspath, basename, dirname, expanduser, exists, isfile, join, splitext
@@ -1497,6 +1498,10 @@ def open_in_editor(path):
     cmd = [cmds[platform.system()], path]
     check = platform.system() != 'Windows'
     run_cmd(cmd, check=check)
+
+
+def flatten_nested_lists(mylist):
+    return functools.reduce(operator.iconcat, mylist, [])
 
 
 def _test():
