@@ -994,7 +994,7 @@ def run_cmd(cmd, cwd=None, logger=None, check=True):
     local_error = logger.error if logger else print
     local_debug(f"""\
 {' '.join(cmd)}
-cwd: {osp.abspath(cwd)}
+cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
 """)
     try:
         proc = subprocess.run(cmd, check=check, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
@@ -1019,7 +1019,8 @@ def run_daemon(cmd, cwd=None, logger=None, check=True):
     local_error = logger.error if logger else print
     local_debug(f"""run in ground:
 {" ".join(cmd)}
-cwd: {osp.abspath(cwd)}""")
+cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
+""")
     try:
         proc = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
         # won't be able to retrieve log from background
