@@ -988,7 +988,7 @@ def remove_from_os_paths(bindir, usesyspath=True):
     os.environ[path_var] = os.environ[path_var].replace(bindir, '')
 
 
-def run_cmd(cmd, cwd='.', logger=None, check=True):
+def run_cmd(cmd, cwd=None, logger=None, check=True):
     local_debug = logger.debug if logger else print
     local_info = logger.info if logger else print
     local_error = logger.error if logger else print
@@ -1013,7 +1013,7 @@ cwd: {osp.abspath(cwd)}
     return proc
 
 
-def run_daemon(cmd, cwd='.', logger=None):
+def run_daemon(cmd, cwd=None, logger=None, check=True):
     local_debug = logger.debug if logger else print
     local_info = logger.info if logger else print
     local_error = logger.error if logger else print
