@@ -989,47 +989,46 @@ def remove_from_os_paths(bindir, usesyspath=True):
 
 
 def run_cmd(cmd, cwd='.', logger=None, check=True):
-    if logger:
-        logger.debug(' '.join(cmd))
-    else:
-        print(' '.join(cmd))
-    proc = None
+    local_debug = logger.debug if logger else print
+    local_info = logger.info if logger else print
+    local_error = logger.error if logger else print
+    local_debug(f"""\
+{' '.join(cmd)}
+cwd: {osp.abspath(cwd)}
+""")
     try:
         proc = subprocess.run(cmd, check=check, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
         log = proc.stdout.decode(TXT_CODEC)
-        if logger:
-            logger.debug(log)
-        else:
-            print(log)
+        local_debug(log)
     except subprocess.CalledProcessError as e:
         log = f'stdout: {e.stdout.decode(TXT_CODEC)}'
         err = f'stderr: {e.stderr.decode(TXT_CODEC)}'
-        if logger:
-            logger.info(log)
-            logger.error(err)
-        else:
-            print(log)
-            print(err)
+        local_info(log)
+        local_error(err)
         raise e
     except Exception as e:
-        if logger:
-            logger.error(e)
+        # no need to have header, exception has it all
+        local_error(e)
         raise e
     return proc
 
 
 def run_daemon(cmd, cwd='.', logger=None):
+    local_debug = logger.debug if logger else print
+    local_info = logger.info if logger else print
+    local_error = logger.error if logger else print
+    local_debug(f"""run in ground:
+{" ".join(cmd)}
+cwd: {osp.abspath(cwd)}""")
     try:
         proc = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
         # won't be able to retrieve log from background
     except subprocess.CalledProcessError as e:
-        if logger:
-            logger.info(f'stdout: {e.stdout.decode(TXT_CODEC)}')
-            logger.error(f'stderr: {e.stderr.decode(TXT_CODEC)}')
+        local_info(f'stdout: {e.stdout.decode(TXT_CODEC)}')
+        local_error(f'stderr: {e.stderr.decode(TXT_CODEC)}')
         raise e
     except Exception as e:
-        if logger:
-            logger.error(e)
+        local_error(e)
         raise e
     return proc
 
