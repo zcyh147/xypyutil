@@ -664,7 +664,27 @@ def profile_runs(funcname, modulefile, nruns=5):
     stats.print_stats()
 
 
-def get_local_tmp_dir():
+def get_platform_home_dir():
+    plat = platform.system()
+    if plat == 'Windows':
+        return os.getenv('USERPROFILE')
+    elif plat == 'Darwin':
+        return osp.expanduser('~/')
+    elif plat == 'Linux':
+        return osp.expanduser('~/')
+    raise NotImplementedError(f'unsupported platform: {plat}')
+
+
+def get_platform_appdata_dir(winroam=True):
+    plat = platform.system()
+    if plat == 'Windows':
+        return os.getenv('APPDATA' if winroam else 'LOCALAPPDATA')
+    elif plat == 'Darwin':
+        return osp.expanduser('~/Library/Application Support')
+    raise NotImplementedError(f'unsupported platform: {plat}')
+
+
+def get_platform_tmp_dir():
     plat = platform.system()
     if plat == 'Windows':
         return join(os.getenv('LOCALAPPDATA'), 'Temp')
@@ -792,7 +812,7 @@ class RerunLock:
     def __init__(self, name, folder=None, logger=_logger):
         os.makedirs(folder, exist_ok=True)
         filename = f'lock_{name}.json' if name else 'lock_{}.json'.format(next(tempfile._get_candidate_names()))
-        self.lockFile = osp.join(folder, filename) if folder else join(get_local_tmp_dir(), filename)
+        self.lockFile = osp.join(folder, filename) if folder else join(get_platform_tmp_dir(), filename)
         self.logger = logger
         common_sigs = [
             signal.SIGABRT,
