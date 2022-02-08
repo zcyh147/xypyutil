@@ -1485,6 +1485,20 @@ def get_parent_dirs(file, subs=(), depth=1):
     return script_dir, root, *[osp.join(root, sub) for sub in subs]
 
 
+def get_ancestor_dirs(file, depth=1):
+    """
+    given structure: X > Y > Z > file,
+    return folder sequence: Z, Y, X
+    """
+    par_dir = osp.abspath(osp.dirname(file))
+    if depth < 2:
+        return par_dir
+    dirs = [par_dir]
+    for dp in range(depth-1):
+        dirs.append(osp.abspath(osp.join(par_dir, osp.normpath('../'*dp))))
+    return tuple(dirs)
+
+
 def get_child_dirs(root, subs=()):
     return (osp.join(root, sub) for sub in subs)
 
@@ -1539,16 +1553,19 @@ def show_results(succeeded, detail, advice, dryrun=False):
     print(report)
 
 
-def init_repo(srcfile, depth=1, organization='mycompany', verbose=False, uselocale=False):
+def init_repo(srcfile, depth=1, pardepth=2, organization='mycompany', verbose=False, uselocale=False):
     """
     assuming a project has a folder structure, create structure and facilities around it
-    - structure example: root > subs (src, test, temp, locale, ...), where root is app root
-    - structure example: root > app > subs (src, test, temp, locale, ...), where root is app-suite root
+    - structure example: app > subs (src, test, temp, locale, ...), where app is app root
+    - structure example: repo > app > subs (src, test, temp, locale, ...), where repo is app-suite root
     - set flag uselocale to use gettext localization, by using _T() function around non-fstrings
+    - set verbose to all show log levels in consle
     """
     common = types.SimpleNamespace()
     common.scriptDir, common.rootDir, loc_dir, tmp_dir = get_parent_dirs(srcfile, subs=('locale', 'temp',), depth=depth)
-    lazy_extend_sys_path([repo_root := osp.abspath(osp.join(common.rootDir, osp.pardir))])
+    par_seq = osp.normpath('../'*pardepth)
+    repo_root = osp.abspath(osp.join(common.scriptDir, par_seq)) if pardepth > 0 else common.scriptDir
+    lazy_extend_sys_path([repo_root])
     common.pubTmpDir = osp.join(get_platform_tmp_dir(), organization, osp.basename(common.rootDir))
     stem = osp.splitext(osp.basename(srcfile))[0]
     common.logger = build_default_logger(tmp_dir, name=stem, verbose=verbose)
