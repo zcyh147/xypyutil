@@ -1539,7 +1539,7 @@ def show_results(succeeded, detail, advice, dryrun=False):
     print(report)
 
 
-def init_repo(srcfile, depth=1, organization='mycompany', uselocale=False):
+def init_repo(srcfile, depth=1, organization='mycompany', verbose=False, uselocale=False):
     """
     assuming a project has a folder structure, create structure and facilities around it
     - structure example: root > subs (src, test, temp, locale, ...), where root is app root
@@ -1551,7 +1551,7 @@ def init_repo(srcfile, depth=1, organization='mycompany', uselocale=False):
     lazy_extend_sys_path([repo_root := osp.abspath(osp.join(common.rootDir, osp.pardir))])
     common.pubTmpDir = osp.join(get_platform_tmp_dir(), organization, osp.basename(common.rootDir))
     stem = osp.splitext(osp.basename(srcfile))[0]
-    common.logger = build_default_logger(tmp_dir, name=stem, verbose=False)
+    common.logger = build_default_logger(tmp_dir, name=stem, verbose=verbose)
     if uselocale:
         common._T = init_translator(loc_dir)
     return common
