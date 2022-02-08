@@ -111,12 +111,12 @@
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/kkpyutil.py</url>
-          <line>1076</line>
+          <line>1077</line>
           <option name="timeStamp" value="2" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/kkpyutil.py</url>
-          <line>1003</line>
+          <line>1004</line>
           <option name="timeStamp" value="3" />
         </line-breakpoint>
       </breakpoints>

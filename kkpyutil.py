@@ -26,6 +26,7 @@ import multiprocessing
 import operator
 import os
 import os.path as osp
+import types
 from os.path import abspath, basename, dirname, expanduser, exists, isfile, join, splitext
 # from pprint import pprint, pformat
 import platform
@@ -1536,6 +1537,24 @@ def show_results(succeeded, detail, advice, dryrun=False):
 {advice}
 """
     print(report)
+
+
+def init_repo(srcfile, depth=1, organization='mycompany', uselocale=False):
+    """
+    assuming a project has a folder structure, create structure and facilities around it
+    - structure example: root > subs (src, test, temp, locale, ...), where root is app root
+    - structure example: root > app > subs (src, test, temp, locale, ...), where root is app-suite root
+    - set flag uselocale to use gettext localization, by using _T() function around non-fstrings
+    """
+    common = types.SimpleNamespace()
+    common.scriptDir, common.rootDir, loc_dir, tmp_dir = get_parent_dirs(srcfile, subs=('locale', 'temp',), depth=depth)
+    lazy_extend_sys_path([repo_root := osp.abspath(osp.join(common.rootDir, osp.pardir))])
+    common.pubTmpDir = osp.join(get_platform_tmp_dir(), organization, osp.basename(common.rootDir))
+    stem = osp.splitext(osp.basename(srcfile))[0]
+    common.logger = build_default_logger(tmp_dir, name=stem, verbose=False)
+    if uselocale:
+        common._T = init_translator(loc_dir)
+    return common
 
 
 def _test():
