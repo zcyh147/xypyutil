@@ -1566,16 +1566,16 @@ def init_repo(srcfile, appdepth=2, repodepth=3, organization='mycompany', verbos
     """
     assert appdepth <= repodepth
     common = types.SimpleNamespace()
-    # common.parDir, common.grandparDir, great_grandpar_dir = get_ancestor_dirs(srcfile, depth=repodepth)
     common.ancestorDirs = get_ancestor_dirs(srcfile, depth=repodepth)
+    # include repo so that import can use repo-based dot syntax
     lazy_extend_sys_path([repo_root := common.ancestorDirs[repodepth - 1]])
     # just have fixed initial folders to meet most needs in core and tests
     common.locDir, common.srcDir, common.tmpDir, common.testDir = get_child_dirs(app_root := common.ancestorDirs[appdepth - 1], subs=('locale', 'src', 'temp', 'test'))
     common.pubTmpDir = osp.join(get_platform_tmp_dir(), organization, osp.basename(app_root))
-    stem = osp.splitext(osp.basename(srcfile))[0]
-    common.logger = build_default_logger(common.tmpDir, name=stem, verbose=verbose)
+    common.stem = osp.splitext(osp.basename(srcfile))[0]
+    common.logger = build_default_logger(common.tmpDir, name=common.stem, verbose=verbose)
     if uselocale:
-        common._T = init_translator(common.locDir)
+        common.translator = init_translator(common.locDir)
     return common
 
 
