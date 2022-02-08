@@ -1494,9 +1494,10 @@ def get_ancestor_dirs(file, depth=1):
     if depth < 2:
         return par_dir
     dirs = [par_dir]
+    # focus on pardir(i.e., depth 1), then backtrace 1 at a time from depth-1 to depth
     for dp in range(depth-1):
-        dirs.append(osp.abspath(osp.join(par_dir, osp.normpath('../'*dp))))
-    return tuple(dirs)
+        dirs.append(osp.abspath(osp.join(par_dir, osp.normpath('../'*(dp+1)))))
+    return dirs
 
 
 def get_child_dirs(root, subs=()):
@@ -1553,24 +1554,28 @@ def show_results(succeeded, detail, advice, dryrun=False):
     print(report)
 
 
-def init_repo(srcfile, depth=1, pardepth=2, organization='mycompany', verbose=False, uselocale=False):
+def init_repo(srcfile, appdepth=2, repodepth=3, organization='mycompany', verbose=False, uselocale=False):
     """
     assuming a project has a folder structure, create structure and facilities around it
     - structure example: app > subs (src, test, temp, locale, ...), where app is app root
     - structure example: repo > app > subs (src, test, temp, locale, ...), where repo is app-suite root
+    - by default, assume srcfile is under repo > app > src
     - set flag uselocale to use gettext localization, by using _T() function around non-fstrings
-    - set verbose to all show log levels in consle
+    - set verbose to all show log levels in console
+    - set inter-app sharable tmp folder to platform_cache > organization > app
     """
+    assert appdepth <= repodepth
     common = types.SimpleNamespace()
-    common.scriptDir, common.rootDir, loc_dir, tmp_dir = get_parent_dirs(srcfile, subs=('locale', 'temp',), depth=depth)
-    par_seq = osp.normpath('../'*pardepth)
-    repo_root = osp.abspath(osp.join(common.scriptDir, par_seq)) if pardepth > 0 else common.scriptDir
-    lazy_extend_sys_path([repo_root])
-    common.pubTmpDir = osp.join(get_platform_tmp_dir(), organization, osp.basename(common.rootDir))
+    # common.parDir, common.grandparDir, great_grandpar_dir = get_ancestor_dirs(srcfile, depth=repodepth)
+    common.ancestorDirs = get_ancestor_dirs(srcfile, depth=repodepth)
+    lazy_extend_sys_path([repo_root := common.ancestorDirs[repodepth - 1]])
+    # just have fixed initial folders to meet most needs in core and tests
+    common.locDir, common.srcDir, common.tmpDir, common.testDir = get_child_dirs(app_root := common.ancestorDirs[appdepth - 1], subs=('locale', 'src', 'temp', 'test'))
+    common.pubTmpDir = osp.join(get_platform_tmp_dir(), organization, osp.basename(app_root))
     stem = osp.splitext(osp.basename(srcfile))[0]
-    common.logger = build_default_logger(tmp_dir, name=stem, verbose=verbose)
+    common.logger = build_default_logger(common.tmpDir, name=stem, verbose=verbose)
     if uselocale:
-        common._T = init_translator(loc_dir)
+        common._T = init_translator(common.locDir)
     return common
 
 
