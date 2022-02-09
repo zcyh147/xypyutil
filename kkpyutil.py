@@ -819,7 +819,7 @@ class RerunLock:
         # - windows grpc server crashes with signals:
         #   - ValueError: signal only works in main thread of the main interpreter
         # - signals are disabled for windows
-        if platform.system() != 'Windows':
+        if threading.current_thread() is threading.main_thread():
             common_sigs = [
                 signal.SIGABRT,
                 signal.SIGFPE,
