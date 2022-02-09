@@ -815,35 +815,39 @@ class RerunLock:
         filename = f'lock_{name}.json' if name else 'lock_{}.json'.format(next(tempfile._get_candidate_names()))
         self.lockFile = osp.join(folder, filename) if folder else join(get_platform_tmp_dir(), filename)
         self.logger = logger
-        common_sigs = [
-            signal.SIGABRT,
-            signal.SIGFPE,
-            signal.SIGILL,
-            signal.SIGINT,
-            signal.SIGSEGV,
-            signal.SIGTERM,
-        ]
-        plat_sigs = [
-            signal.SIGBREAK,
-            # CAUTION
-            # - CTRL_C_EVENT, CTRL_BREAK_EVENT not working on Windows
-            # signal.CTRL_C_EVENT,
-            # signal.CTRL_BREAK_EVENT,
-        ] if platform.system() == 'Windows' else [
-            # CAUTION:
-            # - SIGCHLD as an alias is safe to ignore
-            # - SIGKILL must be handled by os.kill()
-            signal.SIGALRM,
-            signal.SIGBUS,
-            # signal.SIGCHLD,
-            signal.SIGCONT,
-            signal.SIGHUP,
-            # signal.SIGKILL,
-            signal.SIGPIPE,
-        ]
-        for sig in common_sigs + plat_sigs:
-            # breakpoint()
-            signal.signal(sig, self.handle_signal)
+        # CAUTION:
+        # - windows grpc server crashes with signals:
+        #   - ValueError: signal only works in main thread of the main interpreter
+        # - signals are disabled for windows
+        if platform.system() != 'Windows':
+            common_sigs = [
+                signal.SIGABRT,
+                signal.SIGFPE,
+                signal.SIGILL,
+                signal.SIGINT,
+                signal.SIGSEGV,
+                signal.SIGTERM,
+            ]
+            plat_sigs = [
+                signal.SIGBREAK,
+                # CAUTION
+                # - CTRL_C_EVENT, CTRL_BREAK_EVENT not working on Windows
+                # signal.CTRL_C_EVENT,
+                # signal.CTRL_BREAK_EVENT,
+            ] if platform.system() == 'Windows' else [
+                # CAUTION:
+                # - SIGCHLD as an alias is safe to ignore
+                # - SIGKILL must be handled by os.kill()
+                signal.SIGALRM,
+                signal.SIGBUS,
+                # signal.SIGCHLD,
+                signal.SIGCONT,
+                signal.SIGHUP,
+                # signal.SIGKILL,
+                signal.SIGPIPE,
+            ]
+            for sig in common_sigs + plat_sigs:
+                signal.signal(sig, self.handle_signal)
 
     def lock(self):
         if not self.is_locked():
@@ -1457,8 +1461,7 @@ def pack_obj(obj, topic=None, envelope=('<KK-ENV>', '</KK-ENV>'), classes=()):
     """
     if not topic:
         topic = type(obj).__name__
-    from types import SimpleNamespace
-    msg = SimpleNamespace(payload=obj, topic=topic)
+    msg = types.SimpleNamespace(payload=obj, topic=topic)
     if classes:
         class CustomJsonEncoder(json.JSONEncoder):
             def default(self, o):
