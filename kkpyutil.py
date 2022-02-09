@@ -1546,29 +1546,25 @@ def flatten_nested_lists(mylist):
 def show_results(succeeded, detail, advice, dryrun=False):
     banner = '** DRYRUN **' if dryrun else '*** SUCCEEDED ***' if succeeded else '* FAILED *'
     advice_title = '' if not advice else 'Next:' if succeeded else 'Advice:'
-    detail_block = f'\n{detail}\n' if detail else ''
+    detail_block = f'\n{detail}\n' if detail and advice else f'\n{detail}' if detail else ''
     if detail and advice:
         report = f"""
 {banner}
 {detail_block}
 {advice_title}
-{advice}
-"""
+{advice}"""
     elif detail:
         report = f"""
 {banner}
-{detail_block}
-"""
+{detail_block}"""
     elif advice:
         report = f"""
 {banner}
 {advice_title}
-{advice}
-"""
+{advice}"""
     else:
         report = f"""
-{banner}
-"""
+{banner}"""
     print(report)
 
 
