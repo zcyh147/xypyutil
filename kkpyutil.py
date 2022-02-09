@@ -1547,11 +1547,27 @@ def show_results(succeeded, detail, advice, dryrun=False):
     banner = '** DRYRUN **' if dryrun else '*** SUCCEEDED ***' if succeeded else '* FAILED *'
     advice_title = '' if not advice else 'Next:' if succeeded else 'Advice:'
     detail_block = f'\n{detail}\n' if detail else ''
-    report = f"""
+    if detail and advice:
+        report = f"""
 {banner}
 {detail_block}
 {advice_title}
 {advice}
+"""
+    elif detail:
+        report = f"""
+{banner}
+{detail_block}
+"""
+    elif advice:
+        report = f"""
+{banner}
+{advice_title}
+{advice}
+"""
+    else:
+        report = f"""
+{banner}
 """
     print(report)
 
