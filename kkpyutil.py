@@ -1397,14 +1397,15 @@ def lazy_logging(msg, logger=None):
         print(msg)
 
 
-def copy_file(src, dst, isdstdir=False):
+def copy_file(src, dst, isdstdir=False, keepmeta=False):
     if isdstdir:
         par_dir = dst
     else:
         par_dir = osp.split(dst)[0]
     os.makedirs(par_dir, exist_ok=True)
+    copyfunc = shutil.copy2 if keepmeta else shutil.copy
     try:
-        shutil.copy(src, dst)
+        copyfunc(src, dst)
     except shutil.SameFileError:
         _logger.warning(f'source and destination are identical. will SKIP: {osp.abspath(src)} -> {osp.abspath(dst)}.')
 
@@ -1594,7 +1595,7 @@ def init_repo(srcfile, appdepth=2, repodepth=3, organization='mycompany', verbos
     return common
 
 
-def backup_file(file, dstdir=None, suffix='.1'):
+def backup_file(file, dstdir=None, suffix='.1', keepmeta=True):
     """
     save numeric backup in dstdir or same dir
     - preserve metadata
@@ -1605,16 +1606,16 @@ def backup_file(file, dstdir=None, suffix='.1'):
     bak = osp.join(bak_dir, osp.basename(file)+suffix)
     num = suffix[1:]
     if not num.isnumeric():
-        shutil.copy2(file, bak)
+        copy_file(file, bak, keepmeta=keepmeta)
         return
     while osp.isfile(bak):
         stem = osp.splitext(bak)[0]
         num = int(osp.splitext(bak)[1][1:]) + 1
         bak = stem + f'.{num}'
-    shutil.copy2(file, bak)
+    copy_file(file, bak, keepmeta=keepmeta)
 
 
-def recover_file(file, bakdir=None, suffix=None):
+def recover_file(file, bakdir=None, suffix=None, keepmeta=True):
     """
     recover file from numeric backup in bakdir or same dir
     """
@@ -1626,11 +1627,11 @@ def recover_file(file, bakdir=None, suffix=None):
         raise FileNotFoundError(f'No backup found for {file} under {bak_dir}')
     if suffix:
         bak = osp.join(bak_dir, bn+suffix)
-        shutil.copy2(bak, file)
+        copy_file(bak, file, keepmeta=keepmeta)
         return
     latest = max([int(num_sfx) for file in files if (num_sfx := osp.splitext(file)[1][1:]).isnumeric()])
     bak = osp.join(bak_dir, f'{bn}.{latest}')
-    shutil.copy2(bak, file)
+    copy_file(bak, file, keepmeta=keepmeta)
 
 
 def _test():
