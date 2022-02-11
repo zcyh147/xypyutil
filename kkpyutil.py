@@ -17,6 +17,7 @@ import difflib
 import fnmatch
 import functools
 import gettext
+import glob
 import hashlib
 import json
 import locale
@@ -1591,6 +1592,45 @@ def init_repo(srcfile, appdepth=2, repodepth=3, organization='mycompany', verbos
     if uselocale:
         common.translator = init_translator(common.locDir)
     return common
+
+
+def backup_file(file, dstdir=None, suffix='.1'):
+    """
+    save numeric backup in dstdir or same dir
+    - preserve metadata
+    - always overwrite non-numeric backup
+    """
+    bak_dir = dstdir if dstdir else osp.dirname(file)
+    assert osp.isdir(bak_dir)
+    bak = osp.join(bak_dir, osp.basename(file)+suffix)
+    num = suffix[1:]
+    if not num.isnumeric():
+        shutil.copy2(file, bak)
+        return
+    while osp.isfile(bak):
+        stem = osp.splitext(bak)[0]
+        num = int(osp.splitext(bak)[1][1:]) + 1
+        bak = stem + f'.{num}'
+    shutil.copy2(file, bak)
+
+
+def recover_file(file, bakdir=None, suffix=None):
+    """
+    recover file from numeric backup in bakdir or same dir
+    """
+    bak_dir = bakdir if bakdir else osp.dirname(file)
+    assert osp.isdir(bak_dir)
+    bn = osp.basename(file)
+    files = glob.glob(osp.join(bak_dir, f'{bn}.*'))
+    if not files:
+        raise FileNotFoundError(f'No backup found for {file} under {bak_dir}')
+    if suffix:
+        bak = osp.join(bak_dir, bn+suffix)
+        shutil.copy2(bak, file)
+        return
+    latest = max([int(num_sfx) for file in files if (num_sfx := osp.splitext(file)[1][1:]).isnumeric()])
+    bak = osp.join(bak_dir, f'{bn}.{latest}')
+    shutil.copy2(bak, file)
 
 
 def _test():
