@@ -1602,7 +1602,6 @@ def backup_file(file, dstdir=None, suffix='.1', keepmeta=True):
     - always overwrite non-numeric backup
     """
     bak_dir = dstdir if dstdir else osp.dirname(file)
-    assert osp.isdir(bak_dir)
     bak = osp.join(bak_dir, osp.basename(file)+suffix)
     num = suffix[1:]
     if not num.isnumeric():
