@@ -1687,10 +1687,10 @@ def deprecate_log(replacewith=None):
     return f'This is deprecated; use {replacement} instead'
 
 
-def load_lines(path, tostrip=False):
+def load_lines(path, rmlineend=False):
     with open(path) as fp:
         lines = fp.readlines()
-        if tostrip:
+        if rmlineend:
             lines = [line.rstrip('\n').rstrip('\r') for line in lines]
     return lines
 
