@@ -13,6 +13,7 @@ Covering areas:
 import argparse
 import collections
 import cProfile as profile
+import copy
 import difflib
 import fnmatch
 import functools
@@ -1684,6 +1685,40 @@ def recover_file(file, bakdir=None, suffix=None, keepmeta=True):
 def deprecate_log(replacewith=None):
     replacement = replacewith if replacewith else 'a documented replacement'
     return f'This is deprecated; use {replacement} instead'
+
+
+def load_lines(path, tostrip=False):
+    with open(path) as fp:
+        lines = fp.readlines()
+        if tostrip:
+            lines = [line.strip() for line in lines]
+    return lines
+
+
+def save_lines(path, lines, toappend=False, addlineend=True, style='posix'):
+    if isinstance(lines, str):
+        lines = [lines]
+    lines_to_write = copy.deepcopy(lines)
+    mode = 'a' if toappend else 'w'
+    if addlineend:
+        line_end = '\n' if style == 'posix' else '\r\n'
+        lines_to_write = [line+line_end for line in lines]
+    with open(path, mode) as fp:
+        fp.writelines(lines_to_write)
+    return lines_to_write
+
+
+def load_text(path):
+    with open(path) as fp:
+        text = fp.read()
+    return text
+
+
+def save_text(path, text, toappend=False):
+    assert isinstance(text, str)
+    mode = 'a' if toappend else 'w'
+    with open(path, mode) as fp:
+        fp.write(text)
 
 
 def _test():
