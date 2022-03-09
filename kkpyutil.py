@@ -1691,7 +1691,7 @@ def load_lines(path, tostrip=False):
     with open(path) as fp:
         lines = fp.readlines()
         if tostrip:
-            lines = [line.strip() for line in lines]
+            lines = [line.rstrip('\n').rstrip('\r') for line in lines]
     return lines
 
 
