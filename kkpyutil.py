@@ -1267,11 +1267,11 @@ def substitute_lines_between_cues(inserts, iolines, startcue, endcue, startlinen
     startln += startlineno
     endln += startln
     if withindent:
-        indent = iolines[startln].find(startcue)
+        ref_startln = startln+1 if removecues else startln
+        indent = iolines[ref_startln].find(startcue)
         indent_by_spaces = 0
         for idt in range(indent):
-            indent_by_spaces += 4 if iolines[startln][idt] == '\t' else 1
-        assert indent_by_spaces >= 0
+            indent_by_spaces += 4 if iolines[ref_startln][idt] == '\t' else 1
         inserts = ['{}{}'.format(' ' * indent_by_spaces, line) for line in inserts]
     # append to current content between cues or not
     lines_to_insert = iolines[startln+1: endln] + inserts if useappend else inserts
