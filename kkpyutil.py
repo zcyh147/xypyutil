@@ -44,6 +44,7 @@ import threading
 import traceback
 from types import SimpleNamespace
 import uuid
+import warnings
 
 
 #
@@ -1239,6 +1240,52 @@ def find_first_line_in_range(lines, keyword, linerange=(0,), algo='startswith'):
     return lineno_in_between + linerange[0] if lineno_in_between is not None else None
 
 
+def substitute_lines_between_cues(inserts, iolines, startcue, endcue, startlineno=0, removecues=False, withindent=True, useappend=False, skipdups=False):
+    """
+    - lazy-create list if input lines is a string (a single line)
+    - smart-indent lines according to tag indentation
+    - optimize with search range slicing
+    - do not add lineends, treat everything as generic strings
+    - returns indices of inserted in resulted lines
+    """
+    inserts = [inserts] if isinstance(inserts, str) else inserts
+    selected_lines = iolines[startlineno:] if startlineno > 0 else iolines
+    # find range
+    startln, endln = None, None
+    # always use startswith, because when we leave a cue, we want it to appear first and foremost
+    startln = next((ln for ln, line in enumerate(selected_lines) if line.strip().startswith(startcue)), None)
+    if startln is None:
+        return startln, endln
+    endln = next((ln for ln, line in enumerate(selected_lines[startln:]) if line.strip().startswith(endcue)), None)
+    if endln is None:
+        return startlineno+startln, None
+    if removecues:
+        startln -= 1
+        endln += 2
+    # back to all lines with offset applied
+    startln += startlineno
+    endln += startln
+    if withindent:
+        indent = iolines[startln].find(startcue)
+        indent_by_spaces = 0
+        for idt in range(indent):
+            indent_by_spaces += 4 if iolines[startln][idt] == '\t' else 1
+        assert indent_by_spaces >= 0
+        inserts = ['{}{}'.format(' ' * indent_by_spaces, line) for line in inserts]
+    # append to current content between cues or not
+    lines_to_insert = iolines[startln+1: endln] + inserts if useappend else inserts
+    if skipdups:
+        lines_to_insert = list(dict.fromkeys(lines_to_insert))
+    # remove lines in b/w
+    has_lines_between_keywords = endln - startln > 1
+    if has_lines_between_keywords:
+        del iolines[startln+1: endln]
+    iolines[startln+1: startln+1] = lines_to_insert
+    insert_start = startln+1
+    rg_inserted = [insert_start, insert_start+len(lines_to_insert)-1]
+    return rg_inserted
+
+
 def substitute_lines_between_keywords(lines, file, opkey, edkey, startlineno=0, withindent=True, useappend=False, skipdups=False):
     """
     - lazy-append line-ends to input lines
@@ -1247,6 +1294,7 @@ def substitute_lines_between_keywords(lines, file, opkey, edkey, startlineno=0, 
     - optimize with search range slicing
     - returns original indices
     """
+    warnings.warn(deprecate_log('substitute_lines_between_cues()'), DeprecationWarning, stacklevel=2)
     lines = [lines] if isinstance(lines, str) else lines
     lines = [line if line.endswith('\n') else f'{line}\n' for line in lines]
     with open(file) as fp:
@@ -1254,34 +1302,34 @@ def substitute_lines_between_keywords(lines, file, opkey, edkey, startlineno=0, 
     selected_lines = all_lines[startlineno:] if startlineno > 0 else all_lines
     # find range
     rg_insert = [None, None]
-    rg_insert[0] = next((li for li, line in enumerate(selected_lines) if line.strip().startswith(opkey)), None)
-    if rg_insert[0] is None:
+    startln = next((li for li, line in enumerate(selected_lines) if line.strip().startswith(opkey)), None)
+    if startln is None:
         return rg_insert
-    rg_insert[1] = next((li for li, line in enumerate(selected_lines[rg_insert[0]:]) if line.strip().startswith(edkey)), None)
-    if rg_insert[1] is None:
-        return startlineno+rg_insert[0], None
+    endln = next((li for li, line in enumerate(selected_lines[startln:]) if line.strip().startswith(edkey)), None)
+    if endln is None:
+        return startlineno+startln, None
     # back to all lines with offset applied
-    rg_insert[0] += startlineno
-    rg_insert[1] += rg_insert[0]
+    startln += startlineno
+    endln += startln
     if withindent:
-        indent = all_lines[rg_insert[0]].find(opkey)
+        indent = all_lines[startln].find(opkey)
         indent_by_spaces = 0
         for idt in range(indent):
-            indent_by_spaces += 4 if all_lines[rg_insert[0]][idt] == '\t' else 1
+            indent_by_spaces += 4 if all_lines[startln][idt] == '\t' else 1
         assert indent_by_spaces >= 0
         lines = ['{}{}'.format(' '*indent_by_spaces, line) for line in lines]
     # remove duplicates
-    lines_to_insert = all_lines[rg_insert[0]+1: rg_insert[1]] + lines if useappend else lines
+    lines_to_insert = all_lines[startln+1: endln] + lines if useappend else lines
     if skipdups:
         lines_to_insert = list(dict.fromkeys(lines_to_insert))
     # remove lines in b/w
-    has_lines_between_keywords = rg_insert[1] - rg_insert[0] > 1
+    has_lines_between_keywords = endln - startln > 1
     if has_lines_between_keywords:
-        del all_lines[rg_insert[0]+1: rg_insert[1]]
-    all_lines[rg_insert[0]+1: rg_insert[0]+1] = lines_to_insert
+        del all_lines[startln+1: endln]
+    all_lines[startln+1: startln+1] = lines_to_insert
     with open(file, 'w') as fp:
         fp.writelines(all_lines)
-    rg_inserted = [rg_insert[0], rg_insert[0]+len(lines_to_insert)]
+    rg_inserted = [startln, startln+len(lines_to_insert)]
     return rg_inserted
 
 
@@ -1633,7 +1681,13 @@ def recover_file(file, bakdir=None, suffix=None, keepmeta=True):
     copy_file(bak, file, keepmeta=keepmeta)
 
 
+def deprecate_log(replacewith=None):
+    replacement = replacewith if replacewith else 'a documented replacement'
+    return f'This is deprecated; use {replacement} instead'
+
+
 def _test():
+    substitute_lines_between_keywords(['insert this ...', 'insert that ...'], r'D:\desktop\tmp.txt', '//<tag1', '//tag1>', startlineno=0, withindent=True, useappend=False, skipdups=False)
     pass
 
 
