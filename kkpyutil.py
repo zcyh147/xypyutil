@@ -1687,7 +1687,6 @@ def deprecate_log(replacewith=None):
 
 
 def _test():
-    substitute_lines_between_keywords(['insert this ...', 'insert that ...'], r'D:\desktop\tmp.txt', '//<tag1', '//tag1>', startlineno=0, withindent=True, useappend=False, skipdups=False)
     pass
 
 
