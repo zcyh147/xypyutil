@@ -1427,7 +1427,7 @@ def duplicate_dir(srcdir, dstdir):
     _dup_dir_posix(srcdir, dstdir)
 
 
-def compare_textfiles(file1, file2, showdiff=False, contextonly=True, logger=None):
+def compare_textfiles(file1, file2, showdiff=False, contextonly=True, ignoredlinenos=None, logger=None):
     with open(file1) as fp1, open(file2) as fp2:
         lines1 = fp1.readlines()
         lines2 = fp2.readlines()
@@ -1436,6 +1436,9 @@ def compare_textfiles(file1, file2, showdiff=False, contextonly=True, logger=Non
             diff = diff_func(lines1, lines2)
             lazy_logging(f'***\n{file1} vs.\n{file2}\n***')
             lazy_logging(''.join(diff), logger)
+    if ignoredlinenos:
+        lines1 = [line for ln, line in enumerate(lines1) if ln not in ignoredlinenos]
+        lines2 = [line for ln, line in enumerate(lines2) if ln not in ignoredlinenos]
     return lines1 == lines2
 
 
