@@ -1404,11 +1404,21 @@ def unzip_dir(srcball, destpardir):
     assume srcball has a top-level folder "product".
     unzip to destpardir/product.
     """
-    untar_option = '-xf' if platform.system() == 'Windows' else '-xzf'
-    os.makedirs(destpardir, exist_ok=True)
-    cmd = ['tar', untar_option, srcball, '-C', destpardir]
-    run_cmd(cmd, destpardir)
-    
+    ext = osp.splitext(srcball)[1]
+    if ext == '.zip':
+        untar_option = '-xf' if platform.system() == 'Windows' else '-xzf'
+        os.makedirs(destpardir, exist_ok=True)
+        cmd = ['tar', untar_option, srcball, '-C', destpardir]
+        run_cmd(cmd, destpardir)
+        return
+    elif ext == '.xz':
+        import tarfile
+        os.makedirs(destpardir, exist_ok=True)
+        with tarfile.open(srcball) as f:
+            f.extractall(destpardir)
+        return
+    raise NotImplementedError(f'Unsupported zip type: {ext}')
+
 
 def duplicate_dir(srcdir, dstdir):
     def _dup_dir_posix(sdir, ddir):
