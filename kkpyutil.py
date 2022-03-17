@@ -1734,6 +1734,10 @@ def save_text(path, text, toappend=False):
         fp.write(text)
 
 
+def remove_duplication(mylist):
+    return list(dict.fromkeys(mylist))
+
+
 def _test():
     pass
 
