@@ -900,7 +900,7 @@ def rerun_lock(name, folder=None, logger=_logger):
     return decorator
 
 
-def append_to_os_paths(bindir, usesyspath=True):
+def append_to_os_paths(bindir, usesyspath=True, inmemonly=False):
     """
     On macOS, PATH update will only take effect after calling `source ~/.bash_profile` directly in shell. It won't work 
     """
@@ -930,23 +930,24 @@ def append_to_os_paths(bindir, usesyspath=True):
     os.environ[path_var] += os.pathsep + bindir
 
 
-def prepend_to_os_paths(bindir, usesyspath=True):
+def prepend_to_os_paths(bindir, usesyspath=True, inmemonly=False):
+    path_var = 'Path' if platform.system() == 'Windows' else 'PATH'
+    if inmemonly:
+        os.environ[path_var] = bindir + os.pathsep + os.environ[path_var]
+        return
     if platform.system() == 'Windows':
         import winreg
         root_key = winreg.HKEY_LOCAL_MACHINE if usesyspath else winreg.HKEY_CURRENT_USER
         sub_key = r'SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment' if usesyspath else r'Environment'
-        path_var = 'Path'
-        separator = ';'
         with winreg.ConnectRegistry(None, root_key):
             with winreg.OpenKey(root_key, sub_key, 0, winreg.KEY_ALL_ACCESS) as key:
                 env_paths, _ = winreg.QueryValueEx(key, path_var)
-                matches = [path for path in env_paths.split(separator) if path.lower() == bindir.lower()]
+                matches = [path for path in env_paths.split(os.pathsep) if path.lower() == bindir.lower()]
                 if matches:
                     return
-                env_paths = f'{bindir}{separator}' + env_paths
+                env_paths = f'{bindir}{os.pathsep}' + env_paths
                 winreg.SetValueEx(key, path_var, 0, winreg.REG_EXPAND_SZ, env_paths)
     else:
-        path_var = 'PATH'
         cfg_file = os.path.expanduser('~/.bash_profile') if platform.system() == 'Darwin' else os.path.expanduser('~/.bashrc')
         if bindir in os.environ[path_var]:
             return
@@ -958,24 +959,25 @@ def prepend_to_os_paths(bindir, usesyspath=True):
     os.environ[path_var] = bindir + os.pathsep + os.environ[path_var]
 
 
-def remove_from_os_paths(bindir, usesyspath=True):
+def remove_from_os_paths(bindir, usesyspath=True, inmemonly=False):
+    path_var = 'Path' if platform.system() == 'Windows' else 'PATH'
+    if inmemonly:
+        os.environ[path_var] = os.environ[path_var].replace(bindir, '')
+        return
     if platform.system() == 'Windows':
         import winreg
         root_key = winreg.HKEY_LOCAL_MACHINE if usesyspath else winreg.HKEY_CURRENT_USER
         sub_key = r'SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment' if usesyspath else r'Environment'
-        separator = ';'
-        path_var = 'Path'
         with winreg.ConnectRegistry(None, root_key):
             with winreg.OpenKey(root_key, sub_key, 0, winreg.KEY_ALL_ACCESS) as key:
                 env_paths, _ = winreg.QueryValueEx(key, path_var)
-                matches = [path for path in env_paths.split(separator) if path.lower() == bindir.lower()]
+                matches = [path for path in env_paths.split(os.pathsep) if path.lower() == bindir.lower()]
                 if not matches:
                     return
-                keepers = [path for path in env_paths.split(separator) if path.lower() != bindir.lower()]
-                env_paths = separator.join(keepers)
+                keepers = [path for path in env_paths.split(os.pathsep) if path.lower() != bindir.lower()]
+                env_paths = os.pathsep.join(keepers)
                 winreg.SetValueEx(key, path_var, 0, winreg.REG_EXPAND_SZ, env_paths)
     else:
-        path_var = 'PATH'
         cfg_file = os.path.expanduser('~/.bash_profile') if platform.system() == 'Darwin' else os.path.expanduser('~/.bashrc')
         if bindir not in os.environ[path_var]:
             return
@@ -1739,14 +1741,30 @@ def remove_duplication(mylist):
 
 
 def install_by_macports(pkg, ver=None, lazy=False):
+    """
+    Homebrew has the top priority.
+    Macports only overrides in memory on demand.
+    """
     if lazy and (exe := shutil.which(pkg)):
         print(f'Found package binary: {exe}, and skipped installing: {pkg}')
         return
+    os_paths = os.environ['PATH']
+    prepend_to_os_paths('/opt/local/sbin', inmemonly=True)
+    prepend_to_os_paths('/opt/local/bin', inmemonly=True)
     run_cmd(['sudo', 'port', 'install', pkg])
+    os.environ['PATH'] = os_paths
 
 
 def uninstall_by_macports(pkg, ver=None):
+    """
+    Homebrew has the top priority.
+    Macports only overrides in memory on demand.
+    """
+    os_paths = os.environ['PATH']
+    prepend_to_os_paths('/opt/local/sbin', inmemonly=True)
+    prepend_to_os_paths('/opt/local/bin', inmemonly=True)
     run_cmd(['sudo', 'port', 'uninstall', pkg])
+    os.environ['PATH'] = os_paths
 
 
 def install_by_homebrew(pkg, ver=None, lazy=False):
