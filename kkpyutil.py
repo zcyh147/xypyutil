@@ -1738,6 +1738,28 @@ def remove_duplication(mylist):
     return list(dict.fromkeys(mylist))
 
 
+def install_by_macports(pkg, ver=None, lazy=False):
+    if lazy and (exe := shutil.which(pkg)):
+        print(f'Found package binary: {exe}, and skipped installing: {pkg}')
+        return
+    run_cmd(['sudo', 'port', 'install', pkg])
+
+
+def uninstall_by_macports(pkg, ver=None):
+    run_cmd(['sudo', 'port', 'uninstall', pkg])
+
+
+def install_by_homebrew(pkg, ver=None, lazy=False):
+    if lazy and (exe := shutil.which(pkg)):
+        print(f'Found package binary: {exe}, and skipped installing: {pkg}')
+        return
+    run_cmd(['brew', 'install', pkg])
+
+
+def uninstall_by_homebrew(pkg, ver=None):
+    run_cmd(['brew', 'remove', pkg])
+
+
 def _test():
     pass
 
