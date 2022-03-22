@@ -1740,17 +1740,17 @@ def remove_duplication(mylist):
     return list(dict.fromkeys(mylist))
 
 
-def install_by_macports(pkg, ver=None, lazy=False):
+def install_by_macports(pkg, ver=None, lazybin=None):
     """
     Homebrew has the top priority.
     Macports only overrides in memory on demand.
     """
-    if lazy and (exe := shutil.which(pkg)):
-        print(f'Found package binary: {exe}, and skipped installing: {pkg}')
-        return
     os_paths = os.environ['PATH']
     prepend_to_os_paths('/opt/local/sbin', inmemonly=True)
     prepend_to_os_paths('/opt/local/bin', inmemonly=True)
+    if lazybin and (exe := shutil.which(lazybin)):
+        print(f'Found binary: {exe}, and skipped installing package: {pkg}')
+        return
     run_cmd(['sudo', 'port', 'install', pkg])
     os.environ['PATH'] = os_paths
 
@@ -1767,9 +1767,9 @@ def uninstall_by_macports(pkg, ver=None):
     os.environ['PATH'] = os_paths
 
 
-def install_by_homebrew(pkg, ver=None, lazy=False):
-    if lazy and (exe := shutil.which(pkg)):
-        print(f'Found package binary: {exe}, and skipped installing: {pkg}')
+def install_by_homebrew(pkg, ver=None, lazybin=None):
+    if lazybin and (exe := shutil.which(lazybin)):
+        print(f'Found binary: {exe}, and skipped installing package: {pkg}')
         return
     run_cmd(['brew', 'install', pkg])
 
