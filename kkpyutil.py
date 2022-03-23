@@ -1778,6 +1778,25 @@ def uninstall_by_homebrew(pkg, ver=None):
     run_cmd(['brew', 'remove', pkg])
 
 
+class Autotools:
+    def __init__(self, pkgroot, logger=None):
+        self.pkgRoot = pkgroot
+        self.logger = logger
+
+    def autogen(self):
+        util.run_cmd(['./autogen.sh'], cwd=self.pkgRoot, logger=self.logger)
+
+    def configure(self, flags):
+        util.run_cmd(['./configure'] + flags, cwd=self.pkgRoot, logger=self.logger)
+
+    def make_install(self, njobs=8):
+        util.run_cmd(['make', f'-j{njobs}'], cwd=self.pkgRoot, logger=self.logger)
+        util.run_cmd(['make', 'install'], cwd=self.pkgRoot, logger=self.logger)
+
+    def make_clean(self):
+        util.run_cmd(['make', 'clean'], cwd=self.pkgRoot, logger=self.logger)
+
+
 def _test():
     pass
 
