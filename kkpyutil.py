@@ -999,7 +999,7 @@ def remove_from_os_paths(bindir, usesyspath=True, inmemonly=False):
     os.environ[path_var] = os.environ[path_var].replace(bindir, '')
 
 
-def run_cmd(cmd, cwd=None, logger=None, check=True):
+def run_cmd(cmd, cwd=None, logger=None, check=True, shell=False):
     local_debug = logger.debug if logger else print
     local_info = logger.info if logger else print
     local_error = logger.error if logger else print
@@ -1008,7 +1008,7 @@ def run_cmd(cmd, cwd=None, logger=None, check=True):
 cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
 """)
     try:
-        proc = subprocess.run(cmd, check=check, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
+        proc = subprocess.run(cmd, check=check, shell=shell, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
         log = proc.stdout.decode(TXT_CODEC)
         local_debug(log)
     except subprocess.CalledProcessError as e:
@@ -1024,7 +1024,7 @@ cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
     return proc
 
 
-def run_daemon(cmd, cwd=None, logger=None, check=True):
+def run_daemon(cmd, cwd=None, logger=None, check=True, shell=False):
     local_debug = logger.debug if logger else print
     local_info = logger.info if logger else print
     local_error = logger.error if logger else print
@@ -1033,7 +1033,7 @@ def run_daemon(cmd, cwd=None, logger=None, check=True):
 cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
 """)
     try:
-        proc = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
+        proc = subprocess.Popen(cmd, shell=shell, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
         # won't be able to retrieve log from background
     except subprocess.CalledProcessError as e:
         local_info(f'stdout: {e.stdout.decode(TXT_CODEC)}')
