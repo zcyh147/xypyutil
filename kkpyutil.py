@@ -1000,6 +1000,10 @@ def remove_from_os_paths(bindir, usesyspath=True, inmemonly=False):
 
 
 def run_cmd(cmd, cwd=None, logger=None, check=True, shell=False):
+    """
+    Use shell==True with autotools where new shell is needed to treat the entire command option sequence as a command,
+    e.g., shell=True means running sh -c ./configure CFLAGS="..."
+    """
     local_debug = logger.debug if logger else print
     local_info = logger.info if logger else print
     local_error = logger.error if logger else print
@@ -1792,7 +1796,7 @@ class Autotools:
         run_cmd(['./autogen.sh'], cwd=self.pkgRoot, logger=self.logger)
 
     def configure(self, flags):
-        run_cmd(['./configure'] + flags, cwd=self.pkgRoot, logger=self.logger)
+        run_cmd(['./configure'] + flags, shell=True, cwd=self.pkgRoot, logger=self.logger)
 
     def make_install(self, njobs=8):
         run_cmd(['make', f'-j{njobs}'], cwd=self.pkgRoot, logger=self.logger)
