@@ -1796,7 +1796,12 @@ class Autotools:
         run_cmd(['./autogen.sh'], cwd=self.pkgRoot, logger=self.logger)
 
     def configure(self, flags):
-        run_cmd(['./configure'] + flags, shell=True, cwd=self.pkgRoot, logger=self.logger)
+        """
+        Must run under shell mode
+        - CFLAGS="...", CXXFLAGS... are not options but environment variables
+        - So must spawn subprocess under shell mode: Treat the ./configure sequence as a whole command
+        """
+        run_cmd([' '.join(['./configure'] + flags)], shell=True, cwd=self.pkgRoot, logger=self.logger)
 
     def make_install(self, njobs=8):
         run_cmd(['make', f'-j{njobs}'], cwd=self.pkgRoot, logger=self.logger)
