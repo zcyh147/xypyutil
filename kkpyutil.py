@@ -20,6 +20,7 @@ import functools
 import gettext
 import glob
 import hashlib
+import tempfile
 import json
 import locale
 import logging
@@ -1784,17 +1785,32 @@ class Autotools:
         self.logger = logger
 
     def autogen(self):
-        util.run_cmd(['./autogen.sh'], cwd=self.pkgRoot, logger=self.logger)
+        run_cmd(['./autogen.sh'], cwd=self.pkgRoot, logger=self.logger)
 
     def configure(self, flags):
-        util.run_cmd(['./configure'] + flags, cwd=self.pkgRoot, logger=self.logger)
+        run_cmd(['./configure'] + flags, cwd=self.pkgRoot, logger=self.logger)
 
     def make_install(self, njobs=8):
-        util.run_cmd(['make', f'-j{njobs}'], cwd=self.pkgRoot, logger=self.logger)
-        util.run_cmd(['make', 'install'], cwd=self.pkgRoot, logger=self.logger)
+        run_cmd(['make', f'-j{njobs}'], cwd=self.pkgRoot, logger=self.logger)
+        run_cmd(['make', 'install'], cwd=self.pkgRoot, logger=self.logger)
 
     def make_clean(self):
-        util.run_cmd(['make', 'clean'], cwd=self.pkgRoot, logger=self.logger)
+        run_cmd(['make', 'clean'], cwd=self.pkgRoot, logger=self.logger)
+
+
+def create_apple_iconset(master, iconset):
+    iconset_dir = osp.join(f'/{get_platform_tmp_dir()}/icons/icon.iconset')
+    os.makedirs(iconset_dir, exist_ok=True)
+    sizes = ('16', '16@2x', '32', '32@2x', '128', '128@2x', '256', '256@2x', '512')
+    for sz in sizes:
+        comps = sz.split('@')
+        sz = comps[0]
+        actual_size = str(2*int(sz)) if (has_sep := len(comps) > 1) else sz
+        suffix = f'{sz}x{sz}@2x' if has_sep else f'{sz}x{sz}'
+        run_cmd(['sips', '-z', actual_size, actual_size, master, '--out', osp.abspath(f'{iconset_dir}/icon_{suffix}.png')])
+    copy_file(master, osp.abspath(f'{iconset_dir}/icon_512x512@2x.png'))
+    run_cmd(['iconutil', '-c', 'icns', iconset_dir, '-o', iconset])
+    shutil.rmtree(iconset_dir, ignore_errors=True)
 
 
 def _test():
