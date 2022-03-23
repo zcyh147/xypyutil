@@ -1798,7 +1798,7 @@ class Autotools:
         run_cmd(['make', 'clean'], cwd=self.pkgRoot, logger=self.logger)
 
 
-def create_apple_iconset(master, iconset):
+def build_apple_iconset(master, iconset):
     iconset_dir = osp.join(f'/{get_platform_tmp_dir()}/icons/icon.iconset')
     os.makedirs(iconset_dir, exist_ok=True)
     sizes = ('16', '16@2x', '32', '32@2x', '128', '128@2x', '256', '256@2x', '512')
