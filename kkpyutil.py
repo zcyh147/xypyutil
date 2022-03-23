@@ -1784,6 +1784,10 @@ class Autotools:
         self.pkgRoot = pkgroot
         self.logger = logger
 
+    def init(self):
+        install_by_homebrew('autoconf', lazybin='/usr/local/bin/autoreconf')
+        install_by_homebrew('automake', lazybin='/usr/local/bin/automake')
+
     def autogen(self):
         run_cmd(['./autogen.sh'], cwd=self.pkgRoot, logger=self.logger)
 
