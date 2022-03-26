@@ -31,7 +31,6 @@ import os
 import os.path as osp
 import types
 from os.path import abspath, basename, dirname, expanduser, exists, isfile, join, splitext
-# from pprint import pprint, pformat
 import platform
 import plistlib
 import pprint as pp
@@ -1812,7 +1811,9 @@ class Autotools:
         run_cmd(['make', 'clean'], cwd=self.pkgRoot, logger=self.logger)
 
 
-def build_apple_iconset(master, iconset):
+def build_iconset(master, iconset):
+    if platform.system() != 'Darwin':
+        raise NotImplementedError('Runs on macOS only.')
     iconset_dir = osp.join(f'/{get_platform_tmp_dir()}/icons/icon.iconset')
     os.makedirs(iconset_dir, exist_ok=True)
     sizes = ('16', '16@2x', '32', '32@2x', '128', '128@2x', '256', '256@2x', '512')
@@ -1827,7 +1828,153 @@ def build_apple_iconset(master, iconset):
     shutil.rmtree(iconset_dir, ignore_errors=True)
 
 
+def deploy_dylib(target, exeprefix='', logger=None):
+    """
+    Prepare .dylibs for macOS app deployment
+    - recursively find all dependencies of a target binary executable or lib
+    - replace build-time prefix with user-supplied string for all dependencies
+    - replace dylib's own id with user-provided prefix
+    """
+    class Binary:
+        """
+        a binary file having dependencies
+        """
+        analyzer = None
+        fixer = None
+        exec = None
+
+        def __init__(self, binary, prefix='', parent=None):
+            self.src = binary
+            self.dst = None
+            self.deps = None
+            self.logger = logger
+            base = '@executable_path'
+            # CAUTION
+            # - prefix is to be embedded into binaries
+            # - input prefix is relative to @executable_path
+            # - input may already start with a build-time base
+            prefix = prefix.lstrip(base).lstrip(os.sep)
+            self.prefix = join(base, prefix)
+            self.refs = [parent] if parent else []
+            if not parent:
+                Binary.exec = osp.split(abspath(self.src))[0]
+                self.logger.info('Root binary: {}'.format(self.src))
+            if Binary.exec:
+                dest_dir = join(Binary.exec,
+                                prefix.lstrip(base).lstrip(os.sep))
+                os.makedirs(dest_dir, exist_ok=True)
+                self.dst = join(dest_dir, osp.split(self.src)[1])
+                # copy to prefix location first to preserve embedded src paths
+                if self.src != self.dst:
+                    shutil.copy(self.src, dest_dir)
+                    self.logger.debug('src binary copied: {} => {}'.format(
+                        self.src, dest_dir))
+
+        def analyze_deps(self):
+            """
+            - get 1st-order dependencies
+            - save
+            """
+            proc = run_cmd([Binary.analyzer, '-L', self.src])
+            dep_lines = proc.stdout.decode(TXT_CODEC).split('\n\t')[1:]
+            deps = [line.strip() for line in dep_lines]
+            # remove ' (compatibility ...)' suffix from dependency line
+            deps = list(map(lambda d: d[:d.find(' (compatibility version')], deps))
+            deps = list(map(lambda d: d[:start] if (start := d.find(' (architecture')) >= 0 else d, deps))
+            self.logger.debug('Dependency report:\n{}'.format(pp.pformat(deps, indent=2)))
+            # remove sys deps: they are not shipped and should be ignored
+            whitelist = ['/System/Library', '/usr/']
+            deps = list(filter(
+                lambda d: all([not d.startswith(path) for path in whitelist]),
+                deps))
+            self.logger.debug('Libs to fix:\n{}'.format(pp.pformat(deps, indent=2)))
+            # CAUTION: avoid pollution from already-fixed @executable_path prefix
+            if not self.deps:
+                self.deps = deps
+                self.logger.debug('dependencies parsed for: {}'.format(self.src))
+            else:
+                self.logger.debug('skipped redundant dependency parsing')
+            # TODO: report {raw, sys-rm'ed, preserved}
+            return deps  # always return latest analytical result
+
+        def fix_deps(self):
+            """
+            recursively fix paths for deps with global prefix:
+            - install-dependent dylib search path
+            - don't update deps with prefix, cuz we must trace build-time paths
+            """
+            for dep in self.deps:
+                deployed = join(self.prefix, osp.split(dep)[1])
+                run_cmd([Binary.fixer, '-change', dep, deployed, self.dst])
+
+        def fix_self(self):
+            """
+            fix dylib path with global prefix: install-dependent dylib search path
+            """
+            if not splitext(self.src)[1] == '.dylib':
+                self.logger.debug('skip fixing non-lib binary: {}'.format(self.src))
+                return False
+            # copy src libs to dst to avoid polluting src libs
+            # - translate prefix if it starts with @executable_path
+            assert self.dst is not None
+            deployed = join(self.prefix, osp.split(self.src)[1])
+            run_cmd([Binary.fixer, '-id', deployed, self.dst])
+
+        def report(self):
+            if self.dst is None:
+                raise RuntimeError('dst  unset, possibly due to '
+                                   'invalid Binary.exec')
+            proc = run_cmd([Binary.analyzer, '-L', self.dst])
+            _logger.info('Report: {}\n{}'.format(self.dst,
+                                                 '\n\t'.join(proc.stdout.decode(
+                                                     TXT_CODEC).split(
+                                                     '\n\t'))
+                                                 ))
+
+    def _find_deps_recursive(my_bin, bins):
+        """
+        recursively find input binary's dependencies
+        :param my_bin: input binary as the root
+        :param bins: dict to save all binaries and their deps for fixing them next
+        :return:
+        """
+        if not isinstance(my_bin, Binary):
+            raise TypeError('Input binary must be a Binary type')
+        if is_leaf := not my_bin.analyze_deps():
+            return False
+        parent = copy.deepcopy(my_bin)
+        bins[parent.src] = parent
+        for child in parent.deps:
+            if child == parent.src:
+                continue
+            logger.debug('found child: {} of {}'.format(child, parent.src))
+            cbin = Binary(child, parent=parent)
+            _find_deps_recursive(cbin, bins)
+        return True
+
+    if not osp.isfile(target):
+        raise FileNotFoundError(f'Missing target: {target}')
+    logger = logger if logger else logging.getLogger('DeployDylibs')
+    install_name_tool = shutil.which('install_name_tool')
+    otool = shutil.which('otool')
+    if not install_name_tool or not otool:
+        raise FileNotFoundError(f'Missing install_name_tool or otool. Install Xcode and toolchain first')
+    bins = {}
+    Binary.analyzer = otool
+    Binary.fixer = install_name_tool
+    root = Binary(target, prefix=exeprefix)
+    if _find_deps_recursive(root, bins):
+        logger.info('dependency recursively parsed')
+    for key in bins:
+        bins[key].fix_deps()
+    for key in bins:
+        bins[key].fix_self()
+    for key in bins:
+        bins[key].report()
+
+
 def _test():
+    deploy_dylib(target='/Users/kakyo/Desktop/_tmp/output/mam-host', exeprefix='@executable_path')
     pass
 
 
