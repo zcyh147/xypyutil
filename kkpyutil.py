@@ -1811,9 +1811,13 @@ class Autotools:
         run_cmd(['make', 'clean'], cwd=self.pkgRoot, logger=self.logger)
 
 
+def validate_platform(plat):
+    if platform.system() != plat:
+        raise NotImplementedError(f'Runs on {plat} only.')
+
+
 def build_iconset(master, iconset):
-    if platform.system() != 'Darwin':
-        raise NotImplementedError('Runs on macOS only.')
+    validate_platform('Darwin')
     iconset_dir = osp.join(f'/{get_platform_tmp_dir()}/icons/icon.iconset')
     os.makedirs(iconset_dir, exist_ok=True)
     sizes = ('16', '16@2x', '32', '32@2x', '128', '128@2x', '256', '256@2x', '512')
@@ -1828,153 +1832,166 @@ def build_iconset(master, iconset):
     shutil.rmtree(iconset_dir, ignore_errors=True)
 
 
-def deploy_dylib(target, exeprefix='', logger=None):
+def fix_dylib_dependencies(target, rootprefix='', logger=None):
     """
-    Prepare .dylibs for macOS app deployment
+    prepare .dylibs for macOS app deployment
+    - pre-condition: all the fixing must happen at the dst locations, i.e., requiring pre-deployment
+    - this is because the fixing requires src libs to exist and maintains old embedded paths
     - recursively find all dependencies of a target binary executable or lib
     - replace build-time prefix with user-supplied string for all dependencies
     - replace dylib's own id with user-provided prefix
     """
-    class Binary:
+    class DynLinked:
         """
-        a binary file having dependencies
+        a predeployed binary file having dependencies to fix for runtime execution
         """
         analyzer = None
         fixer = None
-        exec = None
+        execPath = None  # physical runtime exec folder
+        syslibPrefixes = ['/System/Library', '/usr/']
 
-        def __init__(self, binary, prefix='', parent=None):
-            self.src = binary
-            self.dst = None
+        def __init__(self, binary, prefix='@executable_path', parent=None):
+            assert osp.isabs(binary), f'not an absolute path: {binary}'
+            self.buildtimeSrc = binary
+            self.runtimeDst = None
             self.deps = None
             self.logger = logger
-            base = '@executable_path'
             # CAUTION
             # - prefix is to be embedded into binaries
-            # - input prefix is relative to @executable_path
+            # - input prefix must be relative to @executable_path, e.g., @executable_path/libs
             # - input may already start with a build-time base
-            prefix = prefix.lstrip(base).lstrip(os.sep)
-            self.prefix = join(base, prefix)
-            self.refs = [parent] if parent else []
-            if not parent:
-                Binary.exec = osp.split(abspath(self.src))[0]
-                self.logger.info('Root binary: {}'.format(self.src))
-            if Binary.exec:
-                dest_dir = join(Binary.exec,
-                                prefix.lstrip(base).lstrip(os.sep))
+            runtime_base_tag = '@executable_path'
+            # prefix must start with '@executable_path'
+            self.prefix = prefix.rstrip(os.sep) if prefix.startswith(runtime_base_tag) else osp.join(runtime_base_tag, prefix.strip(os.sep))
+            # must supply this to fixer for all dylibs
+            self.ref = parent
+            if is_root := not self.ref:
+                # root binary is our target, no need to decorate
+                self.runtimeDst = binary
+                DynLinked.execPath = osp.split(osp.abspath(self.runtimeDst))[0]
+                self.logger.info(f'Root aka. target binary: {self.runtimeDst}')
+            if DynLinked.execPath:
+                # this path may not exist yet
+                # @executable_path/relative/to/my.dylib
+                dest_dir = osp.join(DynLinked.execPath, relpath_to_exepath := osp.relpath(prefix, runtime_base_tag).strip(os.sep))
                 os.makedirs(dest_dir, exist_ok=True)
-                self.dst = join(dest_dir, osp.split(self.src)[1])
-                # copy to prefix location first to preserve embedded src paths
-                if self.src != self.dst:
-                    shutil.copy(self.src, dest_dir)
-                    self.logger.debug('src binary copied: {} => {}'.format(
-                        self.src, dest_dir))
+                if not is_root:
+                    self.runtimeDst = osp.join(dest_dir, bin_filename := osp.split(self.buildtimeSrc)[1])
 
-        def analyze_deps(self):
+        def extract_direct_deps(self):
             """
-            - get 1st-order dependencies
-            - save
+            - get 1st-order dependencies using otool -L
             """
-            proc = run_cmd([Binary.analyzer, '-L', self.src])
-            dep_lines = proc.stdout.decode(TXT_CODEC).split('\n\t')[1:]
-            deps = [line.strip() for line in dep_lines]
-            # remove ' (compatibility ...)' suffix from dependency line
+            # all deps of a leaf binary are system libs and so their deps are empty
+            if sys_lib := not osp.isfile(self.buildtimeSrc):
+                return []
+            # CAUTION:
+            # - install_name_tool requires source binaries to exist at their embedded src paths
+            # - so we must copy all the src bins to prefix location (dst) first to preserve embedded src paths
+            if not osp.isfile(self.runtimeDst):
+                copy_file(self.buildtimeSrc, self.runtimeDst, isdstdir=False)
+            proc = run_cmd([DynLinked.analyzer, '-L', self.runtimeDst])
+            list_head_lineno = 1
+            deps = [line.strip() for line in self._extract_deps(proc.stdout)[list_head_lineno:]]
+            # remove suffixes from dependency line
             deps = list(map(lambda d: d[:d.find(' (compatibility version')], deps))
             deps = list(map(lambda d: d[:start] if (start := d.find(' (architecture')) >= 0 else d, deps))
-            self.logger.debug('Dependency report:\n{}'.format(pp.pformat(deps, indent=2)))
-            # remove sys deps: they are not shipped and should be ignored
-            whitelist = ['/System/Library', '/usr/']
-            deps = list(filter(
-                lambda d: all([not d.startswith(path) for path in whitelist]),
-                deps))
-            self.logger.debug('Libs to fix:\n{}'.format(pp.pformat(deps, indent=2)))
-            # CAUTION: avoid pollution from already-fixed @executable_path prefix
+            # bypass:
+            # - sys deps: they are not shipped and should be ignored
+            # - self: it requires a different cmd to fix, dylib only
+            to_bypass = list(filter(lambda d: any([d.startswith(path) for path in DynLinked.syslibPrefixes + [self.buildtimeSrc]]), deps))
+            deps = list(set(deps).difference(to_bypass))
             if not self.deps:
                 self.deps = deps
-                self.logger.debug('dependencies parsed for: {}'.format(self.src))
             else:
-                self.logger.debug('skipped redundant dependency parsing')
-            # TODO: report {raw, sys-rm'ed, preserved}
+                self.logger.info('Deps exist. Skipped to avoid pollution from already-fixed @executable_path prefix')
+            self.logger.info(f"""Dependencies found for {self.buildtimeSrc}:
+System and self (bypassed):
+{pp.pformat(to_bypass, indent=2)}
+Application (fixable) :
+{pp.pformat(deps, indent=2)}""")
             return deps  # always return latest analytical result
 
         def fix_deps(self):
             """
-            recursively fix paths for deps with global prefix:
+            recursively fix deps' paths with global prefix:
             - install-dependent dylib search path
-            - don't update deps with prefix, cuz we must trace build-time paths
             """
+            assert osp.isfile(self.runtimeDst)
             for dep in self.deps:
-                deployed = join(self.prefix, osp.split(dep)[1])
-                run_cmd([Binary.fixer, '-change', dep, deployed, self.dst])
+                assert dep.endswith('.dylib')
+                distributable = osp.join(self.prefix, osp.split(dep)[1])
+                run_cmd([DynLinked.fixer, '-change', dep, distributable, dep_ref := self.runtimeDst])
+                # breakpoint()
 
         def fix_self(self):
             """
-            fix dylib path with global prefix: install-dependent dylib search path
+            - The first line of otool output is the binary itself.
+            - It requires a unique way of fixing
             """
-            if not splitext(self.src)[1] == '.dylib':
-                self.logger.debug('skip fixing non-lib binary: {}'.format(self.src))
-                return False
-            # copy src libs to dst to avoid polluting src libs
+            # copy src libs to dst in advance to avoid polluting src libs while iterating
             # - translate prefix if it starts with @executable_path
-            assert self.dst is not None
-            deployed = join(self.prefix, osp.split(self.src)[1])
-            run_cmd([Binary.fixer, '-id', deployed, self.dst])
+            assert osp.isfile(self.runtimeDst)
+            distributable = osp.join(self.prefix, fn := osp.split(self.buildtimeSrc)[1])
+            # rename parent dir
+            run_cmd([DynLinked.fixer, '-id', distributable, self.runtimeDst])
 
         def report(self):
-            if self.dst is None:
-                raise RuntimeError('dst  unset, possibly due to '
-                                   'invalid Binary.exec')
-            proc = run_cmd([Binary.analyzer, '-L', self.dst])
-            _logger.info('Report: {}\n{}'.format(self.dst,
-                                                 '\n\t'.join(proc.stdout.decode(
-                                                     TXT_CODEC).split(
-                                                     '\n\t'))
-                                                 ))
+            if sys_lib := not osp.isfile(self.runtimeDst):
+                return
+            proc = run_cmd([DynLinked.analyzer, '-L', self.runtimeDst])
+            logger.info(f'fixed for {self.runtimeDst}:\n{proc.stdout.decode(TXT_CODEC)}')
 
-    def _find_deps_recursive(my_bin, bins):
+        def _extract_deps(self, otoolout):
+            return otoolout.decode(TXT_CODEC).split('\n\t')
+
+    def _collect_deps_tree(my_bin, io_allbins, prefix):
         """
         recursively find input binary's dependencies
         :param my_bin: input binary as the root
-        :param bins: dict to save all binaries and their deps for fixing them next
+        :param io_allbins: dict to save all binaries and their deps for fixing them next
         :return:
         """
-        if not isinstance(my_bin, Binary):
-            raise TypeError('Input binary must be a Binary type')
-        if is_leaf := not my_bin.analyze_deps():
+        if not isinstance(my_bin, DynLinked):
+            raise TypeError('Input binary must be a DynLinked type')
+        if exit_at_leaf := not my_bin.extract_direct_deps():
             return False
         parent = copy.deepcopy(my_bin)
-        bins[parent.src] = parent
+        io_allbins[parent.buildtimeSrc] = parent
         for child in parent.deps:
-            if child == parent.src:
+            if skip_self := child == parent.buildtimeSrc:
                 continue
-            logger.debug('found child: {} of {}'.format(child, parent.src))
-            cbin = Binary(child, parent=parent)
-            _find_deps_recursive(cbin, bins)
+            if already_fixed := child.startswith(prefix):
+                continue
+            logger.debug(f'Found child: {child} of {parent.buildtimeSrc}')
+            cbin = DynLinked(child, parent=parent)
+            _collect_deps_tree(cbin, io_allbins, prefix)
         return True
-
+    validate_platform('Darwin')
     if not osp.isfile(target):
         raise FileNotFoundError(f'Missing target: {target}')
+    target = osp.abspath(target)
+    if osp.isabs(rootprefix):
+        raise ValueError(f'Expected prefix to be relative path or @executable_path, got absolute: {rootprefix}')
     logger = logger if logger else logging.getLogger('DeployDylibs')
-    install_name_tool = shutil.which('install_name_tool')
-    otool = shutil.which('otool')
-    if not install_name_tool or not otool:
+    DynLinked.fixer = shutil.which('install_name_tool')
+    DynLinked.analyzer = shutil.which('otool')
+    if not DynLinked.fixer or not DynLinked.analyzer:
         raise FileNotFoundError(f'Missing install_name_tool or otool. Install Xcode and toolchain first')
-    bins = {}
-    Binary.analyzer = otool
-    Binary.fixer = install_name_tool
-    root = Binary(target, prefix=exeprefix)
-    if _find_deps_recursive(root, bins):
+    all_bins = {}
+    root = DynLinked(target, prefix=rootprefix)
+    if _collect_deps_tree(root, all_bins, prefix=rootprefix):
         logger.info('dependency recursively parsed')
-    for key in bins:
-        bins[key].fix_deps()
-    for key in bins:
-        bins[key].fix_self()
-    for key in bins:
-        bins[key].report()
+    for key in all_bins:
+        all_bins[key].fix_deps()
+    # CAUTION: must fix all deps before fixing self
+    for key in all_bins:
+        all_bins[key].fix_self()
+    for key in all_bins:
+        all_bins[key].report()
 
 
 def _test():
-    deploy_dylib(target='/Users/kakyo/Desktop/_tmp/output/mam-host', exeprefix='@executable_path')
     pass
 
 
