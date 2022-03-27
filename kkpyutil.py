@@ -123,6 +123,37 @@ class BandPassLogFilter(object):
         return self.__levelbounds[0] <= log.levelno <= self.__levelbounds[1]
 
 
+def get_platform_home_dir():
+    plat = platform.system()
+    if plat == 'Windows':
+        return os.getenv('USERPROFILE')
+    elif plat == 'Darwin':
+        return osp.expanduser('~/')
+    elif plat == 'Linux':
+        return osp.expanduser('~/')
+    raise NotImplementedError(f'unsupported platform: {plat}')
+
+
+def get_platform_appdata_dir(winroam=True):
+    plat = platform.system()
+    if plat == 'Windows':
+        return os.getenv('APPDATA' if winroam else 'LOCALAPPDATA')
+    elif plat == 'Darwin':
+        return osp.expanduser('~/Library/Application Support')
+    raise NotImplementedError(f'unsupported platform: {plat}')
+
+
+def get_platform_tmp_dir():
+    plat = platform.system()
+    if plat == 'Windows':
+        return join(os.getenv('LOCALAPPDATA'), 'Temp')
+    elif plat == 'Darwin':
+        return join(expanduser('~'), 'Library', 'Caches')
+    elif plat == 'Linux':
+        return '/tmp'
+    raise NotImplementedError(f'unsupported platform: {plat}')
+
+
 def build_default_logger(logdir, name=None, cfgfile=None, verbose=False):
     """
     Create per-file logger and output to shared log file.
@@ -135,7 +166,7 @@ def build_default_logger(logdir, name=None, cfgfile=None, verbose=False):
     :return: logger object.
     """
     os.makedirs(logdir, exist_ok=True)
-    cfg_file = cfgfile or join(_script_dir, 'logging.json')
+    cfg_file = cfgfile or osp.join(_script_dir, 'logging.json')
     try:
         if sys.version_info.major > 2:
             with open(cfg_file, 'r', encoding=TXT_CODEC,
@@ -146,10 +177,10 @@ def build_default_logger(logdir, name=None, cfgfile=None, verbose=False):
                 text = f.read()
         # Add object_pairs_hook=coll.OrderedDict hook for py3.5 and lower.
         logging_config = json.loads(text, object_pairs_hook=collections.OrderedDict)
-        logging_config['handlers']['file']['filename'] = join(logdir, logging_config['handlers']['file']['filename'])
+        logging_config['handlers']['file']['filename'] = osp.join(logdir, logging_config['handlers']['file']['filename'])
     except Exception:
         filename = name or basename(basename(logdir.strip('\\/')))
-        log_path = join(logdir, '{}.log'.format(filename))
+        log_path = osp.join(logdir, '{}.log'.format(filename))
         logging_config = {
             "version": 1,
             "disable_existing_loggers": False,
@@ -217,13 +248,13 @@ def build_default_logger(logdir, name=None, cfgfile=None, verbose=False):
     return logging.getLogger(name or 'default')
 
 
-_logger = build_default_logger(logdir=join(_script_dir, os.pardir, 'temp'), name=splitext(basename(__file__))[0])
+glogger = build_default_logger(logdir=osp.join(get_platform_tmp_dir(), '_util'), name='util', cfgfile=None, verbose=False)
 
 
 def catch_unknown_exception(exc_type, exc_value, exc_traceback):
     """Global exception to handle uncaught exceptions"""
     exc_info = exc_type, exc_value, exc_traceback
-    _logger.error('Unhandled exception: ', exc_info=exc_info)
+    glogger.error('Unhandled exception: ', exc_info=exc_info)
     # _logger.exception('Unhandled exception: ')  # try-except block only.
     # sys.__excepthook__(*exc_info)  # Keep commented out to avoid msg dup.
 
@@ -520,7 +551,7 @@ def get_md5_checksum(file):
     return myhash.hexdigest()
 
 
-def logprogress(msg='Task', loghook=_logger.info, errorhook=_logger.error):
+def logprogress(msg='Task', loghook=glogger.info, errorhook=glogger.error):
     def wrap(function):
         @functools.wraps(function)
         def wrapper(*args, **kwargs):
@@ -536,7 +567,7 @@ def logprogress(msg='Task', loghook=_logger.info, errorhook=_logger.error):
     return wrap
 
 
-def logcall(msg='trace', logger=_logger):
+def logcall(msg='trace', logger=glogger):
     def wrap(function):
         @functools.wraps(function)
         def wrapper(*args, **kwargs):
@@ -613,16 +644,16 @@ def execute_concurrency(worker, shared, lock, algorithm):
         - Args: worker input args
         - Result: worker returned results in order
     """
-    global _logger
+    global glogger
     # TODO: measure timeout for .join()
     if algorithm['Type'] == 'Sequential':
         results = []
         for t, task in enumerate(shared['Tasks']):
-            _logger.debug('Execute {} in order: {} of {}: {}'.format(shared['Title'], t+1, len(shared['Tasks']), task['Title']))
+            glogger.debug('Execute {} in order: {} of {}: {}'.format(shared['Title'], t + 1, len(shared['Tasks']), task['Title']))
             results.append(worker(task))
         return [result[1] for result in results]
     elif algorithm['Type'] == 'Process':
-        _logger.debug('Execute {} in pool of {} processes ...'.format(shared['Title'], algorithm['Count']))
+        glogger.debug('Execute {} in pool of {} processes ...'.format(shared['Title'], algorithm['Count']))
         #
         # Known Issue:
         # - https://bugs.python.org/issue9400
@@ -642,7 +673,7 @@ def execute_concurrency(worker, shared, lock, algorithm):
         return [result[1] for result in results]
     elif algorithm['Type'] == 'Thread':
         import concurrent.futures
-        _logger.debug('Execute {} in pool of {} threads ...'.format(shared['Title'], algorithm['Count']))
+        glogger.debug('Execute {} in pool of {} threads ...'.format(shared['Title'], algorithm['Count']))
         executor = concurrent.futures.ThreadPoolExecutor(max_workers=algorithm['Count'])
         results = executor.map(worker, shared['Tasks'])
         return [result[1] for result in results]
@@ -668,35 +699,7 @@ def profile_runs(funcname, modulefile, nruns=5):
     stats.print_stats()
 
 
-def get_platform_home_dir():
-    plat = platform.system()
-    if plat == 'Windows':
-        return os.getenv('USERPROFILE')
-    elif plat == 'Darwin':
-        return osp.expanduser('~/')
-    elif plat == 'Linux':
-        return osp.expanduser('~/')
-    raise NotImplementedError(f'unsupported platform: {plat}')
-
-
-def get_platform_appdata_dir(winroam=True):
-    plat = platform.system()
-    if plat == 'Windows':
-        return os.getenv('APPDATA' if winroam else 'LOCALAPPDATA')
-    elif plat == 'Darwin':
-        return osp.expanduser('~/Library/Application Support')
-    raise NotImplementedError(f'unsupported platform: {plat}')
-
-
-def get_platform_tmp_dir():
-    plat = platform.system()
-    if plat == 'Windows':
-        return join(os.getenv('LOCALAPPDATA'), 'Temp')
-    elif plat == 'Darwin':
-        return join(expanduser('~'), 'Library', 'Caches')
-    elif plat == 'Linux':
-        return '/tmp'
-    raise NotImplementedError(f'unsupported platform: {plat}')
+glogger = build_default_logger(osp.join(get_platform_tmp_dir(), '_util'), name='util', cfgfile=None, verbose=False)
 
 
 def write_plist_fields(cfg_file, my_map):
@@ -754,12 +757,10 @@ def convert_to_wine_path(path, drive=None):
     full_path = abspath(expanduser(path))
     home_folder = os.environ['HOME']
     if leading_homefolder := full_path.startswith(home_folder):
-        mapped_drive = 'Y:'
+        mapped_drive = drive or 'Y:'
         full_path = full_path.removeprefix(home_folder)
     else:
-        mapped_drive = 'Z:'
-    if drive:
-        mapped_drive = drive
+        mapped_drive = drive or 'Z:'
     full_path = full_path.replace('/', '\\')
     return mapped_drive + full_path
 
@@ -813,7 +814,7 @@ def match_files_except_lines(file1, file2, excluded=None):
 
 class RerunLock:
     """Lock process from reentering when seeing lock file on disk."""
-    def __init__(self, name, folder=None, logger=_logger):
+    def __init__(self, name, folder=None, logger=glogger):
         os.makedirs(folder, exist_ok=True)
         filename = f'lock_{name}.json' if name else 'lock_{}.json'.format(next(tempfile._get_candidate_names()))
         self.lockFile = osp.join(folder, filename) if folder else join(get_platform_tmp_dir(), filename)
@@ -879,7 +880,7 @@ class RerunLock:
         raise RuntimeError(msg)
 
 
-def rerun_lock(name, folder=None, logger=_logger):
+def rerun_lock(name, folder=None, logger=glogger):
     """Decorator for reentrance locking on functions"""
     def decorator(f):
         @functools.wraps(f)
@@ -998,7 +999,7 @@ def remove_from_os_paths(bindir, usesyspath=True, inmemonly=False):
     os.environ[path_var] = os.environ[path_var].replace(bindir, '')
 
 
-def run_cmd(cmd, cwd=None, logger=None, check=True, shell=False):
+def run_cmd(cmd, cwd=None, logger=None, check=True, shell=False, verbose=False):
     """
     Use shell==True with autotools where new shell is needed to treat the entire command option sequence as a command,
     e.g., shell=True means running sh -c ./configure CFLAGS="..."
@@ -1006,19 +1007,26 @@ def run_cmd(cmd, cwd=None, logger=None, check=True, shell=False):
     local_debug = logger.debug if logger else print
     local_info = logger.info if logger else print
     local_error = logger.error if logger else print
-    local_debug(f"""\
+    console_info = local_info if logger and verbose else local_debug
+    # show cmdline with or without exceptions
+    cmd_log = f"""\
 {' '.join(cmd)}
 cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
-""")
+"""
+    local_info(cmd_log)
     try:
         proc = subprocess.run(cmd, check=check, shell=shell, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
-        log = proc.stdout.decode(TXT_CODEC)
-        local_debug(log)
+        stdout_log = proc.stdout.decode(TXT_CODEC)
+        stderr_log = proc.stderr.decode(TXT_CODEC)
+        if stdout_log:
+            console_info(f'stdout:\n{stdout_log}')
+        if stderr_log:
+            local_error(f'stderr:\n{stderr_log}')
     except subprocess.CalledProcessError as e:
-        log = f'stdout: {e.stdout.decode(TXT_CODEC)}'
-        err = f'stderr: {e.stderr.decode(TXT_CODEC)}'
-        local_info(log)
-        local_error(err)
+        stdout_log = f'stdout:\n{e.stdout.decode(TXT_CODEC)}'
+        stderr_log = f'stderr:\n{e.stderr.decode(TXT_CODEC)}'
+        local_info(stdout_log)
+        local_error(stderr_log)
         raise e
     except Exception as e:
         # no need to have header, exception has it all
@@ -1475,7 +1483,7 @@ def copy_file(src, dst, isdstdir=False, keepmeta=False):
     try:
         copyfunc(src, dst)
     except shutil.SameFileError:
-        _logger.warning(f'source and destination are identical. will SKIP: {osp.abspath(src)} -> {osp.abspath(dst)}.')
+        glogger.warning(f'source and destination are identical. will SKIP: {osp.abspath(src)} -> {osp.abspath(dst)}.')
 
 
 def move_file(src, dst, isdstdir=False):
@@ -1487,7 +1495,7 @@ def move_file(src, dst, isdstdir=False):
     try:
         shutil.move(src, dst)
     except shutil.SameFileError:
-        _logger.warning(f'source and destination are identical. will SKIP: {osp.abspath(src)} -> {osp.abspath(dst)}.')
+        glogger.warning(f'source and destination are identical. will SKIP: {osp.abspath(src)} -> {osp.abspath(dst)}.')
 
 
 def compare_dirs(dir1, dir2, ignoreddirpatterns=(), ignoredfilepatterns=(), showdiff=True):
@@ -1832,7 +1840,7 @@ def build_iconset(master, iconset):
     shutil.rmtree(iconset_dir, ignore_errors=True)
 
 
-def fix_dylib_dependencies(target, rootprefix='', logger=None):
+def fix_dylib_dependencies(target, rootprefix=''):
     """
     prepare .dylibs for macOS app deployment
     - pre-condition: all the fixing must happen at the dst locations, i.e., requiring pre-deployment
@@ -1843,19 +1851,18 @@ def fix_dylib_dependencies(target, rootprefix='', logger=None):
     """
     class DynLinked:
         """
-        a predeployed binary file having dependencies to fix for runtime execution
+        a pre-deployed binary file having dependencies to fix for runtime execution
         """
         analyzer = None
         fixer = None
         execPath = None  # physical runtime exec folder
         syslibPrefixes = ['/System/Library', '/usr/']
 
-        def __init__(self, binary, prefix='@executable_path', parent=None):
-            assert osp.isabs(binary), f'not an absolute path: {binary}'
-            self.buildtimeSrc = binary
-            self.runtimeDst = None
+        def __init__(self, buildproduct, prefix='@executable_path', parent=None):
+            assert osp.isabs(buildproduct), f'Not an absolute path: {buildproduct}, parent: {parent}'
+            self.buildProduct = buildproduct
+            self.distributable = None
             self.deps = None
-            self.logger = logger
             # CAUTION
             # - prefix is to be embedded into binaries
             # - input prefix must be relative to @executable_path, e.g., @executable_path/libs
@@ -1863,34 +1870,33 @@ def fix_dylib_dependencies(target, rootprefix='', logger=None):
             runtime_base_tag = '@executable_path'
             # prefix must start with '@executable_path'
             self.prefix = prefix.rstrip(os.sep) if prefix.startswith(runtime_base_tag) else osp.join(runtime_base_tag, prefix.strip(os.sep))
-            # must supply this to fixer for all dylibs
+            # for reference only, we trace deps tree top-down from the outside
             self.ref = parent
             if is_root := not self.ref:
                 # root binary is our target, no need to decorate
-                self.runtimeDst = binary
-                DynLinked.execPath = osp.split(osp.abspath(self.runtimeDst))[0]
-                self.logger.info(f'Root aka. target binary: {self.runtimeDst}')
-            if DynLinked.execPath:
+                self.distributable = buildproduct
+                DynLinked.execPath = osp.dirname(self.distributable)
+                glogger.info(f'Root aka. target binary: {self.distributable}')
+            else:
+                assert osp.isdir(DynLinked.execPath), 'Root binary has not been processed'
                 # this path may not exist yet
                 # @executable_path/relative/to/my.dylib
                 dest_dir = osp.join(DynLinked.execPath, relpath_to_exepath := osp.relpath(prefix, runtime_base_tag).strip(os.sep))
-                os.makedirs(dest_dir, exist_ok=True)
-                if not is_root:
-                    self.runtimeDst = osp.join(dest_dir, bin_filename := osp.split(self.buildtimeSrc)[1])
+                self.distributable = osp.join(dest_dir, bin_filename := osp.split(self.buildProduct)[1])
 
         def extract_direct_deps(self):
             """
             - get 1st-order dependencies using otool -L
             """
             # all deps of a leaf binary are system libs and so their deps are empty
-            if sys_lib := not osp.isfile(self.buildtimeSrc):
+            if sys_lib := not osp.isfile(self.buildProduct):
                 return []
             # CAUTION:
             # - install_name_tool requires source binaries to exist at their embedded src paths
             # - so we must copy all the src bins to prefix location (dst) first to preserve embedded src paths
-            if not osp.isfile(self.runtimeDst):
-                copy_file(self.buildtimeSrc, self.runtimeDst, isdstdir=False)
-            proc = run_cmd([DynLinked.analyzer, '-L', self.runtimeDst])
+            if not osp.isfile(self.distributable):
+                copy_file(self.buildProduct, self.distributable, isdstdir=False)
+            proc = run_cmd([DynLinked.analyzer, '-L', self.distributable])
             list_head_lineno = 1
             deps = [line.strip() for line in self._extract_deps(proc.stdout)[list_head_lineno:]]
             # remove suffixes from dependency line
@@ -1899,13 +1905,13 @@ def fix_dylib_dependencies(target, rootprefix='', logger=None):
             # bypass:
             # - sys deps: they are not shipped and should be ignored
             # - self: it requires a different cmd to fix, dylib only
-            to_bypass = list(filter(lambda d: any([d.startswith(path) for path in DynLinked.syslibPrefixes + [self.buildtimeSrc]]), deps))
+            to_bypass = list(filter(lambda d: any([d.startswith(path) for path in DynLinked.syslibPrefixes + [self.buildProduct]]), deps))
             deps = list(set(deps).difference(to_bypass))
             if not self.deps:
                 self.deps = deps
             else:
-                self.logger.info('Deps exist. Skipped to avoid pollution from already-fixed @executable_path prefix')
-            self.logger.info(f"""Dependencies found for {self.buildtimeSrc}:
+                glogger.info('Deps exist. Skipped to avoid pollution from already-fixed @executable_path prefix')
+            glogger.info(f"""Dependencies found for {self.buildProduct}:
 System and self (bypassed):
 {pp.pformat(to_bypass, indent=2)}
 Application (fixable) :
@@ -1917,12 +1923,11 @@ Application (fixable) :
             recursively fix deps' paths with global prefix:
             - install-dependent dylib search path
             """
-            assert osp.isfile(self.runtimeDst)
+            assert osp.isfile(self.distributable)
             for dep in self.deps:
                 assert dep.endswith('.dylib')
                 distributable = osp.join(self.prefix, osp.split(dep)[1])
-                run_cmd([DynLinked.fixer, '-change', dep, distributable, dep_ref := self.runtimeDst])
-                # breakpoint()
+                run_cmd([DynLinked.fixer, '-change', dep, distributable, dep_ref := self.distributable])
 
         def fix_self(self):
             """
@@ -1931,16 +1936,16 @@ Application (fixable) :
             """
             # copy src libs to dst in advance to avoid polluting src libs while iterating
             # - translate prefix if it starts with @executable_path
-            assert osp.isfile(self.runtimeDst)
-            distributable = osp.join(self.prefix, fn := osp.split(self.buildtimeSrc)[1])
+            assert osp.isfile(self.distributable)
+            distributable = osp.join(self.prefix, fn := osp.split(self.buildProduct)[1])
             # rename parent dir
-            run_cmd([DynLinked.fixer, '-id', distributable, self.runtimeDst])
+            run_cmd([DynLinked.fixer, '-id', distributable, self.distributable])
 
         def report(self):
-            if sys_lib := not osp.isfile(self.runtimeDst):
+            if sys_lib := not osp.isfile(self.distributable):
                 return
-            proc = run_cmd([DynLinked.analyzer, '-L', self.runtimeDst])
-            logger.info(f'fixed for {self.runtimeDst}:\n{proc.stdout.decode(TXT_CODEC)}')
+            proc = run_cmd([DynLinked.analyzer, '-L', self.distributable])
+            glogger.info(f'fixed for {self.distributable}:\n{proc.stdout.decode(TXT_CODEC)}')
 
         def _extract_deps(self, otoolout):
             return otoolout.decode(TXT_CODEC).split('\n\t')
@@ -1957,14 +1962,15 @@ Application (fixable) :
         if exit_at_leaf := not my_bin.extract_direct_deps():
             return False
         parent = copy.deepcopy(my_bin)
-        io_allbins[parent.buildtimeSrc] = parent
+        io_allbins[parent.buildProduct] = parent
         for child in parent.deps:
-            if skip_self := child == parent.buildtimeSrc:
+            if cyclic_refs := child == parent.buildProduct:
                 continue
-            if already_fixed := child.startswith(prefix):
+            if already_fixed := child.startswith(prefix) or child.startswith('@executable_path'):
+                glogger.debug(f'Already fixed by other exec: {child}, ref: {parent.buildProduct}; Skipped')
                 continue
-            logger.debug(f'Found child: {child} of {parent.buildtimeSrc}')
-            cbin = DynLinked(child, parent=parent)
+            glogger.debug(f'Found child: {child} of {parent.buildProduct}')
+            cbin = DynLinked(child, prefix=prefix, parent=parent)
             _collect_deps_tree(cbin, io_allbins, prefix)
         return True
     validate_platform('Darwin')
@@ -1973,7 +1979,6 @@ Application (fixable) :
     target = osp.abspath(target)
     if osp.isabs(rootprefix):
         raise ValueError(f'Expected prefix to be relative path or @executable_path, got absolute: {rootprefix}')
-    logger = logger if logger else logging.getLogger('DeployDylibs')
     DynLinked.fixer = shutil.which('install_name_tool')
     DynLinked.analyzer = shutil.which('otool')
     if not DynLinked.fixer or not DynLinked.analyzer:
@@ -1981,7 +1986,7 @@ Application (fixable) :
     all_bins = {}
     root = DynLinked(target, prefix=rootprefix)
     if _collect_deps_tree(root, all_bins, prefix=rootprefix):
-        logger.info('dependency recursively parsed')
+        glogger.info('dependency recursively parsed')
     for key in all_bins:
         all_bins[key].fix_deps()
     # CAUTION: must fix all deps before fixing self
@@ -1989,6 +1994,20 @@ Application (fixable) :
         all_bins[key].fix_self()
     for key in all_bins:
         all_bins[key].report()
+
+
+def codesign(binary, identity=None, overwrite=True):
+    """
+    identity looks like: e.g., "Apple Development: me@email.com (IDIDIDIDID)"
+    """
+    validate_platform('Darwin')
+    run_cmd(['security', 'find-identity', '-v', '-p', 'codesigning'])
+    if overwrite:
+        run_cmd(['codesign', '--remove-signature', binary])
+    # -v with feedback
+    run_cmd(['codesign', '-s', identity, '-v', binary])
+    # gatekeeper validation
+    run_cmd(['spctl', '-a', '-t', 'exec', '-vv', binary])
 
 
 def _test():
