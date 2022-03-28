@@ -1826,6 +1826,11 @@ def validate_platform(plat):
         raise NotImplementedError(f'Runs on {plat} only.')
 
 
+def build_ico(master, ico, size='256x256'):
+    cmd = ['magick', master, '-background', 'none', '-resize', size, '-density', size, ico]
+    run_cmd(cmd)
+
+
 def build_iconset(master, iconset):
     validate_platform('Darwin')
     iconset_dir = osp.join(f'/{get_platform_tmp_dir()}/icons/icon.iconset')
