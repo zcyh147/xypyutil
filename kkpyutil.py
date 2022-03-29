@@ -2082,6 +2082,16 @@ def build_dmg(masterdir, resdir='', dmg='', name=''):
     run_cmd(cmd)
 
 
+def build_xcodeproj(proj, scheme, config='Debug', sdk='macosx'):
+    cmd = ['xcodebuild', '-project', proj, '-scheme', scheme, '-sdk', sdk, '-configuration', config, 'build']
+    run_cmd(cmd)
+
+
+def clean_xcodeproj(proj, scheme, config='Debug', sdk='macosx'):
+    cmd = ['xcodebuild', '-project', proj, '-scheme', scheme, '-sdk', sdk, '-configuration', config, 'clean']
+    run_cmd(cmd)
+
+
 def _test():
     pass
 
