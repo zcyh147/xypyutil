@@ -1826,7 +1826,7 @@ class CMake:
         self.cmakelistsDir = cmakelistsdir
         self.buildDir = builddir
         self.logger = logger
-        self.cmake = 'cmake' if platform.system() == 'Windows' else '/usr/local/bin/cmake'
+        self.cmake = shutil.which('cmake')
 
     def configure(self, prefix=None, config='Debug', builddll=True, opts=()):
         cmd = [self.cmake,
