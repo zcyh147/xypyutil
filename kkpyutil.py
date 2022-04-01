@@ -1796,6 +1796,7 @@ class Autotools:
     def __init__(self, pkgroot, logger=None):
         self.pkgRoot = pkgroot
         self.logger = logger
+        self.make = shutil.which('make')
 
     def init(self):
         install_by_homebrew('autoconf', lazybin='/usr/local/bin/autoreconf')
@@ -1814,11 +1815,11 @@ class Autotools:
         run_cmd([' '.join(compiler_flags + ['./configure'] + list(opts))], shell=True, cwd=self.pkgRoot, logger=self.logger)
 
     def make_install(self, njobs=8):
-        run_cmd(['make', f'-j{njobs}'], cwd=self.pkgRoot, logger=self.logger)
-        run_cmd(['make', 'install'], cwd=self.pkgRoot, logger=self.logger)
+        run_cmd([self.make, f'-j{njobs}'], cwd=self.pkgRoot, logger=self.logger)
+        run_cmd([self.make, 'install'], cwd=self.pkgRoot, logger=self.logger)
 
     def make_clean(self):
-        run_cmd(['make', 'clean'], cwd=self.pkgRoot, logger=self.logger)
+        run_cmd([self.make, 'clean'], cwd=self.pkgRoot, logger=self.logger)
 
 
 class CMake:
