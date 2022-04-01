@@ -1821,6 +1821,35 @@ class Autotools:
         run_cmd(['make', 'clean'], cwd=self.pkgRoot, logger=self.logger)
 
 
+class CMake:
+    def __init__(self, cmakelistsdir, builddir, logger=None):
+        self.cmakelistsDir = cmakelistsdir
+        self.buildDir = builddir
+        self.logger = logger
+        self.cmake = 'cmake' if platform.system() == 'Windows' else '/usr/local/cmake'
+
+    def configure(self, prefix=None, config='Debug', builddll=True, opts=()):
+        cmd = [self.cmake,
+               '-LAH',  # see all cmake options
+               f'-DCMAKE_BUILD_TYPE={config}',
+               f'-DBUILD_SHARED_LIBS={"ON" if builddll else "OFF"}',
+               ]
+        if prefix:
+            cmd += [f'-DCMAKE_INSTALL_PREFIX={prefix}']
+        cmd += list(opts)
+        cmd += [self.cmakelistsDir]
+        run_cmd(cmd, cwd=self.buildDir)
+
+    def build(self, gnumake=True):
+        job_flag = ['-j8'] if gnumake else []
+        cmd = [self.cmake, '--build', '.', '--target', 'install'] + job_flag
+        run_cmd(cmd, cwd=self.buildDir)
+
+    def clean(self):
+        cmd = [self.cmake, '--build', '.', '--target', 'clean']
+        run_cmd(cmd, cwd=self.buildDir)
+
+
 def validate_platform(plat):
     if platform.system() != plat:
         raise NotImplementedError(f'Runs on {plat} only.')
@@ -1847,7 +1876,7 @@ def build_iconset(master, iconset):
     shutil.rmtree(iconset_dir, ignore_errors=True)
 
 
-def fix_dylib_dependencies(target, rootprefix=''):
+def fix_dylib_dependencies(target, rootprefix='@executable_path'):
     """
     prepare .dylibs for macOS app deployment
     - pre-condition: all the fixing must happen at the dst locations, i.e., requiring pre-deployment
