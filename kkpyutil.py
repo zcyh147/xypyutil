@@ -1387,32 +1387,11 @@ def zip_dir(srcdir, dstbasename=None):
     """
     zip the entire folder into a zip file under the same parent folder.
     """
-    def _zip_dir_windows(sdir, dstbn):
-        src_par, src_name = osp.split(sdir)
-        if not dstbn:
-            dstbn = src_name
-        elif dstbn != src_name:
-            dst_dir = osp.join(src_par, dstbn)
-            duplicate_dir(sdir, dst_dir)
-        out_file = osp.join(src_par, dstbn + '.zip')
-        cmd = ['tar', '-cf', out_file, '-C', src_par, dstbn]
-        run_cmd(cmd, src_par)
-
-    def _zip_dir_macos(sdir, dstbn):
-        src_par, src_name = osp.split(sdir)
-        rename_option = []
-        if not dstbn:
-            dstbn = src_name
-        elif dstbn != src_name:
-            rename_option = ['-s', f'/^{src_name}/{dstbn}/']
-        out_file = osp.join(src_par, dstbn + '.zip')
-        cmd = ['tar', '-czf', out_file, '--exclude', '.DS_Store', '--exclude', '*/__MACOSX'] + rename_option + ['-C', src_par, f'{src_name.strip(os.path.sep)}/']
-        run_cmd(cmd, src_par)
-
-    if platform.system() == 'Windows':
-        _zip_dir_windows(srcdir, dstbasename)
-        return
-    _zip_dir_macos(srcdir, dstbasename)
+    src_par, src_name = osp.split(srcdir)
+    dstbn = dstbasename or src_name
+    out_zip = osp.join(src_par, dstbn)
+    shutil.make_archive(out_zip, format='zip', root_dir=src_par, base_dir=src_name)
+    return out_zip
 
 
 def unzip_dir(srcball, destpardir):
