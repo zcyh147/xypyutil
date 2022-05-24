@@ -1394,25 +1394,28 @@ def zip_dir(srcdir, dstbasename=None):
     return out_zip
 
 
-def unzip_dir(srcball, destpardir):
+def unzip_dir(srcball, destpardir=None):
     """
     assume srcball has a top-level folder "product".
     unzip to destpardir/product.
     """
     ext = osp.splitext(srcball)[1]
+    fmt = None
     if ext == '.zip':
-        untar_option = '-xf' if platform.system() == 'Windows' else '-xzf'
-        os.makedirs(destpardir, exist_ok=True)
-        cmd = ['tar', untar_option, srcball, '-C', destpardir]
-        run_cmd(cmd, destpardir)
-        return
-    elif ext == '.xz':
-        import tarfile
-        os.makedirs(destpardir, exist_ok=True)
-        with tarfile.open(srcball) as f:
-            f.extractall(destpardir)
-        return
-    raise NotImplementedError(f'Unsupported zip type: {ext}')
+        fmt = 'zip'
+    elif ext == '.tar':
+        fmt = 'tar'
+    elif ext in ('.xz', '.xzip', '.txz'):
+        fmt = 'xztar'
+    elif ext in ('.gz', '.gzip', '.tgz'):
+        fmt = 'gztar'
+    elif ext in ('.bz', '.bzip', '.tbz'):
+        fmt = 'bztar'
+    else:
+        raise ValueError(f'Only support zip, tar, gztar, bztar, xztar; got unknown file {ext}')
+    if destpardir is None:
+        destpardir = osp.dirname(srcball)
+    shutil.unpack_archive(srcball, extract_dir=destpardir, format=fmt)
 
 
 def duplicate_dir(srcdir, dstdir):
