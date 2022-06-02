@@ -1018,15 +1018,15 @@ cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
     local_info(cmd_log)
     try:
         proc = subprocess.run(cmd, check=check, shell=shell, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
-        stdout_log = proc.stdout.decode(TXT_CODEC)
-        stderr_log = proc.stderr.decode(TXT_CODEC)
+        stdout_log = proc.stdout.decode(TXT_CODEC, errors='backslashreplace')
+        stderr_log = proc.stderr.decode(TXT_CODEC, errors='backslashreplace')
         if stdout_log:
             console_info(f'stdout:\n{stdout_log}')
         if stderr_log:
             local_error(f'stderr:\n{stderr_log}')
     except subprocess.CalledProcessError as e:
-        stdout_log = f'stdout:\n{e.stdout.decode(TXT_CODEC)}'
-        stderr_log = f'stderr:\n{e.stderr.decode(TXT_CODEC)}'
+        stdout_log = f'stdout:\n{e.stdout.decode(TXT_CODEC, errors="backslashreplace")}'
+        stderr_log = f'stderr:\n{e.stderr.decode(TXT_CODEC, errors="backslashreplace")}'
         local_info(stdout_log)
         local_error(stderr_log)
         raise e
@@ -1049,8 +1049,8 @@ cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
         proc = subprocess.Popen(cmd, shell=shell, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
         # won't be able to retrieve log from background
     except subprocess.CalledProcessError as e:
-        local_info(f'stdout: {e.stdout.decode(TXT_CODEC)}')
-        local_error(f'stderr: {e.stderr.decode(TXT_CODEC)}')
+        local_info(f'stdout: {e.stdout.decode(TXT_CODEC, errors="backslashreplace")}')
+        local_error(f'stderr: {e.stderr.decode(TXT_CODEC, errors="backslashreplace")}')
         raise e
     except Exception as e:
         local_error(e)
