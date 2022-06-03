@@ -1706,7 +1706,7 @@ def load_lines(path, rmlineend=False):
     return lines
 
 
-def save_lines(path, lines, toappend=False, addlineend=True, style='posix'):
+def save_lines(path, lines, toappend=False, addlineend=False, style='posix'):
     if isinstance(lines, str):
         lines = [lines]
     lines_to_write = copy.deepcopy(lines)
