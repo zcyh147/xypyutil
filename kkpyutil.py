@@ -1377,6 +1377,14 @@ def substitute_lines_between_cues(inserts, iolines, startcue, endcue, startlinen
     return rg_inserted
 
 
+def substitute_lines_in_file(inserts, file, startcue, endcue, startlineno=0, removecues=False, withindent=True, useappend=False, skipdups=False):
+    """inserts don't have lineends"""
+    lines = load_lines(file)
+    rg_inserted = substitute_lines_between_cues(inserts, lines, startcue, endcue, startlineno, removecues, withindent, useappend, skipdups)
+    save_lines(file, lines)
+    return rg_inserted
+
+
 def substitute_lines_between_keywords(lines, file, opkey, edkey, startlineno=0, withindent=True, useappend=False, skipdups=False):
     """
     - lazy-append line-ends to input lines
