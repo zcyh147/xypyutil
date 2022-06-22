@@ -1091,6 +1091,47 @@ cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
     return proc
 
 
+def run_prompt(cmd, cwd=None, logger=None, check=True, shell=False, verbose=False):
+    """
+    Use shell==True with autotools where new shell is needed to treat the entire command option sequence as a command,
+    e.g., shell=True means running sh -c ./configure CFLAGS="..."
+    """
+    local_debug = logger.debug if logger else print
+    local_info = logger.info if logger else print
+    local_error = logger.error if logger else print
+    console_info = local_info if logger and verbose else local_debug
+    # show cmdline with or without exceptions
+    cmd_log = f"""\
+{' '.join(cmd)}
+cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
+"""
+    local_info(cmd_log)
+    try:
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
+        stdout_proxy = ChildPromptProxy(proc.stdout)
+        stderr_proxy = ChildPromptProxy(proc.stderr)
+        stdout_proxy.start()
+        stderr_proxy.start()
+        proc.wait()
+        stdout_log = stdout_proxy.log.decode(TXT_CODEC, errors='backslashreplace')
+        stderr_log = stderr_proxy.log.decode(TXT_CODEC, errors='backslashreplace')
+        if stdout_log:
+            console_info(f'stdout:\n{stdout_log}')
+        if stderr_log:
+            local_error(f'stderr:\n{stderr_log}')
+    except subprocess.CalledProcessError as e:
+        stdout_log = f'stdout:\n{e.stdout.decode(TXT_CODEC, errors="backslashreplace")}'
+        stderr_log = f'stderr:\n{e.stderr.decode(TXT_CODEC, errors="backslashreplace")}'
+        local_info(stdout_log)
+        local_error(stderr_log)
+        raise e
+    except Exception as e:
+        # no need to have header, exception has it all
+        local_error(e)
+        raise e
+    return proc
+
+
 def extract_call_args(file, caller, callee):
     """
     - only support literal args
