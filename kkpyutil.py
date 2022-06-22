@@ -59,6 +59,39 @@ MAIN_CFG_FILENAME = 'app.json'
 DEFAULT_CFG_FILENAME = 'default.json'
 
 
+class ChildPromptProxy(threading.Thread):
+    """
+    When calling a subprocess that prompts for user input, transfer interaction to parent process to avoid indefinite blocking.
+    Thread which reads byte-by-byte from the input stream and writes it to the
+    standard out.
+    Example:
+        p = subprocess.Popen(cmd_that_prompts, stdout=subprocess.PIPE)
+        r = LivePrinter(p.stdout)
+        r.start()
+        p.wait()
+    """
+    def __init__(self, stream):
+        self.stream = stream
+        self.log = bytearray()
+        super().__init__()
+
+    def run(self):
+        while True:
+            # read one byte from the stream
+            buf = self.stream.read(1)
+
+            # break if end of file reached
+            if len(buf) == 0:
+                break
+
+            # save output to internal log
+            self.log.extend(buf)
+
+            # write and flush to main standard output
+            sys.stdout.buffer.write(buf)
+            sys.stdout.flush()
+
+
 class SingletonDecorator:
     """
     Decorator to build Singleton class, single-inheritance only.
