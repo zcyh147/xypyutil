@@ -618,40 +618,33 @@ def logcall(msg='trace', logger=glogger):
     return wrap
 
 
-def organize_concurrency(ntasks, nprocs=None, useio=False):
+class ParallelWorker:
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def main(self):
+        pass
+
+
+def init_concurrency(ntasks, nworkers=None, useio=False):
     """
     Suggest concurrency approach based on tasks and number of processes.
     - Use Processes when processes are few or having I/O tasks.
     - Use Pool for many processes or no I/O.
     - Use sequential when tasks are
     :param ntasks: number of total tasks.
-    :param nprocs: number of processes, None means to let algorithm decide.
+    :param nworkers: number of processes, None means to let algorithm decide.
     :param useio: are we I/O-bound?
     :return: dict of all needed parameters.
     """
     if ntasks <= 1:
-        return {'Type': 'Sequential'}
+        return types.SimpleNamespace(type='Sequential', workerCount=1)
 
-    # manual process allocation
-    if not nprocs:
-        nprocs = multiprocessing.cpu_count()
-
-    # io-bound
-    if useio:
-        nprocs = 10
-        return {
-            'Type': 'Thread',
-            'Count': nprocs
-        }
-
-    # cpu-bound
-    # # brute-force schedule
-    # tasks_per_proc = int(math.floor(float(ntasks) / float(nprocs)))
-    # ranges = [(i * tasks_per_proc, (i + 1) * tasks_per_proc if i < nprocs - 1 else ntasks) for i in range(nprocs)]
-    return {
-        'Type': 'Process',
-        'Count': nprocs
-    }
+    # max out cores but don't take all them all
+    if not nworkers:
+        nworkers = 10 if useio else multiprocessing.cpu_count() - 1
+    concurrency_type = 'Thread' if useio else 'Process'
+    return types.SimpleNamespace(type='Thread', workerCount=nworkers)
 
 
 def ranged_worker(worker, rg, shared, lock):
@@ -2176,6 +2169,12 @@ def build_xcodeproj(proj, scheme, config='Debug', sdk='macosx'):
 def clean_xcodeproj(proj, scheme, config='Debug', sdk='macosx'):
     cmd = ['xcodebuild', '-project', proj, '-scheme', scheme, '-sdk', sdk, '-configuration', config, 'clean']
     run_cmd(cmd)
+
+
+def touch(file, withmtime=True):
+    with open(file, 'a'):
+        if withmtime:
+            os.utime(file, None)
 
 
 def _test():
