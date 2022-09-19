@@ -918,7 +918,11 @@ def rerun_lock(name, folder=None, logger=glogger):
                 my_lock = RerunLock(name, folder, logger)
                 if not my_lock.lock():
                     return 1
-                ret = f(*args, **kwargs)
+                try:
+                    ret = f(*args, **kwargs)
+                except KeyboardInterrupt as e:
+                    my_lock.unlock()
+                    raise e
                 my_lock.unlock()
             except Exception as e:
                 my_lock.unlock()
@@ -1370,50 +1374,11 @@ def substitute_lines_between_cues(inserts, iolines, startcue, endcue, startlinen
     return rg_inserted
 
 
-def substitute_lines_between_keywords(lines, file, opkey, edkey, startlineno=0, withindent=True, useappend=False, skipdups=False):
-    """
-    - lazy-append line-ends to input lines
-    - lazy-create list if input lines is a string (a single line)
-    - smart-indent lines according to tag indentation
-    - optimize with search range slicing
-    - returns original indices
-    """
-    warnings.warn(deprecate_log('substitute_lines_between_cues()'), DeprecationWarning, stacklevel=2)
-    lines = [lines] if isinstance(lines, str) else lines
-    lines = [line if line.endswith('\n') else f'{line}\n' for line in lines]
-    with open(file) as fp:
-        all_lines = fp.readlines()
-    selected_lines = all_lines[startlineno:] if startlineno > 0 else all_lines
-    # find range
-    rg_insert = [None, None]
-    startln = next((li for li, line in enumerate(selected_lines) if line.strip().startswith(opkey)), None)
-    if startln is None:
-        return rg_insert
-    endln = next((li for li, line in enumerate(selected_lines[startln:]) if line.strip().startswith(edkey)), None)
-    if endln is None:
-        return startlineno+startln, None
-    # back to all lines with offset applied
-    startln += startlineno
-    endln += startln
-    if withindent:
-        indent = all_lines[startln].find(opkey)
-        indent_by_spaces = 0
-        for idt in range(indent):
-            indent_by_spaces += 4 if all_lines[startln][idt] == '\t' else 1
-        assert indent_by_spaces >= 0
-        lines = ['{}{}'.format(' '*indent_by_spaces, line) for line in lines]
-    # remove duplicates
-    lines_to_insert = all_lines[startln+1: endln] + lines if useappend else lines
-    if skipdups:
-        lines_to_insert = list(dict.fromkeys(lines_to_insert))
-    # remove lines in b/w
-    has_lines_between_keywords = endln - startln > 1
-    if has_lines_between_keywords:
-        del all_lines[startln+1: endln]
-    all_lines[startln+1: startln+1] = lines_to_insert
-    with open(file, 'w') as fp:
-        fp.writelines(all_lines)
-    rg_inserted = [startln, startln+len(lines_to_insert)]
+def substitute_lines_in_file(inserts, file, startcue, endcue, startlineno=0, removecues=False, withindent=True, useappend=False, skipdups=False):
+    """inserts don't have lineends"""
+    lines = load_lines(file)
+    rg_inserted = substitute_lines_between_cues(inserts, lines, startcue, endcue, startlineno, removecues, withindent, useappend, skipdups)
+    save_lines(file, lines)
     return rg_inserted
 
 
@@ -1426,7 +1391,15 @@ def convert_compound_cases(snake_text, style='pascal'):
         return snake_text.upper()
     if style == 'kebab':
         return snake_text.replace('_', '-')
-    out_text = [s.capitalize() for s in snake_text.split('_')]
+    split_strs = snake_text.split('_')
+    # if input is one-piece, then we preserve its middle chars' cases
+    # to avoid str.capitalize() turning a string into Titlecase
+    if len(split_strs) == 1:
+        out_text = split_strs
+        leading = out_text[0][0].lower() if style == 'camel' else out_text[0][0].upper()
+        out_text[0] = leading +  out_text[0][1:]
+        return out_text[0]
+    out_text = [s.capitalize() for s in split_strs]
     if style == 'camel':
         out_text[0] = out_text[0].lower()
     return ''.join(out_text)
