@@ -1392,12 +1392,16 @@ def convert_compound_cases(snake_text, style='pascal'):
     if style == 'kebab':
         return snake_text.replace('_', '-')
     split_strs = snake_text.split('_')
+    if style == 'title':
+        return ' '.join([part.title() for part in split_strs])
+    if style == 'phrase':
+        return ' '.join(split_strs)
     # if input is one-piece, then we preserve its middle chars' cases
     # to avoid str.capitalize() turning a string into Titlecase
     if len(split_strs) == 1:
         out_text = split_strs
         leading = out_text[0][0].lower() if style == 'camel' else out_text[0][0].upper()
-        out_text[0] = leading +  out_text[0][1:]
+        out_text[0] = leading + out_text[0][1:]
         return out_text[0]
     out_text = [s.capitalize() for s in split_strs]
     if style == 'camel':
