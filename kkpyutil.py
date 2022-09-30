@@ -2154,10 +2154,13 @@ def touch(file, withmtime=True):
             os.utime(file, None)
 
 
-def lazy_load_listfile(single_or_listfile: str, listext='.list') -> list:
-    if is_listfile := fnmatch.fnmatch(single_or_listfile, f'*{listext}'):
+def lazy_load_listfile(single_or_listfile: str, ext='.list'):
+    """
+    we don't force return type-hint to be -> list for reusing args.path str
+    """
+    if is_listfile := fnmatch.fnmatch(single_or_listfile, f'*{ext}'):
         if not osp.isfile(single_or_listfile):
-            raise FileNotFoundError(f'Missing list file ({listext}): {single_or_listfile}')
+            raise FileNotFoundError(f'Missing list file ({ext}): {single_or_listfile}')
         return load_lines(single_or_listfile, rmlineend=True)
     single_item = single_or_listfile
     return [single_item]
