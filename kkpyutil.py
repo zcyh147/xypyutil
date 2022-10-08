@@ -1137,6 +1137,8 @@ def extract_call_args(file, caller, callee):
     def get_kwarg_value_by_type(kwarg):
         if isinstance(kwarg.value, ast.Constant):
             return kwarg.value.value
+        elif negative_num := isinstance(kwarg.value, ast.UnaryOp) and isinstance(kwarg.value.op, ast.USub):
+            return -kwarg.value.operand.value
         elif isinstance(kwarg.value, ast.Name):
             return kwarg.value.id
         elif isinstance(kwarg.value, (ast.List, ast.Tuple)):
