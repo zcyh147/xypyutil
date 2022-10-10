@@ -163,9 +163,9 @@ def get_platform_home_dir():
     if plat == 'Windows':
         return os.getenv('USERPROFILE')
     elif plat == 'Darwin':
-        return osp.expanduser('~/')
+        return osp.expanduser('~')
     elif plat == 'Linux':
-        return osp.expanduser('~/')
+        return osp.expanduser('~')
     raise NotImplementedError(f'unsupported platform: {plat}')
 
 
@@ -181,18 +181,17 @@ def get_platform_appdata_dir(winroam=True):
 def get_platform_tmp_dir():
     plat = platform.system()
     if plat == 'Windows':
-        return join(os.getenv('LOCALAPPDATA'), 'Temp')
+        return osp.join(os.getenv('LOCALAPPDATA'), 'Temp')
     elif plat == 'Darwin':
-        return join(expanduser('~'), 'Library', 'Caches')
+        return osp.join(osp.expanduser('~'), 'Library', 'Caches')
     elif plat == 'Linux':
         return '/tmp'
     raise NotImplementedError(f'unsupported platform: {plat}')
 
 
-def build_default_logger(logdir, name=None, cfgfile=None, verbose=False):
+def build_default_logger(logdir, name=None, verbose=False):
     """
     Create per-file logger and output to shared log file.
-    - If found config file under script folder, use it;
     - Otherwise use default config: save to /project_root/project_name.log.
     - 'filename' in config is a filename; must prepend folder path to it.
     :logdir: directory the log file is saved into.
@@ -201,89 +200,78 @@ def build_default_logger(logdir, name=None, cfgfile=None, verbose=False):
     :return: logger object.
     """
     os.makedirs(logdir, exist_ok=True)
-    cfg_file = cfgfile or osp.join(_script_dir, 'logging.json')
-    try:
-        if sys.version_info.major > 2:
-            with open(cfg_file, 'r', encoding=TXT_CODEC,
-                      errors='backslashreplace', newline=None) as f:
-                text = f.read()
-        else:
-            with open(cfg_file, 'rU') as f:
-                text = f.read()
-        # Add object_pairs_hook=coll.OrderedDict hook for py3.5 and lower.
-        logging_config = json.loads(text, object_pairs_hook=collections.OrderedDict)
-        logging_config['handlers']['file']['filename'] = osp.join(logdir, logging_config['handlers']['file']['filename'])
-    except Exception:
-        filename = name or basename(basename(logdir.strip('\\/')))
-        log_path = osp.join(logdir, '{}.log'.format(filename))
-        logging_config = {
-            "version": 1,
-            "disable_existing_loggers": False,
-            "filters": {
-                "info_lpf": {
-                  "()": "kkpyutil.LowPassLogFilter",
-                  "level": 10 if verbose else 20,
-                },
-                "info_bpf": {
-                  "()": "kkpyutil.BandPassLogFilter",
-                  "levelbounds": [10, 20] if verbose else [20, 20],
-                },
-                "warn_hpf": {
-                  "()": "kkpyutil.HighPassLogFilter",
-                  "level": 30
-                }
+    filename = name or osp.basename(osp.basename(logdir.strip('\\/')))
+    log_path = osp.join(logdir, f'{filename}.log')
+    logging_config = {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "filters": {
+            "info_lpf": {
+              "()": "kkpyutil.LowPassLogFilter",
+              "level": 10 if verbose else 20,
             },
-            "formatters": {
+            "info_bpf": {
+              "()": "kkpyutil.BandPassLogFilter",
+              "levelbounds": [10, 20] if verbose else [20, 20],
+            },
+            "warn_hpf": {
+              "()": "kkpyutil.HighPassLogFilter",
+              "level": 30
+            }
+        },
+        "formatters": {
+            "console": {
+                "format": "%(asctime)s: %(levelname)s: %(module)s: %(lineno)d: \n%(message)s\n"
+            },
+            "file": {
+                "format": "%(asctime)s: %(levelname)s: %(pathname)s: %(lineno)d: \n%(message)s\n"
+            }
+        },
+        "handlers": {
                 "console": {
-                    "format": "%(asctime)s: %(levelname)s: %(module)s: %(lineno)d: \n%(message)s\n"
+                    "level": "DEBUG" if verbose else "INFO",
+                    "formatter": "console",
+                    "class": "logging.StreamHandler",
+                    "stream": "ext://sys.stdout",
+                    "filters": ["info_bpf"]
+                },
+                "console_err": {
+                    "level": "WARN",
+                    "formatter": "console",
+                    "class": "logging.StreamHandler",
+                    "stream": "ext://sys.stderr",
+                    "filters": ["warn_hpf"]
                 },
                 "file": {
-                    "format": "%(asctime)s: %(levelname)s: %(pathname)s: %(lineno)d: \n%(message)s\n"
-                }
-            },
-            "handlers": {
-                    "console": {
-                        "level": "DEBUG" if verbose else "INFO",
-                        "formatter": "console",
-                        "class": "logging.StreamHandler",
-                        "stream": "ext://sys.stdout",
-                        "filters": ["info_bpf"]
-                    },
-                    "console_err": {
-                        "level": "WARN",
-                        "formatter": "console",
-                        "class": "logging.StreamHandler",
-                        "stream": "ext://sys.stderr",
-                        "filters": ["warn_hpf"]
-                    },
-                    "file": {
-                        "level": "DEBUG",
-                        "formatter": "file",
-                        "class": "logging.FileHandler",
-                        "encoding": "utf-8",
-                        "filename": log_path
-                    }
-            },
-            "loggers": {
-                "": {
-                    "handlers": ["console", "console_err", "file"],
-                    "level": "INFO",
-                    "propagate": True
-                },
-                "default": {
-                    "handlers": ["console", "console_err", "file"],
                     "level": "DEBUG",
-                    "propagate": False
+                    "formatter": "file",
+                    "class": "logging.FileHandler",
+                    "encoding": "utf-8",
+                    "filename": log_path
                 }
+        },
+        "loggers": {
+            "": {
+                "handlers": ["console", "console_err", "file"],
+                "level": "INFO",
+                "propagate": True
+            },
+            "default": {
+                "handlers": ["console", "console_err", "file"],
+                "level": "DEBUG",
+                "propagate": False
             }
         }
+    }
     if name:
         logging_config['loggers'][name] = logging_config['loggers']['default']
     logging.config.dictConfig(logging_config)
+    # breakpoint()
     return logging.getLogger(name or 'default')
 
 
-glogger = build_default_logger(logdir=osp.join(get_platform_tmp_dir(), '_util'), name='util', cfgfile=None, verbose=False)
+glogger = build_default_logger(logdir=osp.join(get_platform_tmp_dir(), '_util'), name='util', verbose=False)
+glogger.setLevel(logging.DEBUG)
 
 
 def catch_unknown_exception(exc_type, exc_value, exc_traceback):
@@ -343,22 +331,17 @@ def build_logger(srcpath, logpath=None):
     return logger
 
 
-def format_error_message(situation, expected, got, suggestions, action):
-    return '{}.\n\tExpected: {};\n\tGot: {};\n\tSuggestions: {};\n\tAction: {}.'.format(situation, expected, got, suggestions, action)
+def format_error_message(situation, expected, got, advice, reaction):
+    return f"""\
+{situation}:
+- Expected: {expected}
+- Got: {got}
+- Advice: {advice}
+- Reaction: {reaction}"""
 
 
-def is_cli_mode(argv):
-    """Use CLI mode if found command line options."""
-    return len(argv) > 1
-
-
-def is_gui_mode(argv):
-    """Use GUI mode if no command line options are found."""
-    return len(argv) == 1  # no command line options, so run GUI.
-
-
-def is_multiline(text):
-    return len(text.strip().split('\n')) > 1
+def is_multiline_text(text, lineend='\n'):
+    return len(text.strip().split(lineend)) > 1
 
 
 def is_python3():
@@ -413,133 +396,11 @@ def save_json(path, config):
             json.dump(config, f, ensure_ascii=False, indent=4)
 
 
-def parse_args_config(argv, app_info):
-    """
-    Argrument parser for config-based controls.
-    :param argv: sys.argv;
-    :param app_info: {'Script': /path/to/script, 'Task': for what,
-    'Version': __version__};
-    :return: argument parsed.
-    """
-    name = 'python {}'.format(app_info['Script'])
-    script_dir = abspath(dirname(app_info['Script']))
-    cfg_file = abspath(join(script_dir, MAIN_CFG_FILENAME))
-    default_cfg_file = join(script_dir, DEFAULT_CFG_FILENAME)
-    desc = """
-{}
-
-Parameters are defined in config files in app folder.
-App folder has exactly one pair of config files.
-    - app.json: used with -c option under CLI mode, and under GUI mode.
-          Control values are saved here on launch.
-    - default.json: used as fallback config and for resetting GUI.
-                    It should be updated sparingly by user.
-    """.format(app_info['Task'])
-
-    epilog = """
-examples:
-
-# Run under command line (CLI) mode using main config file
-python -c {}
-
-# Run under CLI mode using specified config file
-python -C /path/to/myconfig.json {}
-
-# Run under GUI mode
-python {} 
-or use shell integration, e.g., Explorer or Finder.
-        """.format(app_info['Script'], app_info['Script'], app_info['Script'])
-    parser = argparse.ArgumentParser(
-        prog=name,
-        description=desc,
-        add_help=True,
-        epilog=epilog,
-        formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument(
-        '-v',
-        '--version',
-        action='version',
-        version='%(prog)s {}'.format(app_info['Version'])
-    )
-    parser.add_argument(
-        '-c',
-        '--commandline',
-        action='store_true',
-        default=False,
-        help='Run in command line mode (CLI) with main config if set.'
-    )
-    parser.add_argument(
-        '-C',
-        '--config',
-        # nargs=1,   # CAUTION: Ignore narg, otherwise you get a list.
-        action='store',
-        dest='cfg_file',
-        default=cfg_file,
-        help='Path to config file, default to {} .'.format(default_cfg_file))
-    # CLI logging is quiet; log file is verbose.
-    parser.add_argument(
-        '-V',
-        '--verbose',
-        action='store_true',
-        dest='verbose',
-        default=False,
-        help='Use verbose logging if true, otherwise quiet, default to False.'
-    )
-
-    # CAUTION:
-    # Must ignore argv[0], i.e., script name,
-    # to avoid "error: unrecognized arguments: test.py"
-    return parser.parse_args(argv[1:])
-
-
-def query_yes_no(question, default=True):
-    """Ask a yes/no question via standard input and return the answer.
-
-    If invalid input is given, the user will be asked until
-    they acutally give valid input.
-
-    Args:
-        question(str):
-            A question that is presented to the user.
-        default(bool|None):
-            The default value when enter is pressed with no value.
-            When None, there is no default value and the query
-            will loop.
-    Returns:
-        A bool indicating whether user has entered yes or no.
-
-    Side Effects:
-        Blocks program execution until valid input(y/n) is given.
-    """
-    input_ = input
-    yes_list = ['yes', 'y']
-    no_list = ['no', 'n']
-
-    default_dict = {  # default => prompt default string
-        None: '[y/n]',
-        True: '[Y/n]',
-        False: '[y/N]',
-    }
-
-    default_str = default_dict[default]
-    prompt_str = '{}\n{}'.format(question, default_str) \
-        if question else '{}'.format(default_str)
-
-    while True:
-        choice = input_(prompt_str).lower()
-
-        if not choice and default is not None:
-            return default
-        if choice in yes_list:
-            return True
-        if choice in no_list:
-            return False
-
-        notification_str = "Please type in 'y' or 'n'"
-        print(notification_str)
-
-
 def trace_calls_and_returns(frame, event, arg):
+    """
+    track hook for function calls. Usage:
+    sys.settrace(trace_calls)
+    """
     co = frame.f_code
     func_name = co.co_name
     if func_name == 'write':
@@ -548,28 +409,11 @@ def trace_calls_and_returns(frame, event, arg):
     line_no = frame.f_lineno
     filename = co.co_filename
     if event == 'call':
-        print('* Call to {} on line {} of {}'.format(
-            func_name, line_no, filename))
+        print(f'* Call to {func_name} on line {line_no} of {filename}')
         return trace_calls_and_returns
     elif event == 'return':
-        print('* {} => {}'.format(func_name, arg))
+        print(f'* {func_name} => {arg}')
     return
-
-
-def threaded_main(target, daemon=True):
-    """
-    Run main task without blocking GUI for realtime apps.
-    Assume:
-    - parameters are from config file.
-    - no thread communication.
-    :param target: main function.
-    :param daemon: True if backend must finish work after GUI quits.
-    :return:
-    """
-    thread = threading.Thread(target=target,
-                              args=([sys.argv[0], '-c'],),
-                              daemon=daemon)
-    thread.start()
 
 
 def get_md5_checksum(file):
@@ -586,34 +430,22 @@ def get_md5_checksum(file):
     return myhash.hexdigest()
 
 
-def logprogress(msg='Task', loghook=glogger.info, errorhook=glogger.error):
-    def wrap(function):
-        @functools.wraps(function)
-        def wrapper(*args, **kwargs):
-            loghook("Progress: Start {} ...".format(msg))
-            try:
-                response = function(*args, **kwargs)
-            except Exception as error:
-                errorhook("Function '{}' raised {} with error '{}'.".format(function.__name__, error.__class__.__name__, str(error)))
-                raise error
-            loghook("Progress: Done.")
-            return response
-        return wrapper
-    return wrap
-
-
 def logcall(msg='trace', logger=glogger):
+    """
+    decorator for tracing app-domain function calls. Usage
+        @logcall(msg='my task', logger=my_logger)
+        def my_func():
+           ...
+    - only shows enter/exit
+    - can be interrupted by exceptions
+    """
     def wrap(function):
         @functools.wraps(function)
         def wrapper(*args, **kwargs):
-            logger.debug("Calling function '{}' with args={} kwargs={}: {}.".format(function.__name__, args, kwargs, msg))
-            try:
-                response = function(*args, **kwargs)
-            except Exception as error:
-                logger.error("Function '{}' raised {} with error '{}'.".format(function.__name__, error.__class__.__name__, str(error)))
-                raise error
-            logger.debug("Function '{}' returned {}.".format(function.__name__, response))
-            return response
+            logger.debug(f"Enter: '{function.__name__}' <= args={args}, kwargs={kwargs}: {msg}")
+            ret = function(*args, **kwargs)
+            logger.debug(f"Exit: '{function.__name__}' => {ret}")
+            return ret
         return wrapper
     return wrap
 
@@ -725,9 +557,6 @@ def profile_runs(funcname, modulefile, nruns=5):
     # in the function
     stats.sort_stats('cumulative')
     stats.print_stats()
-
-
-glogger = build_default_logger(osp.join(get_platform_tmp_dir(), '_util'), name='util', cfgfile=None, verbose=False)
 
 
 def write_plist_fields(cfg_file, my_map):
