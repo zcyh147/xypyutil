@@ -94,3 +94,31 @@ def test_get_md5_checksum():
     assert util.get_md5_checksum(valid_file) == '7a3beb0af03d4afff89f8a69c70a87c0'
 
 
+def test_substitute_keywords():
+    str_map = {
+        'var': 'foo',
+    }
+    text = """
+变量 : %(var)s
+Escape : %%
+Variable in text: %(var)siable
+"""
+    assert util.substitute_keywords(text, str_map) == """
+变量 : foo
+Escape : %
+Variable in text: fooiable
+"""
+    str_map = {
+        'var': 'foo',
+        '%%': '$$'
+    }
+    text = """
+变量 : %(var)s
+Escape : %%
+Variable in text: %(var)siable
+"""
+    assert util.substitute_keywords(text, str_map, useliteral=True) == """
+变量 : %(foo)s
+Escape : $$
+Variable in text: %(foo)siable
+"""

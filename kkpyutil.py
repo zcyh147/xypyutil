@@ -541,25 +541,25 @@ def execute_concurrency(worker, shared, lock, algorithm):
 
 
 def profile_runs(funcname, modulefile, nruns=5):
-    module_name = splitext(basename(modulefile))[0]
-    stats_dir = join(abspath(dirname(modulefile)), 'stats')
+    module_name = osp.splitext(osp.basename(modulefile))[0]
+    stats_dir = osp.abspath(f'{osp.dirname(modulefile)}/stats')
     os.makedirs(stats_dir, exist_ok=True)
-    for i in range(nruns):
-        stats_file = join(stats_dir, 'profile_{}_{}.pstats.log'.format(funcname, i))
-        profile.runctx('import {}; print({}, {}.{}())'.format(module_name, i, module_name, funcname), globals(), locals(), stats_file)
+    for r in range(nruns):
+        stats_file = osp.abspath(f'{stats_dir}/profile_{funcname}_{r}.pstats.log')
+        profile.runctx('import {}; print({}, {}.{}())'.format(module_name, r, module_name, funcname), globals(), locals(), stats_file)
     # Read all 5 stats files into a single object
-    stats = pstats.Stats(join(stats_dir, 'profile_{}_0.pstats.log'.format(funcname)))
-    for i in range(1, nruns):
-        stats.add(join(stats_dir, 'profile_{}_{}.pstats.log'.format(funcname, i)))
+    stats = pstats.Stats(osp.abspath(f'{stats_dir}/profile_{funcname}_0.pstats.log'))
+    for r in range(1, nruns):
+        stats.add(osp.abspath(f'{stats_dir}/profile_{funcname}_{r}.pstats.log'))
     # Clean up filenames for the report
     stats.strip_dirs()
-    # Sort the statistics by the cumulative time spent
-    # in the function
+    # Sort the statistics by the cumulative time spent in the function
     stats.sort_stats('cumulative')
     stats.print_stats()
+    return stats
 
 
-def write_plist_fields(cfg_file, my_map):
+def save_plist(cfg_file, my_map):
     with open(cfg_file, 'rb') as fp:
         plist = plistlib.load(fp, fmt=plistlib.FMT_XML)
     plist.update(my_map)
@@ -571,13 +571,22 @@ def substitute_keywords_in_file(file, str_map, useliteral=False):
     with open(file) as f:
         original = f.read()
         if not useliteral:
-            updated = original % str_map 
+            updated = original % str_map
         else:
             updated = original
             for src, dest in str_map.items():
                 updated = updated.replace(src, dest)
     with open(file, 'w') as f:
         f.write(updated)
+
+
+def substitute_keywords(text, str_map, useliteral=False):
+    if not useliteral:
+        return text % str_map
+    updated = text
+    for src, dest in str_map.items():
+        updated = updated.replace(src, dest)
+    return updated
 
 
 def is_uuid(text, version=4):
