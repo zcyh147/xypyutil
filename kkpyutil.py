@@ -10,18 +10,15 @@ Covering areas:
 """
 
 # Import std-modules.
-import argparse
 import collections
 import cProfile as profile
 import copy
-import dataclasses
 import difflib
 import fnmatch
 import functools
 import gettext
 import glob
 import hashlib
-import tempfile
 import json
 import locale
 import logging
@@ -30,14 +27,11 @@ import multiprocessing
 import operator
 import os
 import os.path as osp
-import time
 import types
-from os.path import abspath, basename, dirname, expanduser, exists, isfile, join, splitext
 import platform
 import plistlib
 import pprint as pp
 import pstats
-import shlex
 import shutil
 import signal
 import subprocess
@@ -46,14 +40,12 @@ import tempfile
 import threading
 import traceback
 from types import SimpleNamespace
-import uuid
-import warnings
 
 
 #
 # Globals
 #
-_script_dir = abspath(dirname(__file__))
+_script_dir = osp.abspath(osp.dirname(__file__))
 TXT_CODEC = 'utf-8'  # Importable.
 MAIN_CFG_FILENAME = 'app.json'
 DEFAULT_CFG_FILENAME = 'default.json'
@@ -292,7 +284,7 @@ def build_logger(srcpath, logpath=None):
     :param logpath: Path to log file, default to /same/dir/basename.log.
     :return: Logger object.
     """
-    src_basename = basename(srcpath)
+    src_basename = osp.basename(srcpath)
 
     # Must have to see DEBUG/INFO at all
     logging.basicConfig(level=logging.DEBUG)
@@ -314,12 +306,11 @@ def build_logger(srcpath, logpath=None):
     )
     logger.addHandler(handler)
 
-    if logpath is None:
-        logpath = join(abspath(dirname(srcpath)), 'app.log')
+    logpath = logpath or osp.abspath(f'{osp.dirname(srcpath)}/app.log')
 
     # Log file for coders: with debug messages.
-    logdir = abspath(dirname(logpath))
-    if not exists(logdir):
+    logdir = osp.abspath(osp.dirname(logpath))
+    if not osp.exists(logdir):
         os.makedirs(logdir)
     handler = logging.FileHandler(logpath)
     handler.setLevel(logging.DEBUG)
@@ -418,7 +409,7 @@ def trace_calls_and_returns(frame, event, arg):
 
 def get_md5_checksum(file):
     """Compute md5 checksum of a file."""
-    if not isfile(file):
+    if not osp.isfile(file):
         return None
     myhash = hashlib.md5()
     with open(file, 'rb') as f:
@@ -590,8 +581,9 @@ def substitute_keywords(text, str_map, useliteral=False):
 
 
 def is_uuid(text, version=4):
+    import uuid
     try:
-        _ = uuid.UUID(text, version=version)
+        uuid_obj = uuid.UUID(text, version=version)
     except ValueError:
         return False
     return True
@@ -620,7 +612,7 @@ def alert(title, content, action='Close'):
 
 
 def convert_to_wine_path(path, drive=None):
-    full_path = abspath(expanduser(path))
+    full_path = osp.abspath(osp.expanduser(path))
     home_folder = os.environ['HOME']
     if leading_homefolder := full_path.startswith(home_folder):
         mapped_drive = drive or 'Y:'
@@ -636,7 +628,7 @@ def convert_from_wine_path(path):
     if path.startswith('Z:') or path.startswith('z:'):
         return path[2:].replace('\\', '/') if len(path) > 2 else '/'
     elif path.startswith('Y:') or path.startswith('y:'):
-        return join(os.environ['HOME'], path[2:].replace('\\', '/').strip('/'))
+        return osp.join(os.environ['HOME'], path[2:].replace('\\', '/').strip('/'))
     return path
 
 
@@ -683,7 +675,7 @@ class RerunLock:
     def __init__(self, name, folder=None, logger=glogger):
         os.makedirs(folder, exist_ok=True)
         filename = f'lock_{name}.json' if name else 'lock_{}.json'.format(next(tempfile._get_candidate_names()))
-        self.lockFile = osp.join(folder, filename) if folder else join(get_platform_tmp_dir(), filename)
+        self.lockFile = osp.join(folder, filename) if folder else osp.join(get_platform_tmp_dir(), filename)
         self.logger = logger
         # CAUTION:
         # - windows grpc server crashes with signals:
@@ -987,10 +979,10 @@ def extract_call_args(file, caller, callee):
     import ast
     import importlib
     import inspect
-    mod_name = splitext(basename(file))[0]
+    mod_name = osp.splitext(osp.basename(file))[0]
     if mod_name in sys.modules:
         sys.modules.pop(mod_name)
-    sys.path.insert(0, dirname(file))
+    sys.path.insert(0, osp.dirname(file))
     mod = importlib.import_module(mod_name)
     parsed = ast.parse(inspect.getsource(mod))
     # lineno, args, keywords
@@ -1063,10 +1055,10 @@ def extract_class_attributes(file, classname):
     import ast
     import importlib
     import inspect
-    mod_name = splitext(basename(file))[0]
+    mod_name = osp.splitext(osp.basename(file))[0]
     if mod_name in sys.modules:
         sys.modules.pop(mod_name)
-    sys.path.insert(0, dirname(file))
+    sys.path.insert(0, osp.dirname(file))
     mod = importlib.import_module(mod_name)
     parsed = ast.parse(inspect.getsource(mod))
     
@@ -1079,14 +1071,14 @@ def extract_class_attributes(file, classname):
     # parse ctor
     names = [node.attr for node in ast.walk(ctor) if isinstance(node, ast.Attribute)]
     assigns = [node for node in ast.walk(ctor) if isinstance(node, (ast.AnnAssign, ast.Assign))]
-    types, values, linenos, end_linenos = [], [], [], []
+    dtypes, values, linenos, end_linenos = [], [], [], []
     for node in assigns:
         atype, avalue = _get_attr_by_type(node)
-        types.append(atype)
+        dtypes.append(atype)
         values.append(avalue)
         linenos.append(node.lineno)
         end_linenos.append(node.end_lineno)
-    attributes = [{'name': n, 'type': t, 'default': v, 'lineno': l, 'end_lineno': e} for n, t, v, l, e in zip(names, types, values, linenos, end_linenos)]
+    attributes = [{'name': n, 'type': t, 'default': v, 'lineno': l, 'end_lineno': e} for n, t, v, l, e in zip(names, dtypes, values, linenos, end_linenos)]
     if mod_name in sys.modules:
         sys.modules.pop(mod_name)
     return attributes
@@ -1099,10 +1091,10 @@ def extract_local_var_assignments(file, caller, varname):
     import ast
     import importlib
     import inspect
-    mod_name = splitext(basename(file))[0]
+    mod_name = osp.splitext(osp.basename(file))[0]
     if mod_name in sys.modules:
         sys.modules.pop(mod_name)
-    sys.path.insert(0, dirname(file))
+    sys.path.insert(0, osp.dirname(file))
     mod = importlib.import_module(mod_name)
     parsed = ast.parse(inspect.getsource(mod))
 
@@ -1132,10 +1124,10 @@ def extract_imported_modules(file):
     import ast
     import importlib
     import inspect
-    mod_name = splitext(basename(file))[0]
+    mod_name = osp.splitext(osp.basename(file))[0]
     if mod_name in sys.modules:
         sys.modules.pop(mod_name)
-    sys.path.insert(0, dirname(file))
+    sys.path.insert(0, osp.dirname(file))
     mod = importlib.import_module(mod_name)
     parsed = ast.parse(inspect.getsource(mod))
     for node in ast.walk(parsed):
@@ -1155,6 +1147,8 @@ def extract_imported_modules(file):
 
 
 def find_first_line_in_range(lines, keyword, linerange=(0,), algo='startswith'):
+    if not isinstance(lines, list):
+        raise TypeError('lines must be list[str]')
     is_bandpass = len(linerange) > 1
     if is_bandpass:
         assert linerange[1] > linerange[0]
@@ -1164,7 +1158,7 @@ def find_first_line_in_range(lines, keyword, linerange=(0,), algo='startswith'):
         'contains': lambda l, k: k in l,
     }
     subs = lines[linerange[0]: linerange[1]] if is_bandpass else lines[linerange[0]:]
-    lineno_in_between = next((l for l, line in enumerate(subs) if criteria[algo](line, keyword)), None)
+    lineno_in_between = next((ll for ll, line in enumerate(subs) if criteria[algo](line, keyword)), None)
     return lineno_in_between + linerange[0] if lineno_in_between is not None else None
 
 
