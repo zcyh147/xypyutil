@@ -19,6 +19,7 @@ import functools
 import gettext
 import glob
 import hashlib
+import importlib
 import json
 import locale
 import logging
@@ -1421,6 +1422,25 @@ def lazy_extend_sys_path(paths):
     sys.path = list(dict.fromkeys(sys.path+paths))
 
 
+def lazy_prepend_sys_path(paths):
+    sys.path = list(dict.fromkeys(paths+sys.path))
+
+
+def lazy_remove_from_sys_path(paths):
+    for path in paths:
+        try:
+            sys.path.remove(path)
+        except Exception as e:
+            pass
+
+
+def safe_import_module(mod, path, prepend=True):
+    path_hacker = lazy_prepend_sys_path if prepend else lazy_extend_sys_path
+    path_hacker([path])
+    importlib.import_module(mod)
+    lazy_remove_from_sys_path([path])
+
+
 def get_parent_dirs(file, subs=(), depth=1):
     script_dir = osp.abspath(osp.dirname(file))
     par_seq = osp.normpath('../'*depth)
@@ -1521,8 +1541,9 @@ def init_repo(srcfile, appdepth=2, repodepth=3, organization='mycompany', verbos
     assert appdepth <= repodepth
     common = types.SimpleNamespace()
     common.ancestorDirs = get_ancestor_dirs(srcfile, depth=repodepth)
-    # include repo so that import can use repo-based dot syntax
-    lazy_extend_sys_path([repo_root := common.ancestorDirs[repodepth - 1]])
+    # CAUTION:
+    # - do not include repo to sys path here
+    # - always use lazy_extend and lazy_remove
     # just have fixed initial folders to meet most needs in core and tests
     common.locDir, common.srcDir, common.tmpDir, common.testDir = get_child_dirs(app_root := common.ancestorDirs[appdepth - 1], subs=('locale', 'src', 'temp', 'test'))
     common.pubTmpDir = osp.join(get_platform_tmp_dir(), organization, osp.basename(app_root))
