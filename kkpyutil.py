@@ -1434,13 +1434,16 @@ def lazy_remove_from_sys_path(paths):
             pass
 
 
-def safe_import_module(mod, path=None, prepend=True, reload=True):
+def safe_import_module(mod, path=None, prepend=True, reload=False):
     if path:
         path_hacker = lazy_prepend_sys_path if prepend else lazy_extend_sys_path
         path_hacker([path])
     mod = importlib.import_module(mod)
     if reload:
-        importlib.reload(mod)
+        try:
+            importlib.reload(mod)
+        except ModuleNotFoundError as e:
+            glogger.error(f'reload module failed: {e}')
     if path:
         lazy_remove_from_sys_path([path])
     return mod
