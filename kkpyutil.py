@@ -1434,11 +1434,16 @@ def lazy_remove_from_sys_path(paths):
             pass
 
 
-def safe_import_module(mod, path, prepend=True):
-    path_hacker = lazy_prepend_sys_path if prepend else lazy_extend_sys_path
-    path_hacker([path])
-    importlib.import_module(mod)
-    lazy_remove_from_sys_path([path])
+def safe_import_module(mod, path=None, prepend=True, reload=True):
+    if path:
+        path_hacker = lazy_prepend_sys_path if prepend else lazy_extend_sys_path
+        path_hacker([path])
+    mod = importlib.import_module(mod)
+    if reload:
+        importlib.reload(mod)
+    if path:
+        lazy_remove_from_sys_path([path])
+    return mod
 
 
 def get_parent_dirs(file, subs=(), depth=1):
