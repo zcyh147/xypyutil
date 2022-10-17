@@ -1434,16 +1434,22 @@ def lazy_remove_from_sys_path(paths):
             pass
 
 
-def safe_import_module(mod, path=None, prepend=True, reload=False):
+def safe_import_module(modname, path=None, prepend=True, reload=False):
+    """
+    - importlib.reload(mod) does not work with dynamic import
+    - importlib.reload(mod) expects import statement's binding with __spec__ object
+    - imporlib.import_module() returns an object without __spec__
+    - so we have to remove cache by hand for reloading
+    """
     if path:
         path_hacker = lazy_prepend_sys_path if prepend else lazy_extend_sys_path
         path_hacker([path])
-    mod = importlib.import_module(mod)
     if reload:
         try:
-            importlib.reload(mod)
-        except ModuleNotFoundError as e:
+            del sys.modules[modname]
+        except KeyError as e:
             glogger.error(f'reload module failed: {e}')
+    mod = importlib.import_module(modname)
     if path:
         lazy_remove_from_sys_path([path])
     return mod
