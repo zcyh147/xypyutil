@@ -1448,7 +1448,7 @@ def safe_import_module(modname, path=None, prepend=True, reload=False):
         try:
             del sys.modules[modname]
         except KeyError as e:
-            glogger.warning(f'reload module failed: {e}')
+            glogger.debug(f'reload module failed: {e}')
     mod = importlib.import_module(modname)
     if path:
         lazy_remove_from_sys_path([path])
@@ -1563,8 +1563,7 @@ def init_repo(srcfile, appdepth=2, repodepth=3, organization='mycompany', verbos
     common.pubTmpDir = osp.join(get_platform_tmp_dir(), organization, osp.basename(app_root))
     common.stem = osp.splitext(osp.basename(srcfile))[0]
     common.logger = build_default_logger(common.tmpDir, name=common.stem, verbose=verbose)
-    if uselocale:
-        common.translator = init_translator(common.locDir)
+    common.translator = init_translator(common.locDir) if uselocale else None
     return common
 
 
