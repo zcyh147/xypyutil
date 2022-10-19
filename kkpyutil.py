@@ -1563,7 +1563,8 @@ def init_repo(srcfile, appdepth=2, repodepth=3, organization='mycompany', verbos
     common.pubTmpDir = osp.join(get_platform_tmp_dir(), organization, osp.basename(app_root))
     common.stem = osp.splitext(osp.basename(srcfile))[0]
     common.logger = build_default_logger(common.tmpDir, name=common.stem, verbose=verbose)
-    common.translator = init_translator(common.locDir) if uselocale else None
+    if uselocale:
+        common.translator = init_translator(common.locDir)
     return common
 
 
