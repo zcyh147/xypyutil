@@ -1399,6 +1399,7 @@ def pack_obj(obj, topic=None, envelope=('<KK-ENV>', '</KK-ENV>'), classes=()):
     """
     for cross-language rpc only, so no need for an unpack()
     pickle is already good enough for local transmission.
+    classes must be fully qualified class object, not from importlib.import_module()
     """
     if not topic:
         topic = type(obj).__name__
@@ -1542,7 +1543,7 @@ def show_results(succeeded, detail, advice, dryrun=False):
     print(report)
 
 
-def init_repo(srcfile, appdepth=2, repodepth=3, organization='mycompany', verbose=False, uselocale=False):
+def init_repo(srcfile, appdepth=2, repodepth=3, organization='mycompany', logname=None, verbose=False, uselocale=False):
     """
     assuming a project has a folder structure, create structure and facilities around it
     - structure example: app > subs (src, test, temp, locale, ...), where app is app root
@@ -1562,7 +1563,7 @@ def init_repo(srcfile, appdepth=2, repodepth=3, organization='mycompany', verbos
     common.locDir, common.srcDir, common.tmpDir, common.testDir = get_child_dirs(app_root := common.ancestorDirs[appdepth - 1], subs=('locale', 'src', 'temp', 'test'))
     common.pubTmpDir = osp.join(get_platform_tmp_dir(), organization, osp.basename(app_root))
     common.stem = osp.splitext(osp.basename(srcfile))[0]
-    common.logger = build_default_logger(common.tmpDir, name=common.stem, verbose=verbose)
+    common.logger = build_default_logger(common.tmpDir, name=logname if logname else common.stem, verbose=verbose)
     if uselocale:
         common.translator = init_translator(common.locDir)
     return common
