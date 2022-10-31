@@ -2036,6 +2036,25 @@ def lazy_load_listfile(single_or_listfile: str, ext='.list'):
     return [single_item]
 
 
+def is_link(path):
+    """
+    on windows
+    - osp.islink(path) always returns False
+    - os.readlink(path) throws when link itself does not exist
+    - osp.isdir(path) / osp.exists(path) returns True only when linked source is an existing dir
+    on mac
+    - osp.islink(path) returns True when link exists
+    - osp.isdir(path) / osp.exists(path) returns True only when linked source is an existing dir
+    """
+    if platform.system() == 'Windows':
+        try:
+            lnk = os.readlink(path)
+            return True
+        except FileNotFoundError:
+            return False
+    return osp.islink(path)
+
+
 def _test():
     pass
 
