@@ -1520,27 +1520,20 @@ def flatten_nested_lists(mylist):
 
 def show_results(succeeded, detail, advice, dryrun=False):
     banner = '** DRYRUN **' if dryrun else '*** SUCCEEDED ***' if succeeded else '* FAILED *'
-    advice_title = '' if not advice else 'Next:' if succeeded else 'Advice:'
-    detail_block = f'\n{detail}\n' if detail and advice else f'\n{detail}' if detail else ''
-    if detail and advice:
-        report = f"""
+    detail_title = 'Detail:'
+    detail_block = detail if detail else '- (N/A)'
+    advice_title = 'Next:' if succeeded else 'Advice:'
+    advice_block = advice if advice else '- (N/A)'
+    report = f"""
 {banner}
+
+{detail_title}
 {detail_block}
+
 {advice_title}
-{advice}"""
-    elif detail:
-        report = f"""
-{banner}
-{detail_block}"""
-    elif advice:
-        report = f"""
-{banner}
-{advice_title}
-{advice}"""
-    else:
-        report = f"""
-{banner}"""
+{advice_block}"""
     print(report)
+    return report
 
 
 def init_repo(srcfile, appdepth=2, repodepth=3, organization='mycompany', logname=None, verbose=False, uselocale=False):

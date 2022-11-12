@@ -226,3 +226,123 @@ keyword: other stuff
     with pytest.raises(TypeError):
         util.find_first_line_in_range(lines, 'keyword')
 
+
+def test_flatten_nested_lists():
+    nested = [[1, 2], [3, 4], [5, 6, 7, 8], [9]]
+    flat = util.flatten_nested_lists(nested)
+    assert flat == [1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+
+def test_show_results():
+    # full input
+    succeeded = True
+    detail = """\
+- detail 1
+- detail 2
+- detail 3"""
+    advice = """\
+- advice 1
+- advice 2
+- advice 3"""
+    dryrun = False
+    report = util.show_results(succeeded, detail, advice, dryrun)
+    assert report == """
+*** SUCCEEDED ***
+
+Detail:
+- detail 1
+- detail 2
+- detail 3
+
+Next:
+- advice 1
+- advice 2
+- advice 3"""
+
+    # no detail
+    detail = None
+    report = util.show_results(succeeded, detail, advice, dryrun)
+    assert report == """
+*** SUCCEEDED ***
+
+Detail:
+- (N/A)
+
+Next:
+- advice 1
+- advice 2
+- advice 3"""
+
+    # no advice
+    advice = None
+    report = util.show_results(succeeded, detail, advice, dryrun)
+    assert report == """
+*** SUCCEEDED ***
+
+Detail:
+- (N/A)
+
+Next:
+- (N/A)"""
+
+    # full input: failed
+    succeeded = False
+    detail = """\
+- detail 1
+- detail 2
+- detail 3"""
+    advice = """\
+- advice 1
+- advice 2
+- advice 3"""
+    report = util.show_results(succeeded, detail, advice, dryrun)
+    assert report == """
+* FAILED *
+
+Detail:
+- detail 1
+- detail 2
+- detail 3
+
+Advice:
+- advice 1
+- advice 2
+- advice 3"""
+
+    # no detail
+    detail = ''
+    report = util.show_results(succeeded, detail, advice, dryrun)
+    assert report == """
+* FAILED *
+
+Detail:
+- (N/A)
+
+Advice:
+- advice 1
+- advice 2
+- advice 3"""
+
+    # no advice
+    advice = ''
+    report = util.show_results(succeeded, detail, advice, dryrun)
+    assert report == """
+* FAILED *
+
+Detail:
+- (N/A)
+
+Advice:
+- (N/A)"""
+
+    # dryrun
+    dryrun = True
+    report = util.show_results(succeeded, detail, advice, dryrun)
+    assert report == """
+** DRYRUN **
+
+Detail:
+- (N/A)
+
+Advice:
+- (N/A)"""
