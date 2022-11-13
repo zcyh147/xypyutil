@@ -7,6 +7,8 @@ import sys
 import os
 import os.path as osp
 # 3rd party
+import types
+
 import pytest
 # project
 _script_dir = osp.abspath(osp.dirname(__file__))
@@ -346,3 +348,32 @@ Detail:
 
 Advice:
 - (N/A)"""
+
+
+def test_pack_obj():
+    # namespace
+    obj = types.SimpleNamespace(n=1, s='hello', f=9.99, l=[1, 2, 3])
+    topic = 'pkg'
+    packed = util.pack_obj(obj, topic)
+    assert packed == '<KK-ENV>{"payload": {"n": 1, "s": "hello", "f": 9.99, "l": [1, 2, 3]}, "topic": "pkg"}</KK-ENV>'
+    # custom tags
+    envelope = ('<MyEnv>', '</MyEnv>')
+    packed = util.pack_obj(obj, topic, envelope=envelope)
+    assert packed == '<MyEnv>{"payload": {"n": 1, "s": "hello", "f": 9.99, "l": [1, 2, 3]}, "topic": "pkg"}</MyEnv>'
+    # default topic
+    packed = util.pack_obj(obj)
+    assert packed == '<KK-ENV>{"payload": {"n": 1, "s": "hello", "f": 9.99, "l": [1, 2, 3]}, "topic": "SimpleNamespace"}</KK-ENV>'
+
+    # custom class
+    class MyClass:
+        def __init__(self, *args, **kwargs):
+            self.n: int = 1
+            self.s: str = 'hello'
+            self.f: float = 9.99
+            self.l: list[int] = [1, 2, 3]
+
+        def main(self):
+            pass
+    obj = MyClass()
+    packed = util.pack_obj(obj, classes=(MyClass,))
+    assert packed == '<KK-ENV>{"payload": {"n": 1, "s": "hello", "f": 9.99, "l": [1, 2, 3]}, "topic": "MyClass"}</KK-ENV>'
