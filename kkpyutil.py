@@ -978,13 +978,9 @@ def extract_call_args(file, caller, callee):
         return None
 
     import ast
-    import importlib
     import inspect
     mod_name = osp.splitext(osp.basename(file))[0]
-    if mod_name in sys.modules:
-        sys.modules.pop(mod_name)
-    sys.path.insert(0, osp.dirname(file))
-    mod = importlib.import_module(mod_name)
+    mod = safe_import_module(mod_name, osp.dirname(file))
     parsed = ast.parse(inspect.getsource(mod))
     # lineno, args, keywords
     caller_def = next((node for node in parsed.body if isinstance(node, ast.FunctionDef) and node.name == caller), None)
@@ -1054,13 +1050,9 @@ def extract_class_attributes(file, classname):
         return attr_type, attr_value
 
     import ast
-    import importlib
     import inspect
     mod_name = osp.splitext(osp.basename(file))[0]
-    if mod_name in sys.modules:
-        sys.modules.pop(mod_name)
-    sys.path.insert(0, osp.dirname(file))
-    mod = importlib.import_module(mod_name)
+    mod = safe_import_module(mod_name, osp.dirname(file))
     parsed = ast.parse(inspect.getsource(mod))
     
     class_node = next((node for node in parsed.body if isinstance(node, ast.ClassDef) and node.name == classname), None)
@@ -1090,13 +1082,9 @@ def extract_local_var_assignments(file, caller, varname):
     - only support regular assignments (var_name = literal_value)
     """
     import ast
-    import importlib
     import inspect
     mod_name = osp.splitext(osp.basename(file))[0]
-    if mod_name in sys.modules:
-        sys.modules.pop(mod_name)
-    sys.path.insert(0, osp.dirname(file))
-    mod = importlib.import_module(mod_name)
+    mod = safe_import_module(mod_name, osp.dirname(file))
     parsed = ast.parse(inspect.getsource(mod))
 
     caller_def = next((node for node in parsed.body if isinstance(node, ast.FunctionDef) and node.name == caller), None)
@@ -1126,10 +1114,7 @@ def extract_imported_modules(file):
     import importlib
     import inspect
     mod_name = osp.splitext(osp.basename(file))[0]
-    if mod_name in sys.modules:
-        sys.modules.pop(mod_name)
-    sys.path.insert(0, osp.dirname(file))
-    mod = importlib.import_module(mod_name)
+    mod = safe_import_module(mod_name, osp.dirname(file))
     parsed = ast.parse(inspect.getsource(mod))
     for node in ast.walk(parsed):
         if not isinstance(node, (ast.Import, ast.ImportFrom)):
