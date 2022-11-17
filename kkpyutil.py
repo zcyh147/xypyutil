@@ -977,13 +977,25 @@ def extract_call_args(file, caller, callee):
         print(f'Unsupported syntax node: {kwarg.value}. Will fallback to None.')
         return None
 
+    def _extract_caller_def(cls, func):
+        if not cls:
+            return next((node for node in parsed.body if isinstance(node, ast.FunctionDef) and node.name == func), None)
+        class_def = next((node for node in parsed.body if isinstance(node, ast.ClassDef) and node.name == cls), None)
+        return next((node for node in class_def.body if isinstance(node, ast.FunctionDef) and node.name == func), None)
+
     import ast
     import inspect
     mod_name = osp.splitext(osp.basename(file))[0]
     mod = safe_import_module(mod_name, osp.dirname(file))
     parsed = ast.parse(inspect.getsource(mod))
+    # caller can be class.method or function
+    spl = caller.split('.')
+    if len(spl) > 1:
+        class_name, func_name = spl[0], spl[1]
+    else:
+        class_name, func_name = None, spl[0]
+    caller_def = _extract_caller_def(class_name, func_name)
     # lineno, args, keywords
-    caller_def = next((node for node in parsed.body if isinstance(node, ast.FunctionDef) and node.name == caller), None)
     if not caller_def:
         return None, None
     func_method_calls = [def_node for def_node in caller_def.body if 'value' in dir(def_node) and isinstance(def_node.value, ast.Call)]
