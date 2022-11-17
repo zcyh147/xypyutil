@@ -1,8 +1,7 @@
 # kkpyutil
-Personal utility functions and classes frequently used by myself for daily Python work.
-
-It does not necessarily benefit everybody, but I hope it 
-may occasionally shed light on some issues you may have in your own work.
+Small utility frequently used by myself for daily Python work.
+- No dependency on third-party Python modules, so it alwyas run
+- Some functions use system builtin executable or essential programs, so runs will fail if those are not installed separately
 
 ## INSTALL
 
