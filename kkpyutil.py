@@ -1214,6 +1214,11 @@ def substitute_lines_in_file(inserts, file, startcue, endcue, startlineno=0, rem
     return rg_inserted
 
 
+def wrap_lines_with_tags(lines, starttag, endtag):
+    assert isinstance(lines, list)
+    return [starttag] + lines + [endtag]
+
+
 def convert_compound_cases(snake_text, style='pascal'):
     if style == 'oneword':
         return snake_text.replace('_', '').lower()
