@@ -28,6 +28,7 @@ import multiprocessing
 import operator
 import os
 import os.path as osp
+import tokenize
 import types
 import platform
 import plistlib
@@ -1142,6 +1143,16 @@ def extract_imported_modules(file):
     if mod_name in sys.modules:
         sys.modules.pop(mod_name)
     return sorted(list(set(imported)))
+
+
+def extract_sourcecode_comments(file):
+    """
+    comments = {"(row, col)": "# ...."}
+    """
+    comments = {}
+    with open(file) as fp:
+        comments = {str(start): tok for toktype, tok, start, end, line in tokenize.generate_tokens(fp.readline) if toktype == tokenize.COMMENT}
+    return comments
 
 
 def find_first_line_in_range(lines, keyword, linerange=(0,), algo='startswith'):
