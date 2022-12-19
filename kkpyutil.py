@@ -1350,10 +1350,7 @@ def lazy_logging(msg, logger=None):
 
 
 def copy_file(src, dst, isdstdir=False, keepmeta=False):
-    if isdstdir:
-        par_dir = dst
-    else:
-        par_dir = osp.split(dst)[0]
+    par_dir = dst if isdstdir else osp.dirname(dst)
     os.makedirs(par_dir, exist_ok=True)
     copyfunc = shutil.copy2 if keepmeta else shutil.copy
     try:
@@ -2032,14 +2029,17 @@ def touch(file, withmtime=True):
 
 def lazy_load_listfile(single_or_listfile: str, ext='.list'):
     """
-    we don't force return type-hint to be -> list for reusing args.path str
+    - we don't force return type-hint to be -> list for reusing args.path str
+    - relative paths in list files are relative to pardir of .list
+    - single relative path is relative to cwd
     """
     if is_listfile := fnmatch.fnmatch(single_or_listfile, f'*{ext}'):
         if not osp.isfile(single_or_listfile):
             raise FileNotFoundError(f'Missing list file ({ext}): {single_or_listfile}')
-        return load_lines(single_or_listfile, rmlineend=True)
+        paths = load_lines(single_or_listfile, rmlineend=True)
+        return [path if osp.isabs(path) else osp.abspath(f'{osp.dirname(single_or_listfile)}/{path}') for path in paths]
     single_item = single_or_listfile
-    return [single_item]
+    return [single_item if osp.isabs(single_item) else osp.abspath(single_item)]
 
 
 def is_link(path):
