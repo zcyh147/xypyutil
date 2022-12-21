@@ -2034,24 +2034,32 @@ def lazy_load_listfile(single_or_listfile: str, ext='.list'):
     """
     if is_listfile := fnmatch.fnmatch(single_or_listfile, f'*{ext}'):
         if not osp.isfile(single_or_listfile):
-            raise FileNotFoundError(f'Missing list file ({ext}): {single_or_listfile}')
+            raise FileNotFoundError(f'Missing list file: {single_or_listfile}')
         return load_lines(single_or_listfile, rmlineend=True)
     single_item = single_or_listfile
     return [single_item]
 
 
-def lazy_load_pathfile(single_or_listfile: str, ext='.list', root=''):
+def lazy_load_filepaths(single_or_listfile: str, ext='.list', root=''):
     """
     - we don't force return type-hint to be -> list for reusing args.path str
+    - listfile can have \ or /, so can root and litfile path
+    - we must normalize for file paths
     """
+    # if not file path, then user must give root for relative paths
     root = root or os.getcwd()
-    if is_listfile := fnmatch.fnmatch(single_or_listfile, f'*{ext}'):
-        if not osp.isfile(single_or_listfile):
-            raise FileNotFoundError(f'Missing list file ({ext}): {single_or_listfile}')
-        paths = load_lines(single_or_listfile, rmlineend=True)
-        return [path if osp.isabs(path) else osp.join(root, path) for path in paths]
-    single_item = single_or_listfile
-    return [single_item if osp.isabs(single_item) else osp.join(root, single_item)]
+    root = root.replace('\\', '/')
+    abs_list_file = single_or_listfile
+    if not osp.isabs(single_or_listfile):
+        abs_list_file = single_or_listfile.replace('\\', '/')
+        abs_list_file = osp.abspath(f'{root}/{abs_list_file}')
+    if is_listfile := fnmatch.fnmatch(abs_list_file, f'*{ext}'):
+        if not osp.isfile(abs_list_file):
+            raise FileNotFoundError(f'Missing list file: {abs_list_file}')
+        paths = [osp.normpath(path) for path in load_lines(abs_list_file, rmlineend=True)]
+        return [path if osp.isabs(path) else osp.abspath(f'{root}/{path}') for path in paths]
+    single_item = abs_list_file
+    return [single_item]
 
 
 def is_link(path):
@@ -2074,6 +2082,10 @@ def is_link(path):
 
 
 def _test():
+    listfile = r'./paths.list'
+    root = r'D:\desktop\_dev\miatech\start_flow\temp'
+    expected = r'D:\desktop\_dev\miatech'
+    assert (got := lazy_load_filepaths(listfile, root=root)[0]) == expected, f'expected {expected}, got {got}'
     pass
 
 
