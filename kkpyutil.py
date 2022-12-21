@@ -2082,10 +2082,6 @@ def is_link(path):
 
 
 def _test():
-    listfile = r'./paths.list'
-    root = r'D:\desktop\_dev\miatech\start_flow\temp'
-    expected = r'D:\desktop\_dev\miatech'
-    assert (got := lazy_load_filepaths(listfile, root=root)[0]) == expected, f'expected {expected}, got {got}'
     pass
 
 
