@@ -2030,16 +2030,28 @@ def touch(file, withmtime=True):
 def lazy_load_listfile(single_or_listfile: str, ext='.list'):
     """
     - we don't force return type-hint to be -> list for reusing args.path str
-    - relative paths in list files are relative to pardir of .list
-    - single relative path is relative to cwd
+    - assume list can be text of any nature, i.e., not just paths
     """
     if is_listfile := fnmatch.fnmatch(single_or_listfile, f'*{ext}'):
         if not osp.isfile(single_or_listfile):
             raise FileNotFoundError(f'Missing list file ({ext}): {single_or_listfile}')
-        paths = load_lines(single_or_listfile, rmlineend=True)
-        return [path if osp.isabs(path) else osp.abspath(f'{osp.dirname(single_or_listfile)}/{path}') for path in paths]
+        return load_lines(single_or_listfile, rmlineend=True)
     single_item = single_or_listfile
-    return [single_item if osp.isabs(single_item) else osp.abspath(single_item)]
+    return [single_item]
+
+
+def lazy_load_pathfile(single_or_listfile: str, ext='.list', root=''):
+    """
+    - we don't force return type-hint to be -> list for reusing args.path str
+    """
+    root = root or os.getcwd()
+    if is_listfile := fnmatch.fnmatch(single_or_listfile, f'*{ext}'):
+        if not osp.isfile(single_or_listfile):
+            raise FileNotFoundError(f'Missing list file ({ext}): {single_or_listfile}')
+        paths = load_lines(single_or_listfile, rmlineend=True)
+        return [path if osp.isabs(path) else osp.join(root, path) for path in paths]
+    single_item = single_or_listfile
+    return [single_item if osp.isabs(single_item) else osp.join(root, single_item)]
 
 
 def is_link(path):
