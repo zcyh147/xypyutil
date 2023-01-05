@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "kkpyutil"
-version = "0.111.0"
+version = "0.113.0"
 description = "zero-dependency utility functions and classes"
 authors = ["Beinan Li <li.beinan@gmail.com>"]
 maintainers = ["Beinan Li <li.beinan@gmail.com>"]
