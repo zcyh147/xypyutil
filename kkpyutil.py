@@ -966,7 +966,7 @@ def extract_call_args(file, caller, callee):
     - only support literal args
     - will throw if an arg value is a function call itself
     """
-    def get_kwarg_value_by_type(kwarg):
+    def _get_kwarg_value_by_type(kwarg):
         if isinstance(kwarg.value, ast.Constant):
             return kwarg.value.value
         elif negative_num := isinstance(kwarg.value, ast.UnaryOp) and isinstance(kwarg.value.op, ast.USub):
@@ -975,6 +975,8 @@ def extract_call_args(file, caller, callee):
             return kwarg.value.id
         elif isinstance(kwarg.value, (ast.List, ast.Tuple)):
             return [elem.value if isinstance(elem, ast.Constant) else None for elem in kwarg.value.elts]
+        elif use_type_map := isinstance(kwarg.value, ast.Subscript) and hasattr(kwarg.value, 'slice'):
+            return kwarg.value.slice.value
         print(f'Unsupported syntax node: {kwarg.value}. Will fallback to None.')
         return None
 
@@ -1013,7 +1015,7 @@ def extract_call_args(file, caller, callee):
         for call in rc:
             record = {
                 'args': [arg.value for arg in call.value.args],
-                'kwargs': {kw.arg: get_kwarg_value_by_type(kw) for kw in call.value.keywords},
+                'kwargs': {kw.arg: _get_kwarg_value_by_type(kw) for kw in call.value.keywords},
                 'lineno': call.lineno,
                 'end_lineno': call.end_lineno,
             }
@@ -2059,6 +2061,12 @@ def is_link(path):
         except FileNotFoundError:
             return False
     return osp.islink(path)
+
+
+def raise_error(errcls, detail, advice):
+    raise errcls(f"""\
+
+""")
 
 
 def _test():
