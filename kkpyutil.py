@@ -1038,8 +1038,11 @@ def extract_class_attributes(file, classname):
         is_type_annotated = isinstance(node, ast.AnnAssign)
         is_assigned_with_const = isinstance(node.value, ast.Constant)
         is_assigned_with_seq = isinstance(node.value, (ast.List, ast.Tuple))
-        is_typed_coll = is_type_annotated and 'slice' in node.annotation._fields
-        if is_typed_coll:
+        is_typed_coll = is_type_annotated and isinstance(node.annotation, ast.Subscript) and not isinstance(node.annotation.value, ast.Attribute)
+        use_typemap = is_type_annotated and isinstance(node.annotation, ast.Subscript) and isinstance(node.annotation.value, ast.Attribute)
+        if use_typemap:
+            attr_type = node.annotation.slice.value
+        elif is_typed_coll:
             coll_type = node.annotation.value.id
             elem_type = node.annotation.slice.id if coll_type == 'list' else node.annotation.slice.dims[0].id
             attr_type = f'{coll_type}[{elem_type}]'
