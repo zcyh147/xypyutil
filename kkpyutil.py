@@ -530,7 +530,7 @@ def execute_concurrency(worker, shared, lock, algorithm):
         executor = concurrent.futures.ThreadPoolExecutor(max_workers=algorithm['Count'])
         results = executor.map(worker, shared['Tasks'])
         return [result[1] for result in results]
-    raise ValueError(format_error_message('Found undefined concurrency algorithm.', expected='One of: {}, {}, {}'.format('Sequential', 'Pool', 'Process'), got=algorithm['Type'], suggestions=('Check if this API is up to date', 'retry me'), action='Aborted'))
+    raise ValueError(format_error_message('Found undefined concurrency algorithm.', expected='One of: {}, {}, {}'.format('Sequential', 'Pool', 'Process'), got=algorithm['Type'], advice=('Check if this API is up to date', 'retry me'), reaction='Aborted'))
 
 
 def profile_runs(funcname, modulefile, nruns=5):
@@ -1129,7 +1129,6 @@ def extract_imported_modules(file):
         return modnode.module
     imported = []
     import ast
-    import importlib
     import inspect
     mod_name = osp.splitext(osp.basename(file))[0]
     mod = safe_import_module(mod_name, osp.dirname(file))
