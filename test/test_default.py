@@ -16,7 +16,6 @@ sys.path.insert(0, repo_root := osp.abspath(f'{_script_dir}/..'))
 import kkpyutil as util
 
 
-
 def test_get_platform_home_dir():
     plat = platform.system()
     if plat == 'Windows':
@@ -377,3 +376,32 @@ def test_pack_obj():
     obj = MyClass()
     packed = util.pack_obj(obj, classes=(MyClass,))
     assert packed == '<KK-ENV>{"payload": {"n": 1, "s": "hello", "f": 9.99, "l": [1, 2, 3]}, "topic": "MyClass"}</KK-ENV>'
+
+
+def test_remove_duplication():
+    my_list = [1, 2, 3, 2, 5, 3]
+    assert (util.remove_duplication(my_list)) == [1, 2, 3, 5]
+    my_list = [1, 5.0, 'xyz', 5.0, 5, 'xyz']
+    assert (util.remove_duplication(my_list)) == [1, 5.0, 'xyz']
+
+
+def test_validate_platform():
+    supported = ['os1', 'os2']
+    with pytest.raises(NotImplementedError):
+        util.validate_platform(supported)
+    supported = platform.system()
+    util.validate_platform(supported)
+
+
+def test_raise_error():
+    errcls = NotImplementedError
+    detail = '- This is a test error'
+    advice = '- Fix it'
+    with pytest.raises(NotImplementedError) as diagnostics:
+        util.raise_error(errcls, detail, advice)
+    assert str(diagnostics.value) == """\
+Detail:
+- This is a test error
+
+Advice:
+- Fix it"""
