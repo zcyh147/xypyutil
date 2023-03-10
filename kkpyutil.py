@@ -552,11 +552,13 @@ def profile_runs(funcname, modulefile, nruns=5):
     return stats
 
 
-def save_plist(cfg_file, my_map):
-    with open(cfg_file, 'rb') as fp:
+def save_plist(path, my_map):
+    with open(path, 'rb') as fp:
         plist = plistlib.load(fp, fmt=plistlib.FMT_XML)
     plist.update(my_map)
-    with open(cfg_file, 'wb') as fp:
+    par_dir = osp.split(path)[0]
+    os.makedirs(par_dir, exist_ok=True)
+    with open(path, 'wb') as fp:
         plistlib.dump(plist, fp)
 
 
@@ -1635,6 +1637,8 @@ def save_lines(path, lines, toappend=False, addlineend=False, style='posix'):
     if addlineend:
         line_end = '\n' if style == 'posix' else '\r\n'
         lines_to_write = [line+line_end for line in lines]
+    par_dir = osp.split(path)[0]
+    os.makedirs(par_dir, exist_ok=True)
     with open(path, mode) as fp:
         fp.writelines(lines_to_write)
     return lines_to_write
@@ -1646,9 +1650,10 @@ def load_text(path):
     return text
 
 
-def save_text(path, text, toappend=False):
-    assert isinstance(text, str)
+def save_text(path, text: str, toappend=False):
     mode = 'a' if toappend else 'w'
+    par_dir = osp.split(path)[0]
+    os.makedirs(par_dir, exist_ok=True)
     with open(path, mode) as fp:
         fp.write(text)
 
