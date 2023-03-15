@@ -1411,7 +1411,7 @@ def compare_dirs(dir1, dir2, ignoreddirpatterns=(), ignoredfilepatterns=(), show
     assert dir1_contents['files'] == dir2_contents['files'], 'files different:\n{}\n\nvs.\n\n{}'.format(pp.pformat(dir1_contents['files'], indent=2), pp.pformat(dir2_contents['files'], indent=2))
 
 
-def pack_obj(obj, topic=None, envelope=('<KK-ENV>', '</KK-ENV>'), classes=()):
+def pack_obj(obj, topic=None, envelope=('<KK-ENV>', '</KK-ENV>'), classes=(), ensure_ascii=False):
     """
     for cross-language rpc only, so no need for an unpack()
     pickle is already good enough for local transmission.
@@ -1428,9 +1428,9 @@ def pack_obj(obj, topic=None, envelope=('<KK-ENV>', '</KK-ENV>'), classes=()):
                 else:
                     return json.JSONEncoder.encode(self, o)
         classes = tuple([SimpleNamespace]+list(classes))
-        msg_str = json.dumps(msg, cls=CustomJsonEncoder)
+        msg_str = json.dumps(msg, cls=CustomJsonEncoder, ensure_ascii=ensure_ascii)
     else:
-        msg_str = json.dumps(msg, default=lambda o: o.__dict__)
+        msg_str = json.dumps(msg, default=lambda o: o.__dict__, ensure_ascii=ensure_ascii)
 
     return f'{envelope[0]}{msg_str}{envelope[1]}'
 
