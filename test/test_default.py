@@ -405,3 +405,50 @@ Detail:
 
 Advice:
 - Fix it"""
+
+
+def test_get_drivewise_commondirs():
+    # single path
+    if is_posix := platform.system() != 'Windows':
+        abs_paths = ['/path/to/dir1/file1']
+        assert util.get_drivewise_commondirs(abs_paths) == {'/': 'path/to/dir1'}
+        rel_paths = ['path/to/dir1/file1']
+        assert util.get_drivewise_commondirs(rel_paths) == {'': 'path/to/dir1'}
+    else:
+        abs_paths = ['C:\\path\\to\\dir1\\file1']
+        assert util.get_drivewise_commondirs(abs_paths) == {'c:': 'path\\to\\dir1'}
+        rel_paths = ['path\\to\\dir1\\file1']
+        assert util.get_drivewise_commondirs(rel_paths) == {'': 'path/to/dir1'}
+    # many paths
+    if is_posix := platform.system() != 'Windows':
+        abs_paths = ['/path/to/dir1/file1', '/path/to/dir2/', '/path/to/dir3/dir4/file2']
+        assert util.get_drivewise_commondirs(abs_paths) == {'/': 'path/to'}
+        rel_paths = ['path/to/dir1/file1', 'path/to/dir2/', 'path/to/dir3/dir4/file2']
+        assert util.get_drivewise_commondirs(rel_paths) == {'': 'path/to'}
+        # case-sensitive
+        rel_paths = ['path/TO/dir1/file1', 'path/to/dir2/', 'path/to/dir3/dir4/file2']
+        assert util.get_drivewise_commondirs(rel_paths) == {'': 'path'}
+    else:
+        abs_paths = [
+            'C:\\path\\to\\dir1\\file1',
+            'c:\\path\\to\\dir2\\',
+            'd:\\path\\to\\dir3\\dir4\\file2',
+            'D:\\path\\to\\dir5\\dir6\\file3',
+            '\\\\Network\\share\\path\\to\\dir7\\file4',
+            '\\\\network\\share\\path\\to\\dir7\\dir8\\file5',
+            'path\\to\\dir9\\file6',
+            'path\\to\\dir9\\file7',
+        ]
+        assert util.get_drivewise_commondirs(abs_paths) == {
+            'c:': 'path\\to',
+            'd:': 'path\\to',
+            '\\\\network\\share': 'path\\to\\dir7',
+            '': 'path\\to\\dir9'
+        }
+        # case-insensitive
+        rel_paths = [
+            'path\\to\\dir1\\file1',
+            '\\Path\\to\\dir2\\',
+            'path\\To\\dir1\\dir4\\file2'
+        ]
+        assert util.get_drivewise_commondirs(rel_paths) == {'': 'path\\to\\'}

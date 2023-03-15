@@ -1498,6 +1498,54 @@ def get_child_dirs(root, subs=()):
     return (osp.join(root, sub) for sub in subs)
 
 
+def get_drivewise_commondirs(paths: list[str]):
+    """
+    - windows paths are drive-bound
+    - paths must be either all absolute or all relative
+    - on windows, we distinguish b/w UNC and relative paths
+    - on posix, drive letter is always '' (empty str) for absolute and relative paths
+      - so we differentiate them for clarity: '/' and ''
+    - posix: common dir of below: a single drive map: {'/': 'path/to'}
+      - /path/to/dir1/file1
+      - /path/to/dir2/
+      - /path/to/dir3/dir4/file2
+    - posix: common dir of below: a single drive map: {'': 'path/to'}
+      - path/to/dir1/file1
+      - path/to/dir2/
+      - path/to/dir3/dir4/file2
+    - windows: common dirs of below: a multi-drive map: {'c:': 'path\\to', 'd:': 'path\\to', '\\\\network\\share': 'path\\to\\dir7', '': 'path\\to\\dir9'}
+      - C:\\path\\to\\dir1\\file1
+      - C:\\path\\to\\dir2\\
+      - D:\\path\\to\\dir3\\dir4\\file2
+      - D:\\path\\to\\dir5\\dir6\\file3
+      - \\\\network\\share\\path\\to\\dir7\\file4
+      - \\\\network\\share\\path\\to\\dir7\\dir8\\file5
+      - path\\to\\dir9\\file6
+      - path\\to\\dir9\\file7
+    """
+    if is_posix := platform.system() != 'Windows':
+        single_cm_dir = osp.commonpath(paths)
+        if len(paths) == 1:
+            single_cm_dir = osp.dirname(single_cm_dir)
+        root = '/'
+        drive = root if single_cm_dir.startswith(root) else ''
+        return {drive: single_cm_dir.strip(root)}
+    # windows
+    if len(paths) == 1:
+        single_cm_dir = osp.dirname(paths[0]).strip('\\')
+        return {osp.splitdrive(paths[0])[0].lower(): single_cm_dir}
+    paths_sorted_by_drive = sorted(paths)
+    # collect paths into map by drive
+    drive_path_map = {}
+    for p, winpath in enumerate(paths_sorted_by_drive):
+        assert winpath, f'Invalid path at line {p}; must not be empty'
+        drive = osp.splitdrive(winpath)[0].lower()
+        if must_lazy_init_for_drive := drive not in drive_path_map:
+            drive_path_map[drive] = []
+        drive_path_map[drive].append(winpath.strip('\\'))
+    return {drive: osp.commonpath(winpaths) for drive, winpaths in drive_path_map.items()}
+
+
 def read_lines(file, striplineend=False, posix=True):
     with open(file) as fp:
         lines = fp.readlines()
