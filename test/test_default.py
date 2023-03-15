@@ -418,7 +418,7 @@ def test_get_drivewise_commondirs():
         abs_paths = ['C:\\path\\to\\dir1\\file1']
         assert util.get_drivewise_commondirs(abs_paths) == {'c:': 'path\\to\\dir1'}
         rel_paths = ['path\\to\\dir1\\file1']
-        assert util.get_drivewise_commondirs(rel_paths) == {'': 'path/to/dir1'}
+        assert util.get_drivewise_commondirs(rel_paths) == {'': 'path\\to\\dir1'}
     # many paths
     if is_posix := platform.system() != 'Windows':
         abs_paths = ['/path/to/dir1/file1', '/path/to/dir2/', '/path/to/dir3/dir4/file2']
@@ -451,4 +451,4 @@ def test_get_drivewise_commondirs():
             '\\Path\\to\\dir2\\',
             'path\\To\\dir1\\dir4\\file2'
         ]
-        assert util.get_drivewise_commondirs(rel_paths) == {'': 'path\\to\\'}
+        assert util.get_drivewise_commondirs(rel_paths) == {'': 'path\\to'}

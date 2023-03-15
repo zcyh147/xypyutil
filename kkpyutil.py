@@ -1522,6 +1522,7 @@ def get_drivewise_commondirs(paths: list[str]):
       - \\\\network\\share\\path\\to\\dir7\\dir8\\file5
       - path\\to\\dir9\\file6
       - path\\to\\dir9\\file7
+    - on windows, we normalize all paths to lowercase
     """
     if is_posix := platform.system() != 'Windows':
         single_cm_dir = osp.commonpath(paths)
@@ -1532,18 +1533,21 @@ def get_drivewise_commondirs(paths: list[str]):
         return {drive: single_cm_dir.strip(root)}
     # windows
     if len(paths) == 1:
-        single_cm_dir = osp.dirname(paths[0]).strip('\\')
-        return {osp.splitdrive(paths[0])[0].lower(): single_cm_dir}
+        drive, relpath = osp.splitdrive(paths[0])
+        drive = drive.lower()
+        single_cm_dir = osp.dirname(relpath).strip('\\')
+        return {drive: single_cm_dir}
     paths_sorted_by_drive = sorted(paths)
     # collect paths into map by drive
     drive_path_map = {}
     for p, winpath in enumerate(paths_sorted_by_drive):
         assert winpath, f'Invalid path at line {p}; must not be empty'
-        drive = osp.splitdrive(winpath)[0].lower()
+        drive, relpath = osp.splitdrive(winpath)
+        drive = drive.lower()
         if must_lazy_init_for_drive := drive not in drive_path_map:
             drive_path_map[drive] = []
-        drive_path_map[drive].append(winpath.strip('\\'))
-    return {drive: osp.commonpath(winpaths) for drive, winpaths in drive_path_map.items()}
+        drive_path_map[drive].append(relpath.strip('\\'))
+    return {drive: osp.commonpath(winpaths).strip('\\').lower() for drive, winpaths in drive_path_map.items()}
 
 
 def read_lines(file, striplineend=False, posix=True):
