@@ -1547,7 +1547,7 @@ def get_drivewise_commondirs(paths: list[str]):
         if must_lazy_init_for_drive := drive not in drive_path_map:
             drive_path_map[drive] = []
         drive_path_map[drive].append(relpath.strip('\\'))
-    return {drive: osp.commonpath(winpaths).strip('\\').lower() for drive, winpaths in drive_path_map.items()}
+    return {drive: osp.dirname(winpaths[0]).strip('\\') if (is_single_file := len(winpaths) == 1 and osp.splitdrive(winpaths[0])[1]) else osp.commonpath(winpaths).strip('\\') for drive, winpaths in drive_path_map.items()}
 
 
 def read_lines(file, striplineend=False, posix=True):

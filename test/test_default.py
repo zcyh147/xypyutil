@@ -415,7 +415,7 @@ def test_get_drivewise_commondirs():
         rel_paths = ['path/to/dir1/file1']
         assert util.get_drivewise_commondirs(rel_paths) == {'': 'path/to/dir1'}
     else:
-        abs_paths = ['C:\\path\\to\\dir1\\file1']
+        abs_paths = ['C:\\path\\to\\dir1\\file1.ext']
         assert util.get_drivewise_commondirs(abs_paths) == {'c:': 'path\\to\\dir1'}
         rel_paths = ['path\\to\\dir1\\file1']
         assert util.get_drivewise_commondirs(rel_paths) == {'': 'path\\to\\dir1'}
@@ -430,25 +430,27 @@ def test_get_drivewise_commondirs():
         assert util.get_drivewise_commondirs(rel_paths) == {'': 'path'}
     else:
         abs_paths = [
-            'C:\\path\\to\\dir1\\file1',
+            'C:\\path\\to\\dir1\\file1.ext',
             'c:\\path\\to\\dir2\\',
-            'd:\\path\\to\\dir3\\dir4\\file2',
-            'D:\\path\\to\\dir5\\dir6\\file3',
-            '\\\\Network\\share\\path\\to\\dir7\\file4',
-            '\\\\network\\share\\path\\to\\dir7\\dir8\\file5',
-            'path\\to\\dir9\\file6',
-            'path\\to\\dir9\\file7',
+            'd:\\path\\to\\dir3\\dir4\\file2.ext',
+            'D:\\path\\to\\dir5\\dir6\\file3.ext',
+            'e:\\path\\to\\file8.ext',
+            '\\\\Network\\share\\path\\to\\dir7\\file4.ext',
+            '\\\\network\\share\\path\\to\\dir7\\dir8\\file5.ext',
+            'path\\to\\dir9\\file6.ext',
+            'path\\to\\dir9\\file7.ext',
         ]
         assert util.get_drivewise_commondirs(abs_paths) == {
             'c:': 'path\\to',
             'd:': 'path\\to',
+            'e:': 'path\\to',
             '\\\\network\\share': 'path\\to\\dir7',
             '': 'path\\to\\dir9'
         }
         # case-insensitive
         rel_paths = [
-            'path\\to\\dir1\\file1',
+            'path\\to\\dir1\\file1.ext',
             '\\Path\\to\\dir2\\',
-            'path\\To\\dir1\\dir4\\file2'
+            'path\\To\\dir1\\dir4\\file2.ext'
         ]
         assert util.get_drivewise_commondirs(rel_paths) == {'': 'path\\to'}
