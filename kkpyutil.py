@@ -768,7 +768,7 @@ def rerun_lock(name, folder=None, logger=glogger):
     return decorator
 
 
-def await_condition(condition, timeout_ms, step_ms=10):
+def await_while(condition, timeout_ms, step_ms=10):
     """
     - condition must implement methods:
       - .met()
@@ -793,7 +793,7 @@ def await_lockfile(lockpath, timeout_ms=float('inf'), step_ms=10):
 
         def update(self):
             pass
-    return await_condition(PathExistsCondition(lockpath), timeout_ms, step_ms)
+    return await_while(PathExistsCondition(lockpath), timeout_ms, step_ms)
 
 
 def append_to_os_paths(bindir, usesyspath=True, inmemonly=False):

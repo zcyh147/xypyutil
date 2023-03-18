@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "kkpyutil"
-version = "0.116.0"
+version = "0.116.1"
 description = "zero-dependency utility functions and classes"
 authors = ["Beinan Li <li.beinan@gmail.com>"]
 maintainers = ["Beinan Li <li.beinan@gmail.com>"]
@@ -24,7 +24,7 @@ pytest = "*"
 coverage = "*"
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
+requires = ["poetry-core>=1.3.9"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.urls]
