@@ -1046,7 +1046,7 @@ def extract_class_attributes(file, classname):
             attr_type = node.annotation.slice.value
         elif is_typed_coll:
             coll_type = node.annotation.value.id
-            elem_type = node.annotation.slice.id if coll_type == 'list' else node.annotation.slice.dims[0].id
+            elem_type = node.annotation.slice.id if coll_type.startswith('list') or coll_type.startswith('tuple') else node.annotation.slice.dims[0].id
             attr_type = f'{coll_type}[{elem_type}]'
         elif is_type_annotated:
             attr_type = node.annotation.id
@@ -1830,6 +1830,10 @@ Advice:
 
 
 def _test():
+    file = '/Users/bin.luo/Desktop/dev/miatech/build_proj/test/proto/dummy_service/src/dummy_service_output.py'
+    classname = 'Output'
+    import pprint
+    pprint.pprint(extract_class_attributes(file, classname))
     pass
 
 
