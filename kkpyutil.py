@@ -28,6 +28,7 @@ import multiprocessing
 import operator
 import os
 import os.path as osp
+import time
 import tokenize
 import types
 import platform
@@ -765,6 +766,34 @@ def rerun_lock(name, folder=None, logger=glogger):
             return ret
         return wrapper
     return decorator
+
+
+def await_while(condition, timeout_ms, step_ms=10):
+    """
+    - condition must implement methods:
+      - .met()
+      - .update()
+    - under concurrency, caller must ensure thread/process safety, e.g., implement locking in condition
+    """
+    waited_ms = 0
+    while waited_ms < timeout_ms and condition.met():
+        condition.update()
+        time.sleep(step_ms/1000)
+        waited_ms += step_ms
+    return waited_ms < timeout_ms
+
+
+def await_lockfile(lockpath, timeout_ms=float('inf'), step_ms=10):
+    class PathExistsCondition:
+        def __init__(self, path):
+            self.path = path
+
+        def met(self):
+            return osp.exists(self.path)
+
+        def update(self):
+            pass
+    return await_while(PathExistsCondition(lockpath), timeout_ms, step_ms)
 
 
 def append_to_os_paths(bindir, usesyspath=True, inmemonly=False):
