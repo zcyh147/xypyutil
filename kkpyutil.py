@@ -1061,9 +1061,11 @@ def extract_class_attributes(file, classname):
     assume
     - class is defined at the top-level of source file
     - all attributes are defined in constructor
-    - all assignments must be about attributes, no local variable are allowed
-    - attributes can use type-annotated assignemts (taa)
-    - types of attributes without taa can be inferred from constant values
+    - all assignments must be about attributes, no local variables are allowed
+    - attributes can use type-annotated assignments (taa)
+    - builtin types of attributes without taa can be inferred from constant values
+    - type-annotation can use primitive types, typed-collection, and proxy types
+    - a proxy type is a class with a string attribute whose value is a builtin type-name
     """
     def _get_attr_by_type(node):
         is_type_annotated = isinstance(node, ast.AnnAssign)
@@ -1078,7 +1080,13 @@ def extract_class_attributes(file, classname):
             elem_type = node.annotation.slice.id if coll_type.startswith('list') or coll_type.startswith('tuple') else node.annotation.slice.dims[0].id
             attr_type = f'{coll_type}[{elem_type}]'
         elif is_type_annotated:
-            attr_type = node.annotation.id
+            if is_builtin_type := isinstance(node.annotation, ast.Name):
+                attr_type = node.annotation.id
+            elif is_proxy_type := isinstance(node.annotation, ast.Attribute):
+                # self.myAttr: TMyType().pyType
+                attr_type = node.annotation.value.func.attr
+            else:
+                attr_type = None
         elif is_assigned_with_const:
             attr_type = type(node.value.value).__name__
         else:
@@ -1859,10 +1867,6 @@ Advice:
 
 
 def _test():
-    file = '/Users/bin.luo/Desktop/dev/miatech/build_proj/test/proto/dummy_service/src/dummy_service_output.py'
-    classname = 'Output'
-    import pprint
-    pprint.pprint(extract_class_attributes(file, classname))
     pass
 
 
