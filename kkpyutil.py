@@ -637,9 +637,22 @@ def convert_from_wine_path(path):
     return path
 
 
-def kill_process_by_name(name):
-    cmd = ['taskkill', '/IM', name, '/F'] if platform.system() == 'Windows' else ['pkill', name]
-    subprocess.run(cmd)
+def kill_process_by_name(name, forcekill=False):
+    cmd_map = {
+        'Windows': {
+            'cmd': 'taskkill',
+            'forceSwitch': '/F',
+            'nameSwitch': '/IM',
+        },
+        "*": {
+            'cmd': 'pkill',
+            'forceSwitch': '-9',
+            'nameSwitch': '',
+        }
+    }
+    plat = platform.system() if platform.system() in cmd_map else '*'
+    cli = [cmd_map[plat]['cmd']] + (cmd_map[plat]['forceSwitch'] if forcekill else []) + [cmd_map[plat]['nameSwitch']] if cmd_map[plat]['nameSwitch'] else [] + [name]
+    return run_cmd(cli)
 
 
 def init_translator(localedir, domain='all', langs=None):
