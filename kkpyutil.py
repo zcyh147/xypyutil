@@ -1022,7 +1022,6 @@ def extract_call_args(file, caller, callee):
         elif use_type_map := isinstance(kwarg.value, ast.Attribute):
             return kwarg.value.attr
         print(f'Unsupported syntax node: {kwarg.value}. Will fallback to None.')
-        breakpoint()
         return None
 
     def _extract_caller_def(cls, func):
