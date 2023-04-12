@@ -1019,9 +1019,10 @@ def extract_call_args(file, caller, callee):
             return kwarg.value.id
         elif isinstance(kwarg.value, (ast.List, ast.Tuple)):
             return [elem.value if isinstance(elem, ast.Constant) else None for elem in kwarg.value.elts]
-        elif use_type_map := isinstance(kwarg.value, ast.Subscript) and hasattr(kwarg.value, 'slice'):
-            return kwarg.value.slice.value
+        elif use_type_map := isinstance(kwarg.value, ast.Attribute):
+            return kwarg.value.attr
         print(f'Unsupported syntax node: {kwarg.value}. Will fallback to None.')
+        breakpoint()
         return None
 
     def _extract_caller_def(cls, func):
@@ -1077,17 +1078,16 @@ def extract_class_attributes(file, classname):
     - all assignments must be about attributes, no local variables are allowed
     - attributes can use type-annotated assignments (taa)
     - builtin types of attributes without taa can be inferred from constant values
-    - type-annotation can use primitive types, typed-collection, and proxy types
-    - a proxy type is a class with a string attribute whose value is a builtin type-name
+    - type-annotation can use built-in primitive types, typed-collection, and typing.TypeVar
     """
     def _get_attr_by_type(node):
         is_type_annotated = isinstance(node, ast.AnnAssign)
         is_assigned_with_const = isinstance(node.value, ast.Constant)
         is_assigned_with_seq = isinstance(node.value, (ast.List, ast.Tuple))
         is_typed_coll = is_type_annotated and isinstance(node.annotation, ast.Subscript) and not isinstance(node.annotation.value, ast.Attribute)
-        use_typemap = is_type_annotated and isinstance(node.annotation, ast.Subscript) and isinstance(node.annotation.value, ast.Attribute)
+        use_typemap = is_type_annotated and isinstance(node.annotation, ast.Attribute)
         if use_typemap:
-            attr_type = node.annotation.slice.value
+            attr_type = node.annotation.attr
         elif is_typed_coll:
             coll_type = node.annotation.value.id
             elem_type = node.annotation.slice.id if coll_type.startswith('list') or coll_type.startswith('tuple') else node.annotation.slice.dims[0].id

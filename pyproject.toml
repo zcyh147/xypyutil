@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "kkpyutil"
-version = "0.119.0"
+version = "0.120.0"
 description = "zero-dependency utility functions and classes"
 authors = ["Beinan Li <li.beinan@gmail.com>"]
 maintainers = ["Beinan Li <li.beinan@gmail.com>"]
@@ -18,6 +18,7 @@ keywords = [
 
 [tool.poetry.dependencies]
 python = "^3.9"
+requests = "*"
 
 [tool.poetry.dev-dependencies]
 pytest = "*"
