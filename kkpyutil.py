@@ -654,7 +654,12 @@ def kill_process_by_name(name, forcekill=False):
     force_switch = cmd_map[plat]['forceSwitch'] if forcekill else []
     name_switch = [cmd_map[plat]['nameSwitch']] if cmd_map[plat]['nameSwitch'] else []
     cli = [cmd_map[plat]['cmd']] + force_switch + name_switch + [name]
-    return run_cmd(cli)
+    proc = None
+    try:
+        proc = run_cmd(cli)
+    except FileNotFoundError as e:
+        print(f'Process not found: {e}; safely ignored')
+    return proc
 
 
 def init_translator(localedir, domain='all', langs=None):
