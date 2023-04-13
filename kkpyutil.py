@@ -651,7 +651,9 @@ def kill_process_by_name(name, forcekill=False):
         }
     }
     plat = platform.system() if platform.system() in cmd_map else '*'
-    cli = [cmd_map[plat]['cmd']] + (cmd_map[plat]['forceSwitch'] if forcekill else []) + [cmd_map[plat]['nameSwitch']] if cmd_map[plat]['nameSwitch'] else [] + [name]
+    force_switch = cmd_map[plat]['forceSwitch'] if forcekill else []
+    name_switch = [cmd_map[plat]['nameSwitch']] if cmd_map[plat]['nameSwitch'] else []
+    cli = [cmd_map[plat]['cmd']] + force_switch + name_switch + [name]
     return run_cmd(cli)
 
 
