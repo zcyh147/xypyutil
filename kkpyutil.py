@@ -651,14 +651,21 @@ def kill_process_by_name(name, forcekill=False):
         }
     }
     plat = platform.system() if platform.system() in cmd_map else '*'
-    force_switch = cmd_map[plat]['forceSwitch'] if forcekill else []
+    force_switch = [cmd_map[plat]['forceSwitch']] if forcekill else []
     name_switch = [cmd_map[plat]['nameSwitch']] if cmd_map[plat]['nameSwitch'] else []
     cli = [cmd_map[plat]['cmd']] + force_switch + name_switch + [name]
     proc = None
     try:
         proc = run_cmd(cli)
     except FileNotFoundError as e:
-        print(f'Process not found: {e}; safely ignored')
+        print(f'Process not found: {e}; check returned error for details; ignored')
+        return e
+    except subprocess.CalledProcessError as e:
+        print(f'Failed due to: {e}; the process may 1) not exist 2) have been killed, 3) cannot be killed; check returned error for details')
+        return e
+    except Exception as e:
+        print(f'Failed due to unknown reasons: {e}; check returned error for details')
+        return e
     return proc
 
 
@@ -1886,6 +1893,8 @@ Advice:
 
 
 def _test():
+    proc = kill_process_by_name('bullshit', forcekill=True)
+    print(f'{proc=}')
     pass
 
 
