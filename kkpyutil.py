@@ -1138,7 +1138,7 @@ def extract_class_attributes(file, classname):
     if not ctor:
         return None
     # parse ctor
-    names = [node.attr for node in ast.walk(ctor) if isinstance(node, ast.Attribute)]
+    attrib_names = [node.attr for node in ast.walk(ctor) if isinstance(node, ast.Attribute) and node.value.id == 'self']
     assigns = [node for node in ast.walk(ctor) if isinstance(node, (ast.AnnAssign, ast.Assign))]
     dtypes, values, linenos, end_linenos = [], [], [], []
     for node in assigns:
@@ -1147,7 +1147,7 @@ def extract_class_attributes(file, classname):
         values.append(avalue)
         linenos.append(node.lineno)
         end_linenos.append(node.end_lineno)
-    attributes = [{'name': n, 'type': t, 'default': v, 'lineno': l, 'end_lineno': e} for n, t, v, l, e in zip(names, dtypes, values, linenos, end_linenos)]
+    attributes = [{'name': n, 'type': t, 'default': v, 'lineno': l, 'end_lineno': e} for n, t, v, l, e in zip(attrib_names, dtypes, values, linenos, end_linenos)]
     if mod_name in sys.modules:
         sys.modules.pop(mod_name)
     return attributes
