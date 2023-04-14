@@ -669,7 +669,7 @@ def kill_process_by_name(name, forcekill=False):
     # Windows: wmic cmd can kill admin-level process
     cmd = cmd_map[plat]['hardKill'] if forcekill else cmd_map[plat]['softKill']
     proc = run_cmd(cmd, check=False)
-    if 'not found' in (err_log := proc.stderr.decode(TXT_CODEC).lower()) or 'no instance' in err_log:
+    if 'not found' in (err_log := proc.stderr.decode(TXT_CODEC).lower()) or 'no instance' in proc.stdout.decode(TXT_CODEC).lower():
         return return_codes['procNotFound']
     if 'denied' in err_log:
         return return_codes['permissionDenied']
