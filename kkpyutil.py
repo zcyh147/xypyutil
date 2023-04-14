@@ -1902,8 +1902,6 @@ Advice:
 
 
 def _test():
-    proc = kill_process_by_name('missing', True)
-    print(proc)
     pass
 
 
