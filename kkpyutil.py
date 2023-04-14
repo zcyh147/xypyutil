@@ -640,29 +640,42 @@ def convert_from_wine_path(path):
 def kill_process_by_name(name, forcekill=False):
     cmd_map = {
         'Windows': {
-            'softKillCmd': ['taskkill', '/F', '/IM', name],
-            'hardKillCmd': ['wmic', 'process', 'where', f"name='{name}'", 'delete'],
+            'softKill': ['taskkill', '/IM', name],
+            'hardKill': ['wmic', 'process', 'where', f"name='{name}'", 'delete'],
         },
         "*": {
-            'softKillCmd': ['pkill', name],
-            'hardKillCmd': ['pkill', '-9', name],
+            'softKill': ['pkill', name],
+            'hardKill': ['pkill', '-9', name],
         }
     }
+    return_codes = {
+        'success': 0,
+        'procNotFound': 1,
+        'permissionDenied': 2,
+        'unknownError': 3,
+    }
     plat = platform.system() if platform.system() in cmd_map else '*'
-    cmd = cmd_map[plat]['hardKillCmd'] if forcekill else cmd_map[plat]['softKillCmd']
-    proc = None
-    try:
-        proc = run_cmd(cmd)
-    except FileNotFoundError as e:
-        print(f'Process not found: {e}; check returned error for details; ignored')
-        return e
-    except subprocess.CalledProcessError as e:
-        print(f'Failed due to: {e}; the process may 1) not exist 2) have been killed, 3) cannot be killed; check returned error for details')
-        return e
-    except Exception as e:
-        print(f'Failed due to unknown reasons: {e}; check returned error for details')
-        return e
-    return proc
+    cmd = cmd_map[plat]['hardKill'] if forcekill else cmd_map[plat]['softKill']
+    if plat == '*':
+        proc = run_cmd(["pgrep", "-x", name], check=False)
+        if proc.returncode != 0:
+            return return_codes['procNotFound']
+        proc = run_cmd(cmd, check=False)
+        if 'not permitted' in (err_log := proc.stderr.decode(TXT_CODEC).lower()):
+            return return_codes['permissionDenied']
+        if err_log:
+            return return_codes['unknownError']
+        return return_codes['success']
+    # Windows: wmic cmd can kill admin-level process
+    cmd = cmd_map[plat]['hardKill'] if forcekill else cmd_map[plat]['softKill']
+    proc = run_cmd(cmd, check=False)
+    if 'not found' in (err_log := proc.stderr.decode(TXT_CODEC).lower()) or 'no instance' in err_log:
+        return return_codes['procNotFound']
+    if 'denied' in err_log:
+        return return_codes['permissionDenied']
+    if proc.returncode != 0:
+        return return_codes['unknownError']
+    return return_codes['success']
 
 
 def init_translator(localedir, domain='all', langs=None):
@@ -1889,8 +1902,8 @@ Advice:
 
 
 def _test():
-    proc = kill_process_by_name('bullshit', forcekill=True)
-    print(f'{proc=}')
+    proc = kill_process_by_name('missing', True)
+    print(proc)
     pass
 
 
