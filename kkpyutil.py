@@ -640,23 +640,19 @@ def convert_from_wine_path(path):
 def kill_process_by_name(name, forcekill=False):
     cmd_map = {
         'Windows': {
-            'cmd': 'taskkill',
-            'forceSwitch': '/F',
-            'nameSwitch': '/IM',
+            'softKillCmd': ['taskkill', '/F', '/IM', name],
+            'hardKillCmd': ['wmic', 'process', 'where', f"name='{name}'", 'delete'],
         },
         "*": {
-            'cmd': 'pkill',
-            'forceSwitch': '-9',
-            'nameSwitch': '',
+            'softKillCmd': ['pkill', name],
+            'hardKillCmd': ['pkill', '-9', name],
         }
     }
     plat = platform.system() if platform.system() in cmd_map else '*'
-    force_switch = [cmd_map[plat]['forceSwitch']] if forcekill else []
-    name_switch = [cmd_map[plat]['nameSwitch']] if cmd_map[plat]['nameSwitch'] else []
-    cli = [cmd_map[plat]['cmd']] + force_switch + name_switch + [name]
+    cmd = cmd_map[plat]['hardKillCmd'] if forcekill else cmd_map[plat]['softKillCmd']
     proc = None
     try:
-        proc = run_cmd(cli)
+        proc = run_cmd(cmd)
     except FileNotFoundError as e:
         print(f'Process not found: {e}; check returned error for details; ignored')
         return e
