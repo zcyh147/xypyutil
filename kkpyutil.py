@@ -1645,7 +1645,9 @@ def open_in_browser(path, window='tab', islocal=True):
 
 def open_in_editor(path):
     cmds = {
-        'Windows': 'explorer',
+        # explorer only supports \
+        # start supports / and \
+        'Windows': 'start',
         'Darwin': 'open',
         'Linux': 'xdg-open',  # ubuntu
     }
