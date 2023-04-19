@@ -1645,12 +1645,14 @@ def open_in_browser(path, window='tab', islocal=True):
 
 def open_in_editor(path):
     cmds = {
-        # explorer only supports \
-        # start supports / and \
-        'Windows': 'start',
+        'Windows': 'explorer',
         'Darwin': 'open',
         'Linux': 'xdg-open',  # ubuntu
     }
+    # explorer only supports \
+    # start supports / and \, but is not an app cmd but open a prompt
+    if platform.system() == 'Windows':
+        path = path.replace('/', '\\')
     cmd = [cmds[platform.system()], path]
     check = platform.system() != 'Windows'
     run_cmd(cmd, check=check)
