@@ -1585,7 +1585,7 @@ def get_drivewise_commondirs(paths: list[str]):
       - path/to/dir1/file1
       - path/to/dir2/
       - path/to/dir3/dir4/file2
-    - windows: common dirs of below: a multi-drive map: {'c:': 'path\\to', 'd:': 'path\\to', '\\\\network\\share': 'path\\to\\dir7', '': 'path\\to\\dir9'}
+    - windows: common dirs of below: a multi-drive map: {'c:': 'c:\\path\\to', 'd:': 'd:\\path\\to', '\\\\network\\share': '\\\\network\\share\\path\\to\\dir7', '': 'path\\to\\dir9'}
       - C:\\path\\to\\dir1\\file1
       - C:\\path\\to\\dir2\\
       - D:\\path\\to\\dir3\\dir4\\file2
@@ -1602,13 +1602,15 @@ def get_drivewise_commondirs(paths: list[str]):
             single_cm_dir = osp.dirname(single_cm_dir)
         root = '/'
         drive = root if single_cm_dir.startswith(root) else ''
-        return {drive: single_cm_dir.strip(root)}
+        return {drive: single_cm_dir}
     # windows
     if len(paths) == 1:
         drive, relpath = osp.splitdrive(paths[0])
         drive = drive.lower()
         single_cm_dir = osp.dirname(relpath).strip('\\')
-        return {drive: single_cm_dir}
+        # join('d:', 'relpath') -> 'd:relpath'
+        # join('d:\\', 'relpath') -> 'd:\\relpath'
+        return {drive: osp.join(drive+'\\', single_cm_dir) if drive else single_cm_dir}
     paths_sorted_by_drive = sorted(paths)
     # collect paths into map by drive
     drive_path_map = {}
@@ -1619,7 +1621,8 @@ def get_drivewise_commondirs(paths: list[str]):
         if must_lazy_init_for_drive := drive not in drive_path_map:
             drive_path_map[drive] = []
         drive_path_map[drive].append(relpath.strip('\\'))
-    return {drive: osp.dirname(winpaths[0]).strip('\\') if (is_single_file := len(winpaths) == 1 and osp.splitdrive(winpaths[0])[1]) else osp.commonpath(winpaths).strip('\\') for drive, winpaths in drive_path_map.items()}
+    drive_relpath_map = {drive: osp.dirname(winpaths[0]).strip('\\') if (is_single_file := len(winpaths) == 1 and osp.splitdrive(winpaths[0])[1]) else osp.commonpath(winpaths).strip('\\') for drive, winpaths in drive_path_map.items()}
+    return {drive: osp.join(drive+'\\', relpath) if drive else relpath for drive, relpath in drive_relpath_map.items()}
 
 
 def read_lines(file, striplineend=False, posix=True):

@@ -411,18 +411,18 @@ def test_get_drivewise_commondirs():
     # single path
     if is_posix := platform.system() != 'Windows':
         abs_paths = ['/path/to/dir1/file1']
-        assert util.get_drivewise_commondirs(abs_paths) == {'/': 'path/to/dir1'}
+        assert util.get_drivewise_commondirs(abs_paths) == {'/': '/path/to/dir1'}
         rel_paths = ['path/to/dir1/file1']
         assert util.get_drivewise_commondirs(rel_paths) == {'': 'path/to/dir1'}
     else:
         abs_paths = ['C:\\path\\to\\dir1\\file1.ext']
-        assert util.get_drivewise_commondirs(abs_paths) == {'c:': 'path\\to\\dir1'}
+        assert util.get_drivewise_commondirs(abs_paths) == {'c:': 'c:\\path\\to\\dir1'}
         rel_paths = ['path\\to\\dir1\\file1']
         assert util.get_drivewise_commondirs(rel_paths) == {'': 'path\\to\\dir1'}
     # many paths
     if is_posix := platform.system() != 'Windows':
         abs_paths = ['/path/to/dir1/file1', '/path/to/dir2/', '/path/to/dir3/dir4/file2']
-        assert util.get_drivewise_commondirs(abs_paths) == {'/': 'path/to'}
+        assert util.get_drivewise_commondirs(abs_paths) == {'/': '/path/to'}
         rel_paths = ['path/to/dir1/file1', 'path/to/dir2/', 'path/to/dir3/dir4/file2']
         assert util.get_drivewise_commondirs(rel_paths) == {'': 'path/to'}
         # case-sensitive
@@ -441,10 +441,10 @@ def test_get_drivewise_commondirs():
             'path\\to\\dir9\\file7.ext',
         ]
         assert util.get_drivewise_commondirs(abs_paths) == {
-            'c:': 'path\\to',
-            'd:': 'path\\to',
-            'e:': 'path\\to',
-            '\\\\network\\share': 'path\\to\\dir7',
+            'c:': 'c:\\path\\to',
+            'd:': 'd:\\path\\to',
+            'e:': 'e:\\path\\to',
+            '\\\\network\\share': '\\\\network\\share\\path\\to\\dir7',
             '': 'path\\to\\dir9'
         }
         # case-insensitive
