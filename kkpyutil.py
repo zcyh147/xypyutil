@@ -617,8 +617,15 @@ def alert(title, content, action='Close'):
 
 
 def convert_to_wine_path(path, drive=None):
-    full_path = osp.abspath(osp.expanduser(path))
-    home_folder = os.environ['HOME']
+    """
+    - path is a macOS-style POSIX full path, e.g.
+      - ~/path/to/file
+      - /path/to
+    - on windows, ~/path/to/file is
+    """
+    full_path = osp.expanduser(path)
+    assert osp.isabs(full_path), f'expected absolute paths, got: {full_path}'
+    home_folder = os.environ['USERPROFILE'] if platform.system() == 'Windows' else os.environ['HOME']
     if leading_homefolder := full_path.startswith(home_folder):
         mapped_drive = drive or 'Y:'
         full_path = full_path.removeprefix(home_folder)
@@ -629,11 +636,16 @@ def convert_to_wine_path(path, drive=None):
 
 
 def convert_from_wine_path(path):
+    """
+    - on windows, we still expand to macOS virtual drive letters
+    - use POSIX path separator /
+    """
     path = path.strip()
     if path.startswith('Z:') or path.startswith('z:'):
         return path[2:].replace('\\', '/') if len(path) > 2 else '/'
     elif path.startswith('Y:') or path.startswith('y:'):
-        return osp.join(os.environ['HOME'], path[2:].replace('\\', '/').strip('/'))
+        home_folder = '~/' if platform.system() == 'Windows' else os.environ['HOME']
+        return osp.join(home_folder, path[2:].replace('\\', '/').strip('/'))
     return path
 
 
@@ -1607,7 +1619,7 @@ def get_drivewise_commondirs(paths: list[str]):
     if len(paths) == 1:
         drive, relpath = osp.splitdrive(paths[0])
         drive = drive.lower()
-        single_cm_dir = osp.dirname(relpath).strip('\\')
+        single_cm_dir = osp.dirname(relpath).strip('\\').lower()
         # join('d:', 'relpath') -> 'd:relpath'
         # join('d:\\', 'relpath') -> 'd:\\relpath'
         return {drive: osp.join(drive+'\\', single_cm_dir) if drive else single_cm_dir}
@@ -1622,7 +1634,7 @@ def get_drivewise_commondirs(paths: list[str]):
             drive_path_map[drive] = []
         drive_path_map[drive].append(relpath.strip('\\'))
     drive_relpath_map = {drive: osp.dirname(winpaths[0]).strip('\\') if (is_single_file := len(winpaths) == 1 and osp.splitdrive(winpaths[0])[1]) else osp.commonpath(winpaths).strip('\\') for drive, winpaths in drive_path_map.items()}
-    return {drive: osp.join(drive+'\\', relpath) if drive else relpath for drive, relpath in drive_relpath_map.items()}
+    return {drive: osp.join(drive+'\\', relpath).lower() if drive else relpath.lower() for drive, relpath in drive_relpath_map.items()}
 
 
 def read_lines(file, striplineend=False, posix=True):

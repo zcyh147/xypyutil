@@ -35,7 +35,7 @@ def test_get_platform_home_dir():
 def test_get_platform_appdata_dir():
     plat = platform.system()
     if plat == 'Windows':
-        expected = osp.abspath(f'C:\\Users\\{getpass.getuser()}\\AppData')
+        expected = osp.abspath(f'C:\\Users\\{getpass.getuser()}\\AppData\\Roaming')
         assert util.get_platform_appdata_dir() == expected
         expected = osp.abspath(f'C:\\Users\\{getpass.getuser()}\\AppData\\Local')
         assert util.get_platform_appdata_dir(winroam=False) == expected
@@ -93,7 +93,8 @@ def test_get_md5_checksum():
     missing_file = 'missing'
     assert util.get_md5_checksum(missing_file) is None
     valid_file = osp.abspath(f'{_script_dir}/../LICENSE')
-    assert util.get_md5_checksum(valid_file) == '7a3beb0af03d4afff89f8a69c70a87c0'
+    # line-ends count
+    assert util.get_md5_checksum(valid_file) == '5d326be91ee12591b87f17b6f4000efe' if platform.system() == 'Windows' else '7a3beb0af03d4afff89f8a69c70a87c0'
 
 
 def test_substitute_keywords():
@@ -148,7 +149,7 @@ def test_convert_from_wine_path():
     path = ' Z:\\path\\to\\my\\file   '
     assert util.convert_from_wine_path(path) == '/path/to/my/file'
     path = 'Y:\\my\\file'
-    assert util.convert_from_wine_path(path) == f'{os.environ.get("HOME")}/my/file'
+    assert util.convert_from_wine_path(path) == '~/my/file' if platform.system() == 'Windows' else f'{os.environ.get("HOME")}/my/file'
     path = 'X:\\my\\file'
     assert util.convert_from_wine_path(path) == path
 
