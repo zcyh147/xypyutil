@@ -1637,6 +1637,24 @@ def get_drivewise_commondirs(paths: list[str]):
     return {drive: osp.join(drive+'\\', relpath).lower() if drive else relpath.lower() for drive, relpath in drive_relpath_map.items()}
 
 
+def split_platform_drive(path):
+    """
+    - windows paths are drive-bound
+    - POSIX paths are not
+    - but to refer to drive-wise common dirs, we need to split the drive
+    - so we define drive for POSIX in drive-wise common-dir map
+      - '/' for absolute paths
+      - '' for relative paths
+    - on windows, convert drive letter to use lower case
+    """
+    if platform.system() != 'Windows':
+        drive, relpath = osp.splitdrive(path)
+        drive = '/' if relpath.startswith('/') else ''
+        return drive, relpath[1:] if drive else relpath
+    drive, relpath = osp.splitdrive(path)
+    return drive.lower(), relpath
+
+
 def read_lines(file, striplineend=False, posix=True):
     with open(file) as fp:
         lines = fp.readlines()

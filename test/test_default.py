@@ -455,3 +455,16 @@ def test_get_drivewise_commondirs():
             'path\\To\\dir1\\dir4\\file2.ext'
         ]
         assert util.get_drivewise_commondirs(rel_paths) == {'': 'path\\to'}
+
+
+def test_split_platform_drive():
+    if platform.system() == 'Windows':
+        path = osp.normpath('C:/path/to/dir1/file1')
+        assert util.split_platform_drive(path) == ('c:', osp.normpath('path/to/dir1/file1'))
+        path = osp.normpath('path/to/dir1/file1')
+        assert util.split_platform_drive(path) == ('', osp.normpath('path/to/dir1/file1'))
+    else:
+        path = '/path/to/dir1/file1'
+        assert util.split_platform_drive(path) == ('/', 'path/to/dir1/file1')
+        path = 'path/to/dir1/file1'
+        assert util.split_platform_drive(path) == ('', 'path/to/dir1/file1')
