@@ -698,7 +698,8 @@ def init_translator(localedir, domain='all', langs=None):
     if langs:
         cur_langs = langs
     else:
-        cur_locale, encoding = locale.getdefaultlocale()
+        cur_locale = locale.getlocale()
+        encoding = locale.getpreferredencoding()
         cur_langs = [cur_locale] if cur_locale else ['en']
     try:
         translator = gettext.translation(domain, localedir=localedir, languages=cur_langs)
@@ -1939,6 +1940,7 @@ Advice:
 
 
 def _test():
+    init_translator('.', langs=['en', 'zh'])
     pass
 
 
