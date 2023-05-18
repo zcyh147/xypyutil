@@ -384,10 +384,9 @@ def save_json(path, config):
     os.makedirs(par_dir, exist_ok=True)
     if is_python3():
         with open(path, 'w', encoding=TXT_CODEC) as f:
-            json.dump(config, f, ensure_ascii=False, indent=4)
-    else:
-        with open(path, 'w') as f:
-            json.dump(config, f, ensure_ascii=False, indent=4)
+            return json.dump(config, f, ensure_ascii=False, indent=4)
+    with open(path, 'w') as f:
+        return json.dump(config, f, ensure_ascii=False, indent=4)
 
 
 def trace_calls_and_returns(frame, event, arg):
@@ -1888,6 +1887,22 @@ def lazy_load_listfile(single_or_listfile: str, ext='.list'):
     return [single_item]
 
 
+def normalize_paths(paths, mode='native'):
+    """
+    - modes:
+      - auto: use platform pathsep
+      - posix: use /
+      - win: use \\
+    """
+    if mode == 'native':
+        return [path.replace('/', '\\') for path in paths] if platform.system() == 'Windows' else [path.replace('\\', '/') for path in paths]
+    if mode == 'posix':
+        return [path.replace('\\', '/') for path in paths]
+    if mode == 'win':
+        return [path.replace('/', '\\') for path in paths]
+    raise NotImplementedError(f'Unsupported mode: {mode}')
+
+
 def lazy_load_filepaths(single_or_listfile: str, ext='.list', root=''):
     """
     - we don't force return type-hint to be -> list for reusing args.path str
@@ -1896,6 +1911,7 @@ def lazy_load_filepaths(single_or_listfile: str, ext='.list', root=''):
     """
     # if not file path, then user must give root for relative paths
     root = root or os.getcwd()
+    # prepare for path normalization: must input posix paths for windows
     root = root.replace('\\', '/')
     abs_list_file = single_or_listfile
     if not osp.isabs(single_or_listfile):
