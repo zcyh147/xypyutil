@@ -1818,6 +1818,22 @@ def save_text(path, text: str, toappend=False):
         fp.write(text)
 
 
+def find_duplication(mylist):
+    """
+    - find and index all duplicates in a list
+      - in: [1, 2, 3, 2, 4, 1, 5]
+      - out: {1: [0, 5], 2: [1, 3]}
+    - useful for later conflict resolution
+    """
+    seen, dups = set(), set()
+    for idx, item in enumerate(mylist):
+        if item in seen:
+            dups.add(item)
+        else:
+            seen.add(item)
+    return {dup: [idx for idx, item in enumerate(mylist) if item == dup] for dup in dups}
+
+
 def remove_duplication(mylist):
     return list(dict.fromkeys(mylist))
 
