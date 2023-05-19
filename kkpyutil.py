@@ -1838,6 +1838,21 @@ def remove_duplication(mylist):
     return list(dict.fromkeys(mylist))
 
 
+def find_runs(lst):
+    runs = []
+    current_group = []
+    for i, value in enumerate(lst):
+        if i > 0 and value == lst[i - 1]:
+            current_group.append(i)
+        else:
+            if len(current_group) > 1:
+                runs.append(current_group)
+            current_group = [i]
+    if len(current_group) > 1:
+        runs.append(current_group)
+    return runs
+
+
 def install_by_macports(pkg, ver=None, lazybin=None):
     """
     Homebrew has the top priority.
