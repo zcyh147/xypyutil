@@ -1900,6 +1900,8 @@ def validate_platform(supported_plats):
 
 
 def touch(file, withmtime=True):
+    par_dir = osp.dirname(file)
+    os.makedirs(par_dir, exist_ok=True)
     with open(file, 'a'):
         if withmtime:
             os.utime(file, None)
