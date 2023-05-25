@@ -941,7 +941,7 @@ def remove_from_os_paths(bindir, usesyspath=True, inmemonly=False):
     os.environ[path_var] = os.environ[path_var].replace(bindir, '')
 
 
-def run_cmd(cmd, cwd=None, logger=None, check=True, shell=False, verbose=False):
+def run_cmd(cmd, cwd=None, logger=None, check=True, shell=False, verbose=False, useexception=True):
     """
     Use shell==True with autotools where new shell is needed to treat the entire command option sequence as a command,
     e.g., shell=True means running sh -c ./configure CFLAGS="..."
@@ -950,6 +950,8 @@ def run_cmd(cmd, cwd=None, logger=None, check=True, shell=False, verbose=False):
     local_info = logger.info if logger else print
     local_error = logger.error if logger else print
     console_info = local_info if logger and verbose else local_debug
+    if return_error_proc := not useexception:
+        check, shell = False, True
     # show cmdline with or without exceptions
     cmd_log = f"""\
 {' '.join(cmd)}
