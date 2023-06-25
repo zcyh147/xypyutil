@@ -50,6 +50,7 @@ from types import SimpleNamespace
 #
 _script_dir = osp.abspath(osp.dirname(__file__))
 TXT_CODEC = 'utf-8'  # Importable.
+LOCALE_CODEC = locale.getpreferredencoding()
 MAIN_CFG_FILENAME = 'app.json'
 DEFAULT_CFG_FILENAME = 'default.json'
 
@@ -672,7 +673,7 @@ def kill_process_by_name(name, forcekill=False):
         if proc.returncode != 0:
             return return_codes['procNotFound']
         proc = run_cmd(cmd, check=False)
-        if 'not permitted' in (err_log := proc.stderr.decode(TXT_CODEC).lower()):
+        if 'not permitted' in (err_log := proc.stderr.decode(LOCALE_CODEC).lower()):
             return return_codes['permissionDenied']
         if err_log:
             return return_codes['unknownError']
@@ -680,7 +681,7 @@ def kill_process_by_name(name, forcekill=False):
     # Windows: wmic cmd can kill admin-level process
     cmd = cmd_map[plat]['hardKill'] if forcekill else cmd_map[plat]['softKill']
     proc = run_cmd(cmd, check=False)
-    if 'not found' in (err_log := proc.stderr.decode(TXT_CODEC).lower()) or 'no instance' in proc.stdout.decode(TXT_CODEC).lower():
+    if 'not found' in (err_log := proc.stderr.decode(LOCALE_CODEC).lower()) or 'no instance' in proc.stdout.decode(LOCALE_CODEC).lower():
         return return_codes['procNotFound']
     if 'denied' in err_log:
         return return_codes['permissionDenied']
@@ -960,15 +961,15 @@ cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
     local_info(cmd_log)
     try:
         proc = subprocess.run(cmd, check=check, shell=shell, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
-        stdout_log = proc.stdout.decode(TXT_CODEC, errors='backslashreplace')
-        stderr_log = proc.stderr.decode(TXT_CODEC, errors='backslashreplace')
+        stdout_log = proc.stdout.decode(LOCALE_CODEC, errors='backslashreplace')
+        stderr_log = proc.stderr.decode(LOCALE_CODEC, errors='backslashreplace')
         if stdout_log:
             console_info(f'stdout:\n{stdout_log}')
         if stderr_log:
             local_error(f'stderr:\n{stderr_log}')
     except subprocess.CalledProcessError as e:
-        stdout_log = f'stdout:\n{e.stdout.decode(TXT_CODEC, errors="backslashreplace")}'
-        stderr_log = f'stderr:\n{e.stderr.decode(TXT_CODEC, errors="backslashreplace")}'
+        stdout_log = f'stdout:\n{e.stdout.decode(LOCALE_CODEC, errors="backslashreplace")}'
+        stderr_log = f'stderr:\n{e.stderr.decode(LOCALE_CODEC, errors="backslashreplace")}'
         local_info(stdout_log)
         local_error(stderr_log)
         raise e
@@ -991,8 +992,8 @@ cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
         proc = subprocess.Popen(cmd, shell=shell, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
         # won't be able to retrieve log from background
     except subprocess.CalledProcessError as e:
-        local_info(f'stdout: {e.stdout.decode(TXT_CODEC, errors="backslashreplace")}')
-        local_error(f'stderr: {e.stderr.decode(TXT_CODEC, errors="backslashreplace")}')
+        local_info(f'stdout: {e.stdout.decode(LOCALE_CODEC, errors="backslashreplace")}')
+        local_error(f'stderr: {e.stderr.decode(LOCALE_CODEC, errors="backslashreplace")}')
         raise e
     except Exception as e:
         local_error(e)
@@ -1022,15 +1023,15 @@ cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
         stdout_proxy.start()
         stderr_proxy.start()
         proc.wait()
-        stdout_log = stdout_proxy.log.decode(TXT_CODEC, errors='backslashreplace')
-        stderr_log = stderr_proxy.log.decode(TXT_CODEC, errors='backslashreplace')
+        stdout_log = stdout_proxy.log.decode(LOCALE_CODEC, errors='backslashreplace')
+        stderr_log = stderr_proxy.log.decode(LOCALE_CODEC, errors='backslashreplace')
         if stdout_log:
             console_info(f'stdout:\n{stdout_log}')
         if stderr_log:
             local_error(f'stderr:\n{stderr_log}')
     except subprocess.CalledProcessError as e:
-        stdout_log = f'stdout:\n{e.stdout.decode(TXT_CODEC, errors="backslashreplace")}'
-        stderr_log = f'stderr:\n{e.stderr.decode(TXT_CODEC, errors="backslashreplace")}'
+        stdout_log = f'stdout:\n{e.stdout.decode(LOCALE_CODEC, errors="backslashreplace")}'
+        stderr_log = f'stderr:\n{e.stderr.decode(LOCALE_CODEC, errors="backslashreplace")}'
         local_info(stdout_log)
         local_error(stderr_log)
         raise e
