@@ -468,3 +468,8 @@ def test_split_platform_drive():
         assert util.split_platform_drive(path) == ('/', 'path/to/dir1/file1')
         path = 'path/to/dir1/file1'
         assert util.split_platform_drive(path) == ('', 'path/to/dir1/file1')
+
+
+def test_sanitize_path_part():
+    path_part = 'tab: 天哪*?"<\\/\x00\x1F'
+    assert util.sanitize_text_as_path(path_part) == 'tab_ 天哪________'

@@ -28,6 +28,7 @@ import multiprocessing
 import operator
 import os
 import os.path as osp
+import re
 import time
 import tokenize
 import types
@@ -1990,7 +1991,16 @@ Advice:
 {advice}""")
 
 
+def sanitize_text_as_path(text: str, fallback_char='_'):
+    """
+    text is a part of path, excluding os.sep
+    """
+    invalid_chars_pattern = r'[\\\/:*?"<>|\x00-\x1F]'
+    return  re.sub(invalid_chars_pattern, fallback_char, text)
+
+
 def _test():
+    print(sanitize_text_as_path('tab: 天哪*?"<\\/'))
     pass
 
 
