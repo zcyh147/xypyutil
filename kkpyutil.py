@@ -1979,6 +1979,8 @@ def is_link(path):
             return True
         except FileNotFoundError:
             return False
+        except OSError:
+            return False
     return osp.islink(path)
 
 
