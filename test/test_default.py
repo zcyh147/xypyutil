@@ -8,6 +8,7 @@ import os
 import os.path as osp
 # 3rd party
 import types
+import uuid
 
 import pytest
 # project
@@ -473,3 +474,31 @@ def test_split_platform_drive():
 def test_sanitize_path_part():
     path_part = 'tab: 天哪*?"<\\/\x00\x1F'
     assert util.sanitize_text_as_path(path_part) == 'tab_ 天哪________'
+
+
+def test_get_guid_from_uuid():
+    uid = uuid.UUID('{e6a6dd92-5b96-4a09-9cc4-d44153b900a4}')
+    assert util.get_guid_from_uuid(uid) == '{E6A6DD92-5B96-4A09-9CC4-D44153B900A4}'
+
+
+def test_create_guid():
+    guid = util.create_guid()
+    assert isinstance(guid, str)
+    assert len(guid) == 38
+    assert guid[0] == '{'
+    assert guid[-1] == '}'
+    assert guid[9] == '-'
+    assert guid[14] == '-'
+    assert guid[19] == '-'
+    assert guid[24] == '-'
+    assert guid[37] == '}'
+    assert guid[1:9].isalnum()
+    assert guid[10:14].isalnum()
+    assert guid[15:19].isalnum()
+    assert guid[20:24].isalnum()
+    assert guid[25:37].isalnum()
+    assert guid[1:9].isupper()
+    assert guid[10:14].isupper()
+    assert guid[15:19].isupper()
+    assert guid[20:24].isupper()
+    assert guid[25:37].isupper()

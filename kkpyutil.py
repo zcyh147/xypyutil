@@ -44,6 +44,7 @@ import tempfile
 import threading
 import traceback
 from types import SimpleNamespace
+import uuid
 
 
 #
@@ -587,12 +588,26 @@ def substitute_keywords(text, str_map, useliteral=False):
 
 
 def is_uuid(text, version=4):
-    import uuid
     try:
         uuid_obj = uuid.UUID(text, version=version)
     except ValueError:
         return False
     return True
+
+
+def create_guid(uuid_version=4, uuid5_name=None):
+    if uuid_version not in [1, 3, 4, 5]:
+        uuid_version = 4
+    if uuid_version == 5:
+        namespace = uuid.UUID(str(uuid.uuid4()))
+        uid = uuid.uuid5(namespace, uuid5_name)
+        return get_guid_from_uuid(uid)
+    uid = eval(f'uuid.uuid{uuid_version}()')
+    return get_guid_from_uuid(uid)
+
+
+def get_guid_from_uuid(uid):
+    return f'{{{str(uid).upper()}}}'
 
 
 def get_clipboard_content():
