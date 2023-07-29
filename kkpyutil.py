@@ -1509,13 +1509,10 @@ def compare_dsv_lines(line1, line2, delim=' ', float_rel_tol=1e-6, float_abs_tol
                 return False
             continue
         if (uuid_ver1 := get_uuid_version(value1)) != (uuid_ver2 := get_uuid_version(value2)):
-            logger.error(f'{log_header}: type mismatch, mixed uuid with non-uuid: {value1} vs. {value2}')
+            logger.error(f'{log_header}: uuid version mismatch {uuid_ver1} vs. {uuid_ver2}: {value1} vs. {value2}')
             return False
-        if both_are_uuids := uuid_ver1 is not None and uuid_ver2 is not None:
+        if both_are_uuids_and_same_versions := uuid_ver1 is not None and uuid_ver2 is not None:
             if randomidok:
-                if uuid_ver1 != uuid_ver2:
-                    logger.error(f'{log_header}: uuid version mismatch {uuid_ver1} vs. {uuid_ver2}: {value1} vs. {value2}')
-                    return False
                 continue
             if value1 == value2:
                 continue

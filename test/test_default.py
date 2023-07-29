@@ -509,11 +509,7 @@ def test_create_guid():
     assert guid[15:19].isalnum()
     assert guid[20:24].isalnum()
     assert guid[25:37].isalnum()
-    assert guid[1:9].isupper()
-    assert guid[10:14].isupper()
-    assert guid[15:19].isupper()
-    assert guid[20:24].isupper()
-    assert guid[25:37].isupper()
+    assert guid.upper() == guid
 
 
 def test_is_float_text():
