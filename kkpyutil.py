@@ -24,6 +24,7 @@ import json
 import locale
 import logging
 import logging.config
+import math
 import multiprocessing
 import operator
 import os
@@ -587,12 +588,22 @@ def substitute_keywords(text, str_map, useliteral=False):
     return updated
 
 
-def is_uuid(text, version=4):
+def is_uuid(text, version: int = 0):
     try:
-        uuid_obj = uuid.UUID(text, version=version)
+        uuid_obj = uuid.UUID(text)
     except ValueError:
+        # not an uuid
         return False
-    return True
+    return uuid_obj.version == version if (any_version := version != 0) else True
+
+
+def get_uuid_version(text):
+    try:
+        uuid_obj = uuid.UUID(text)
+    except ValueError:
+        # not an uuid
+        return None
+    return uuid_obj.version
 
 
 def create_guid(uuid_version=4, uuid5_name=None):
@@ -1450,6 +1461,70 @@ def compare_textfiles(file1, file2, showdiff=False, contextonly=True, ignoredlin
     return lines1 == lines2
 
 
+def is_float_text(text):
+    """
+    - observation:
+        >> float('99e-0')
+        99.0
+        >> float('99e-9')
+        9.9e-08
+        >> float('99e+9')
+        99000000000.0
+        >> float('99e9')
+        99000000000.0
+    """
+    if '.' not in text and 'e' not in text:
+        return False
+    try:
+        float(text)
+    except ValueError:
+        return False
+    return True
+
+
+def compare_dsv_lines(line1, line2, delim=' ', float_rel_tol=1e-6, float_abs_tol=1e-6, striptext=True, randomidok=False, logger=None):
+    """
+    - compare two lines of delimiter-separated values, with numerical and uuid comparison in mind
+    - integers are compared as strings
+    - strings use case-sensitive comparison
+    - early-out at first mismatch
+    - randomidok: if True, only compare uuid versions; accepts raw uuid and guid ({...})
+    """
+    logger = logger or glogger
+    cmp1 = (line1.strip() if striptext else line1).split(delim)
+    cmp2 = (line2.strip() if striptext else line2).split(delim)
+    if len(cmp1) != len(cmp2):
+        logger.error(f'number of fields mismatch: {len(cmp1)} vs. {len(cmp2)}')
+        return False
+    for v, (value1, value2) in enumerate(zip(cmp1, cmp2)):
+        log_header = (f'Field {v}:')
+        if striptext:
+            value1, value2 = value1.strip(), value2.strip()
+        if (v1_is_float := is_float_text(value1)) != (v2_is_float := is_float_text(value2)):
+            logger.error(f'{log_header}: type mismatch, mixed float with non-float: {value1} vs. {value2}')
+            return False
+        if v1_is_float and v2_is_float:
+            if not math.isclose(float(value1), float(value2), rel_tol=float_rel_tol, abs_tol=float_abs_tol):
+                logger.error(f'{log_header}: float mismatch: {value1} vs. {value2}')
+                return False
+            continue
+        if (uuid_ver1 := get_uuid_version(value1)) != (uuid_ver2 := get_uuid_version(value2)):
+            logger.error(f'{log_header}: type mismatch, mixed uuid with non-uuid: {value1} vs. {value2}')
+            return False
+        if both_are_uuids := uuid_ver1 is not None and uuid_ver2 is not None:
+            if randomidok:
+                if uuid_ver1 != uuid_ver2:
+                    logger.error(f'{log_header}: uuid version mismatch {uuid_ver1} vs. {uuid_ver2}: {value1} vs. {value2}')
+                    return False
+                continue
+            if value1 == value2:
+                continue
+        if value1 != value2:
+            logger.error(f'{log_header}: string mismatch: {value1} vs. {value2}')
+            return False
+    return True
+
+
 def lazy_logging(msg, logger=None):
     if logger:
         logger.info(msg)
@@ -2017,7 +2092,6 @@ def sanitize_text_as_path(text: str, fallback_char='_'):
 
 
 def _test():
-    print(sanitize_text_as_path('tab: 天哪*?"<\\/'))
     pass
 
 

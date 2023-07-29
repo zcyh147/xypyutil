@@ -129,10 +129,22 @@ Variable in text: %(foo)siable
 
 
 def test_is_uuid():
+    # any version
     valid = 'c9bf9e57-1685-4c89-bafb-ff5af830be8a'
     assert util.is_uuid(valid)
     invalid = 'c9bf9e58'
     assert not util.is_uuid(invalid)
+    assert util.is_uuid(valid, version=4)
+    assert not util.is_uuid(valid, version=1)
+
+
+def test_get_uuid_version():
+    valid = '{C9BF9E57-1685-4C89-BAFB-FF5AF830BE8A}'
+    assert util.get_uuid_version(valid) == 4
+    valid = '{C9BF9E57-1685-1C89-BAFB-FF5AF830BE8A}'
+    assert util.get_uuid_version(valid) == 1
+    invalid = 'c9bf9e58'
+    assert util.get_uuid_version(invalid) is None
 
 
 def test_convert_to_wine_path():
@@ -502,3 +514,32 @@ def test_create_guid():
     assert guid[15:19].isupper()
     assert guid[20:24].isupper()
     assert guid[25:37].isupper()
+
+
+def test_is_float_text():
+    assert util.is_float_text('1.0')
+    assert util.is_float_text('1.0e-3')
+    assert util.is_float_text('1.0e+3')
+    assert not util.is_float_text('100')
+    assert not util.is_float_text('hello')
+    # uuid
+    assert not util.is_float_text('e6a6dd92-5b96-4a09-9cc4-d44153b900a4')
+
+
+def test_compare_dsv_lines():
+    line1 = 'length b c'
+    line2 = 'length b c'
+    assert util.compare_dsv_lines(line1, line2)
+    line1 = 'length b c'
+    line2 = '  length b c   '
+    assert not util.compare_dsv_lines(line1, line2, striptext=False)
+    assert util.compare_dsv_lines(line1, line2, striptext=True)
+    line1 = 'length, b, c'
+    line2 = '  length,b,c   '
+    assert util.compare_dsv_lines(line1, line2, delim=',', striptext=True)
+    line1 = 'length 1.23458 e6a6dd92-5b96-4a09-9cc4-d44153b900a4'
+    # another line containing different float and uuid
+    line2 = 'length 1.23459 e3016d69-cb30-4eb1-9f93-bb28621aba28'
+    assert not util.compare_dsv_lines(line1, line2)
+    assert util.compare_dsv_lines(line1, line2, float_rel_tol=1e-5, float_abs_tol=1e-5, randomidok=True)
+
