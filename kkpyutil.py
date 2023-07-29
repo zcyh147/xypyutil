@@ -1497,7 +1497,7 @@ def compare_dsv_lines(line1, line2, delim=' ', float_rel_tol=1e-6, float_abs_tol
         logger.error(f'number of fields mismatch: {len(cmp1)} vs. {len(cmp2)}')
         return False
     for v, (value1, value2) in enumerate(zip(cmp1, cmp2)):
-        log_header = (f'Field {v}:')
+        log_header = (f'[Field {v}]')
         if striptext:
             value1, value2 = value1.strip(), value2.strip()
         if (v1_is_float := is_float_text(value1)) != (v2_is_float := is_float_text(value2)):
