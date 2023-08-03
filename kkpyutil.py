@@ -65,7 +65,7 @@ class ChildPromptProxy(threading.Thread):
     standard out.
     Example:
         p = subprocess.Popen(cmd_that_prompts, stdout=subprocess.PIPE)
-        r = LivePrinter(p.stdout)
+        r = ChildPromptProxy(p.stdout)
         r.start()
         p.wait()
     """
@@ -98,7 +98,7 @@ class SingletonDecorator:
         class MyClass: ...
         myobj = SingletonDecorator(MyClass, args, kwargs)
     """
-    def __init__(self, klass):
+    def __init__(self, klass, *args, **kwargs):
         self.klass = klass
         self.instance = None
 
@@ -106,19 +106,6 @@ class SingletonDecorator:
         if self.instance is None:
             self.instance = self.klass(*args, **kwargs)
         return self.instance
-
-
-class _Singleton(type):
-    _instances = {}
-
-    def __call__(cls, *args, **kwargs):
-        if cls not in cls._instances:
-            cls._instances[cls] = super(_Singleton, cls).__call__(*args, **kwargs)
-        return cls._instances[cls]
-
-
-class Singleton(_Singleton('SingletonMeta', (object,), {})):
-    pass
 
 
 class LowPassLogFilter(object):
@@ -313,7 +300,7 @@ def build_logger(srcpath, logpath=None):
     )
     logger.addHandler(handler)
 
-    logpath = logpath or osp.abspath(f'{osp.dirname(srcpath)}/app.log')
+    logpath = logpath or osp.abspath(f'{osp.dirname(srcpath)}/{osp.splitext(src_basename)[0]}.log')
 
     # Log file for coders: with debug messages.
     logdir = osp.abspath(osp.dirname(logpath))
@@ -2089,6 +2076,10 @@ def sanitize_text_as_path(text: str, fallback_char='_'):
 
 
 def _test():
+    p = subprocess.Popen(['python3', '-c', 'print("hello world")'], stdout=subprocess.PIPE)
+    r = ChildPromptProxy(p.stdout)
+    r.start()
+    p.wait()
     pass
 
 

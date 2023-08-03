@@ -6,6 +6,7 @@ import platform
 import sys
 import os
 import os.path as osp
+import subprocess
 # 3rd party
 import types
 import uuid
@@ -15,6 +16,44 @@ import pytest
 _script_dir = osp.abspath(osp.dirname(__file__))
 sys.path.insert(0, repo_root := osp.abspath(f'{_script_dir}/..'))
 import kkpyutil as util
+
+
+def test_childpromptproxy():
+    log = 'hello world'
+    parent = subprocess.Popen(['python3', '-c', f'print("{log}")'], stdout=subprocess.PIPE)
+    proxy = util.ChildPromptProxy(parent.stdout)
+    proxy.start()
+    parent.wait()
+    assert proxy.log.decode() == f'{log}\n'
+
+
+def test_singletion_decorator():
+    class MyClass:
+        def __init__(self, n, s):
+            self.n = n
+            self.s = s
+    singleton_class = util.SingletonDecorator(MyClass, 100, 'hello')
+    obj1 = singleton_class(100, 'hello')
+    obj2 = singleton_class(200, 'world')
+    assert obj1 == obj2
+
+
+def test_log_filters():
+    info_lpf = util.LowPassLogFilter(20)
+    debug_log = types.SimpleNamespace(levelno=10)
+    info_log = types.SimpleNamespace(levelno=20)
+    warning_log = types.SimpleNamespace(levelno=30)
+    error_log = types.SimpleNamespace(levelno=40)
+    assert info_lpf.filter(debug_log)
+    assert not info_lpf.filter(warning_log)
+    info_hpf = util.HighPassLogFilter(20)
+    assert not info_hpf.filter(debug_log)
+    assert info_hpf.filter(warning_log)
+    info_warning_bpf = util.BandPassLogFilter((20, 30))
+    assert not info_warning_bpf.filter(debug_log)
+    assert not info_warning_bpf.filter(error_log)
+    assert info_warning_bpf.filter(info_log)
+    assert info_warning_bpf.filter(warning_log)
 
 
 def test_get_platform_home_dir():
@@ -62,6 +101,27 @@ def test_get_platform_tmp_dir():
     else:
         with pytest.raises(NotImplementedError):
             util.get_platform_tmp_dir()
+
+
+def test_build_default_logger():
+    log_dir = osp.dirname(__file__)
+    logger = util.build_default_logger(log_dir, name='my')
+    logger.debug('hello logger')
+    log_file = osp.join(log_dir, 'my.log')
+    assert osp.isfile(log_file)
+    os.remove(log_file)
+
+
+def test_catch_unknown_exception():
+    util.catch_unknown_exception(RuntimeError, 'exception info', None)
+
+
+def test_build_logger():
+    src_file = __file__
+    logger = util.build_logger(src_file)
+    logger.debug('hello source logger')
+    log_file = osp.join(osp.dirname(src_file), 'test_default.log')
+    assert osp.isfile(log_file)
 
 
 def test_format_error_message():
