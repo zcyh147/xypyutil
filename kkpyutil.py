@@ -333,27 +333,12 @@ def is_python3():
     return sys.version_info[0] > 2
 
 
-def load_json(path):
+def load_json(path, as_namespace=False):
     """
-    Load Json configuration file.
-    :param path: path to the config file
-    :return: config as a dict
-    """
-    if is_python3():
-        with open(path, 'r', encoding=TXT_CODEC, errors='backslashreplace', newline=None) as f:
-            text = f.read()
-    else:
-        with open(path, 'rU') as f:
-            text = f.read()
-    # Add object_pairs_hook=collections.OrderedDict hook for py3.5 and lower.
-    return json.loads(text, object_pairs_hook=collections.OrderedDict)
-
-
-def load_json_obj(path):
-    """
-    Load Json configuration file.
-    :param path: path to the config file
-    :return: config as an object
+    - Load Json configuration file.
+    - supports UTF-8 only, due to no way to support mixed encodings
+    - most usecases involve either utf-8 or mixed encodings
+    - windows users must fix their region and localization setup via control panel
     """
     if is_python3():
         with open(path, 'r', encoding=TXT_CODEC, errors='backslashreplace', newline=None) as f:
@@ -362,7 +347,7 @@ def load_json_obj(path):
         with open(path, 'rU') as f:
             text = f.read()
     # Add object_pairs_hook=collections.OrderedDict hook for py3.5 and lower.
-    return json.loads(text, object_hook=lambda d: SimpleNamespace(**d))
+    return json.loads(text, object_pairs_hook=collections.OrderedDict) if not as_namespace else json.loads(text, object_hook=lambda d: SimpleNamespace(**d))
 
 
 def save_json(path, config):
@@ -371,13 +356,11 @@ def save_json(path, config):
     Unicode as you write, then use json.dump() to write to that file.
     Validate keys to avoid JSON and program out-of-sync.
     """
+    dict_config = vars(config) if isinstance(config, types.SimpleNamespace) else config
     par_dir = osp.split(path)[0]
     os.makedirs(par_dir, exist_ok=True)
-    if is_python3():
-        with open(path, 'w', encoding=TXT_CODEC) as f:
-            return json.dump(config, f, ensure_ascii=False, indent=4)
-    with open(path, 'w') as f:
-        return json.dump(config, f, ensure_ascii=False, indent=4)
+    with open(path, 'w', encoding=TXT_CODEC) as f:
+        return json.dump(dict_config, f, ensure_ascii=False, indent=4)
 
 
 def trace_calls_and_returns(frame, event, arg):

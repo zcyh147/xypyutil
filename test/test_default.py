@@ -3,6 +3,7 @@ tests that don't need external data
 """
 import getpass
 import platform
+import shutil
 import sys
 import os
 import os.path as osp
@@ -16,6 +17,12 @@ import pytest
 _script_dir = osp.abspath(osp.dirname(__file__))
 sys.path.insert(0, repo_root := osp.abspath(f'{_script_dir}/..'))
 import kkpyutil as util
+
+
+_case_dir = osp.dirname(__file__)
+_org_dir = osp.join(_case_dir, '_org')
+_gen_dir = osp.join(_case_dir, '_gen')
+_ref_dir = osp.join(_case_dir, '_ref')
 
 
 def test_childpromptproxy():
@@ -122,6 +129,7 @@ def test_build_logger():
     logger.debug('hello source logger')
     log_file = osp.join(osp.dirname(src_file), 'test_default.log')
     assert osp.isfile(log_file)
+    os.remove(log_file)
 
 
 def test_format_error_message():
@@ -148,6 +156,44 @@ def test_is_multiline_text():
 line 2
 line 3"""
     assert util.is_multiline_text(text)
+
+
+def test_is_python3():
+    assert util.is_python3()
+
+
+def test_load_json():
+    utf8_file = osp.join(_org_dir, 'load_utf8.json')
+    loaded = util.load_json(utf8_file)
+    assert loaded == {
+        "english": "Bye",
+        "简体中文": "再见",
+        "繁體中文": "再會",
+        "日本語": "さよなら"
+    }
+    loaded = util.load_json(utf8_file, as_namespace=True)
+    assert loaded == types.SimpleNamespace(
+        english="Bye",
+        简体中文="再见",
+        繁體中文="再會",
+        日本語="さよなら"
+    )
+
+
+def test_save_json():
+    out_file = osp.join(_gen_dir, 'save_utf8.json')
+    config = {
+        "english": "Bye",
+        "简体中文": "再见",
+        "繁體中文": "再會",
+        "日本語": "さよなら"
+    }
+    util.save_json(out_file, config)
+    assert osp.isfile(out_file)
+    config = types.SimpleNamespace(**config)
+    util.save_json(out_file, config)
+    assert osp.isfile(out_file)
+    shutil.rmtree(_gen_dir, ignore_errors=True)
 
 
 def test_get_md5_checksum():
