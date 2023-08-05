@@ -4,5 +4,5 @@
     <option name="executionMode" value="BINARY" />
     <option name="pathToExecutable" value="/Library/Frameworks/Python.framework/Versions/3.9/bin/black" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="Poetry (kkpyutil) (2)" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="Poetry (kkpyutil) (3)" project-jdk-type="Python SDK" />
 </project>

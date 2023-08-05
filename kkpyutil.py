@@ -21,6 +21,7 @@ import glob
 import hashlib
 import importlib
 import json
+import linecache
 import locale
 import logging
 import logging.config
@@ -47,7 +48,6 @@ import traceback
 from types import SimpleNamespace
 import uuid
 
-
 #
 # Globals
 #
@@ -69,6 +69,7 @@ class ChildPromptProxy(threading.Thread):
         r.start()
         p.wait()
     """
+
     def __init__(self, stream):
         self.stream = stream
         self.log = bytearray()
@@ -98,6 +99,7 @@ class SingletonDecorator:
         class MyClass: ...
         myobj = SingletonDecorator(MyClass, args, kwargs)
     """
+
     def __init__(self, klass, *args, **kwargs):
         self.klass = klass
         self.instance = None
@@ -120,6 +122,7 @@ class LowPassLogFilter(object):
     - DEBUG = 10
     - NOTSET = 0
     """
+
     def __init__(self, level):
         self.__level = level
 
@@ -129,6 +132,7 @@ class LowPassLogFilter(object):
 
 class HighPassLogFilter(object):
     """Logging filter: Show log messages above input level."""
+
     def __init__(self, level):
         self.__level = level
 
@@ -193,16 +197,16 @@ def build_default_logger(logdir, name=None, verbose=False):
         "disable_existing_loggers": False,
         "filters": {
             "info_lpf": {
-              "()": "kkpyutil.LowPassLogFilter",
-              "level": 10 if verbose else 20,
+                "()": "kkpyutil.LowPassLogFilter",
+                "level": 10 if verbose else 20,
             },
             "info_bpf": {
-              "()": "kkpyutil.BandPassLogFilter",
-              "levelbounds": [10, 20] if verbose else [20, 20],
+                "()": "kkpyutil.BandPassLogFilter",
+                "levelbounds": [10, 20] if verbose else [20, 20],
             },
             "warn_hpf": {
-              "()": "kkpyutil.HighPassLogFilter",
-              "level": 30
+                "()": "kkpyutil.HighPassLogFilter",
+                "level": 30
             }
         },
         "formatters": {
@@ -214,27 +218,27 @@ def build_default_logger(logdir, name=None, verbose=False):
             }
         },
         "handlers": {
-                "console": {
-                    "level": "DEBUG" if verbose else "INFO",
-                    "formatter": "console",
-                    "class": "logging.StreamHandler",
-                    "stream": "ext://sys.stdout",
-                    "filters": ["info_bpf"]
-                },
-                "console_err": {
-                    "level": "WARN",
-                    "formatter": "console",
-                    "class": "logging.StreamHandler",
-                    "stream": "ext://sys.stderr",
-                    "filters": ["warn_hpf"]
-                },
-                "file": {
-                    "level": "DEBUG",
-                    "formatter": "file",
-                    "class": "logging.FileHandler",
-                    "encoding": "utf-8",
-                    "filename": log_path
-                }
+            "console": {
+                "level": "DEBUG" if verbose else "INFO",
+                "formatter": "console",
+                "class": "logging.StreamHandler",
+                "stream": "ext://sys.stdout",
+                "filters": ["info_bpf"]
+            },
+            "console_err": {
+                "level": "WARN",
+                "formatter": "console",
+                "class": "logging.StreamHandler",
+                "stream": "ext://sys.stderr",
+                "filters": ["warn_hpf"]
+            },
+            "file": {
+                "level": "DEBUG",
+                "formatter": "file",
+                "class": "logging.FileHandler",
+                "encoding": "utf-8",
+                "filename": log_path
+            }
         },
         "loggers": {
             "": {
@@ -363,24 +367,70 @@ def save_json(path, config):
         return json.dump(dict_config, f, ensure_ascii=False, indent=4)
 
 
-def trace_calls_and_returns(frame, event, arg):
+class Tracer:
     """
-    track hook for function calls. Usage:
-    sys.settrace(trace_calls)
+    - custom module-ignore rules
+    - trace calls and returns
+    - exclude first, then include
     """
-    co = frame.f_code
-    func_name = co.co_name
-    if func_name == 'write':
-        # Ignore write() calls from printing
-        return
-    line_no = frame.f_lineno
-    filename = co.co_filename
-    if event == 'call':
-        print(f'* Call to {func_name} on line {line_no} of {filename}')
-        return trace_calls_and_returns
-    elif event == 'return':
-        print(f'* {func_name} => {arg}')
-    return
+
+    def __init__(self,
+                 excluded_modules: set[str] = None,
+                 exclude_filename_pattern: str = None,
+                 include_filename_pattern: str = None,
+                 exclude_funcname_pattern: str = None,
+                 include_funcname_pattern: str = None,
+                 trace_func=None):
+        self.exclMods = {'builtins'} if excluded_modules is None else excluded_modules
+        self.exclFilePatt = re.compile(exclude_filename_pattern) if exclude_filename_pattern else None
+        self.inclFilePatt = re.compile(include_filename_pattern) if include_filename_pattern else None
+        self.exclFuncPatt = re.compile(exclude_funcname_pattern) if exclude_funcname_pattern else None
+        self.inclFuncPatt = re.compile(include_funcname_pattern) if include_funcname_pattern else None
+        self.traceFunc = trace_func
+
+    def start(self):
+        sys.settrace(self.traceFunc or self._trace_calls_and_returns)
+
+    @staticmethod
+    def stop():
+        sys.settrace(None)
+
+    def ignore_stdlibs(self):
+        def _get_stdlib_module_names():
+            import distutils.sysconfig
+            stdlib_dir = distutils.sysconfig.get_python_lib(standard_lib=True)
+            return {f.replace(".py", "") for f in os.listdir(stdlib_dir)}
+        py_ver = sys.version_info
+        std_libs = set(sys.stdlib_module_names) if py_ver.major >=3 and py_ver.minor >= 10 else _get_stdlib_module_names()
+        self.exclMods.update(std_libs)
+
+    def _trace_calls_and_returns(self, frame, event, arg):
+        """
+        track hook for function calls. Usage:
+        sys.settrace(trace_calls_and_returns)
+        """
+        if event not in ('call', 'return'):
+            return
+        module_name = frame.f_globals.get('__name__')
+        if module_name is not None and module_name in self.exclMods:
+            return
+        filename = frame.f_code.co_filename
+        if self.exclFilePatt and self.exclFuncPatt.search(filename):
+            return
+        if self.inclFilePatt and not self.inclFilePatt.search(filename):
+            return
+        func_name = frame.f_code.co_name
+        if self.exclFuncPatt and self.exclFuncPatt.search(func_name):
+            return
+        if self.inclFuncPatt and not self.inclFuncPatt.search(func_name):
+            return
+        line_number = frame.f_lineno
+        line = linecache.getline(filename, line_number).strip()
+        if event == 'call':
+            args = ', '.join(f'{arg}={repr(frame.f_locals[arg])}' for arg in frame.f_code.co_varnames[:frame.f_code.co_argcount])
+            print(f'Call: {module_name}.{func_name}({args}) - {line}')
+            return self._trace_calls_and_returns
+        print(f'Call: {module_name}.{func_name} => {arg} - {line}')
 
 
 def get_md5_checksum(file):
@@ -406,6 +456,7 @@ def logcall(msg='trace', logger=glogger):
     - only shows enter/exit
     - can be interrupted by exceptions
     """
+
     def wrap(function):
         @functools.wraps(function)
         def wrapper(*args, **kwargs):
@@ -413,7 +464,9 @@ def logcall(msg='trace', logger=glogger):
             ret = function(*args, **kwargs)
             logger.debug(f"Exit: '{function.__name__}' => {ret}")
             return ret
+
         return wrapper
+
     return wrap
 
 
@@ -722,6 +775,7 @@ def match_files_except_lines(file1, file2, excluded=None):
 
 class RerunLock:
     """Lock process from reentering when seeing lock file on disk."""
+
     def __init__(self, name, folder=None, logger=glogger):
         os.makedirs(folder, exist_ok=True)
         filename = f'lock_{name}.json' if name else 'lock_{}.json'.format(next(tempfile._get_candidate_names()))
@@ -790,6 +844,7 @@ class RerunLock:
 
 def rerun_lock(name, folder=None, logger=glogger):
     """Decorator for reentrance locking on functions"""
+
     def decorator(f):
         @functools.wraps(f)
         def wrapper(*args, **kwargs):
@@ -809,7 +864,9 @@ def rerun_lock(name, folder=None, logger=glogger):
                 # leave exception to its upper handler or let the program crash
                 raise e
             return ret
+
         return wrapper
+
     return decorator
 
 
@@ -823,7 +880,7 @@ def await_while(condition, timeout_ms, step_ms=10):
     waited_ms = 0
     while waited_ms < timeout_ms and condition.met():
         condition.update()
-        time.sleep(step_ms/1000)
+        time.sleep(step_ms / 1000)
         waited_ms += step_ms
     return waited_ms < timeout_ms
 
@@ -838,6 +895,7 @@ def await_lockfile(lockpath, timeout_ms=float('inf'), step_ms=10):
 
         def update(self):
             pass
+
     return await_while(PathExistsCondition(lockpath), timeout_ms, step_ms)
 
 
@@ -1044,6 +1102,7 @@ def extract_call_args(file, caller, callee):
     - only support literal args
     - will throw if an arg value is a function call itself
     """
+
     def _get_kwarg_value_by_type(kwarg):
         if isinstance(kwarg.value, ast.Constant):
             return kwarg.value.value
@@ -1113,6 +1172,7 @@ def extract_class_attributes(file, classname):
     - builtin types of attributes without taa can be inferred from constant values
     - type-annotation can use built-in primitive types, typed-collection, and typing.TypeVar
     """
+
     def _get_attr_by_type(node):
         is_type_annotated = isinstance(node, ast.AnnAssign)
         is_assigned_with_const = isinstance(node.value, ast.Constant)
@@ -1157,7 +1217,7 @@ def extract_class_attributes(file, classname):
     mod_name = osp.splitext(osp.basename(file))[0]
     mod = safe_import_module(mod_name, osp.dirname(file))
     parsed = ast.parse(inspect.getsource(mod))
-    
+
     class_node = next((node for node in parsed.body if isinstance(node, ast.ClassDef) and node.name == classname), None)
     if not class_node:
         return None
@@ -1212,6 +1272,7 @@ def extract_imported_modules(file):
 
     def _extract_from_module_import(modnode):
         return modnode.module
+
     imported = []
     import ast
     import inspect
@@ -1278,7 +1339,7 @@ def substitute_lines_between_cues(inserts, iolines, startcue, endcue, startlinen
         return startln, endln
     endln = next((ln for ln, line in enumerate(selected_lines[startln:]) if line.strip().startswith(endcue)), None)
     if endln is None:
-        return startlineno+startln, None
+        return startlineno + startln, None
     if removecues:
         startln -= 1
         endln += 2
@@ -1286,23 +1347,23 @@ def substitute_lines_between_cues(inserts, iolines, startcue, endcue, startlinen
     startln += startlineno
     endln += startln
     if withindent:
-        ref_startln = startln+1 if removecues else startln
+        ref_startln = startln + 1 if removecues else startln
         indent = iolines[ref_startln].find(startcue)
         indent_by_spaces = 0
         for idt in range(indent):
             indent_by_spaces += 4 if iolines[ref_startln][idt] == '\t' else 1
         inserts = ['{}{}'.format(' ' * indent_by_spaces, line) for line in inserts]
     # append to current content between cues or not
-    lines_to_insert = iolines[startln+1: endln] + inserts if useappend else inserts
+    lines_to_insert = iolines[startln + 1: endln] + inserts if useappend else inserts
     if skipdups:
         lines_to_insert = list(dict.fromkeys(lines_to_insert))
     # remove lines in b/w
     has_lines_between_keywords = endln - startln > 1
     if has_lines_between_keywords:
-        del iolines[startln+1: endln]
-    iolines[startln+1: startln+1] = lines_to_insert
-    insert_start = startln+1
-    rg_inserted = [insert_start, insert_start+len(lines_to_insert)-1]
+        del iolines[startln + 1: endln]
+    iolines[startln + 1: startln + 1] = lines_to_insert
+    insert_start = startln + 1
+    rg_inserted = [insert_start, insert_start + len(lines_to_insert) - 1]
     return rg_inserted
 
 
@@ -1330,7 +1391,7 @@ def convert_compound_cases(snake_text, style='pascal'):
         return snake_text.replace('_', '-')
     split_strs = snake_text.split('_')
     if style == 'title':  # en_US => en US, this_is_title => This is Title
-        return ' '.join([part[0].title()+part[1:] if part else part.title() for part in split_strs])
+        return ' '.join([part[0].title() + part[1:] if part else part.title() for part in split_strs])
     if style == 'phrase':
         return ' '.join(split_strs)
     # if input is one-piece, then we preserve its middle chars' cases
@@ -1533,16 +1594,17 @@ def compare_dirs(dir1, dir2, ignoreddirpatterns=(), ignoredfilepatterns=(), show
                 folder_matching_pattern = next((pat for pat in ignoreddirpatterns if pat in folder), None)
                 if folder_matching_pattern:
                     continue
-                my_dir_contents['dirs'].append(osp.join(root, folder)[n_truncates+1:])
+                my_dir_contents['dirs'].append(osp.join(root, folder)[n_truncates + 1:])
             for file in files:
                 file_matching_pattern = next((pat for pat in ignoredfilepatterns if fnmatch.fnmatch(file, pat)), None)
                 if file_matching_pattern:
                     continue
-                my_dir_contents['files'].append(osp.join(root, file)[n_truncates+1:])
-        
+                my_dir_contents['files'].append(osp.join(root, file)[n_truncates + 1:])
+
         my_dir_contents['dirs'] = sorted(my_dir_contents['dirs'])
         my_dir_contents['files'] = sorted(my_dir_contents['files'])
         return my_dir_contents
+
     dir1_contents = _collect_folders_files(dir1)
     dir2_contents = _collect_folders_files(dir2)
     if showdiff:
@@ -1571,7 +1633,8 @@ def pack_obj(obj, topic=None, envelope=('<KK-ENV>', '</KK-ENV>'), classes=(), en
                     return o.__dict__
                 else:
                     return json.JSONEncoder.encode(self, o)
-        classes = tuple([SimpleNamespace]+list(classes))
+
+        classes = tuple([SimpleNamespace] + list(classes))
         msg_str = json.dumps(msg, cls=CustomJsonEncoder, ensure_ascii=ensure_ascii)
     else:
         msg_str = json.dumps(msg, default=lambda o: o.__dict__, ensure_ascii=ensure_ascii)
@@ -1580,11 +1643,11 @@ def pack_obj(obj, topic=None, envelope=('<KK-ENV>', '</KK-ENV>'), classes=(), en
 
 
 def lazy_extend_sys_path(paths):
-    sys.path = list(dict.fromkeys(sys.path+paths))
+    sys.path = list(dict.fromkeys(sys.path + paths))
 
 
 def lazy_prepend_sys_path(paths):
-    sys.path = list(dict.fromkeys(paths+sys.path))
+    sys.path = list(dict.fromkeys(paths + sys.path))
 
 
 def lazy_remove_from_sys_path(paths):
@@ -1618,7 +1681,7 @@ def safe_import_module(modname, path=None, prepend=True, reload=False):
 
 def get_parent_dirs(file, subs=(), depth=1):
     script_dir = osp.abspath(osp.dirname(file))
-    par_seq = osp.normpath('../'*depth)
+    par_seq = osp.normpath('../' * depth)
     root = osp.abspath(osp.join(script_dir, par_seq)) if depth > 0 else script_dir
     return script_dir, root, *[osp.join(root, sub) for sub in subs]
 
@@ -1633,8 +1696,8 @@ def get_ancestor_dirs(file, depth=1):
         return par_dir
     dirs = [par_dir]
     # focus on pardir(i.e., depth 1), then backtrace 1 at a time from depth-1 to depth
-    for dp in range(depth-1):
-        dirs.append(osp.abspath(osp.join(par_dir, osp.normpath('../'*(dp+1)))))
+    for dp in range(depth - 1):
+        dirs.append(osp.abspath(osp.join(par_dir, osp.normpath('../' * (dp + 1)))))
     return dirs
 
 
@@ -1682,7 +1745,7 @@ def get_drivewise_commondirs(paths: list[str]):
         single_cm_dir = osp.dirname(relpath).strip('\\').lower()
         # join('d:', 'relpath') -> 'd:relpath'
         # join('d:\\', 'relpath') -> 'd:\\relpath'
-        return {drive: osp.join(drive+'\\', single_cm_dir) if drive else single_cm_dir}
+        return {drive: osp.join(drive + '\\', single_cm_dir) if drive else single_cm_dir}
     paths_sorted_by_drive = sorted(paths)
     # collect paths into map by drive
     drive_path_map = {}
@@ -1694,7 +1757,7 @@ def get_drivewise_commondirs(paths: list[str]):
             drive_path_map[drive] = []
         drive_path_map[drive].append(relpath.strip('\\'))
     drive_relpath_map = {drive: osp.dirname(winpaths[0]).strip('\\') if (is_single_file := len(winpaths) == 1 and osp.splitdrive(winpaths[0])[1]) else osp.commonpath(winpaths).strip('\\') for drive, winpaths in drive_path_map.items()}
-    return {drive: osp.join(drive+'\\', relpath).lower() if drive else relpath.lower() for drive, relpath in drive_relpath_map.items()}
+    return {drive: osp.join(drive + '\\', relpath).lower() if drive else relpath.lower() for drive, relpath in drive_relpath_map.items()}
 
 
 def split_platform_drive(path):
@@ -1806,7 +1869,7 @@ def backup_file(file, dstdir=None, suffix='.1', keepmeta=True):
     - always overwrite non-numeric backup
     """
     bak_dir = dstdir if dstdir else osp.dirname(file)
-    bak = osp.join(bak_dir, osp.basename(file)+suffix)
+    bak = osp.join(bak_dir, osp.basename(file) + suffix)
     num = suffix[1:]
     if not num.isnumeric():
         copy_file(file, bak, keepmeta=keepmeta)
@@ -1829,7 +1892,7 @@ def recover_file(file, bakdir=None, suffix=None, keepmeta=True):
     if not files:
         raise FileNotFoundError(f'No backup found for {file} under {bak_dir}')
     if suffix:
-        bak = osp.join(bak_dir, bn+suffix)
+        bak = osp.join(bak_dir, bn + suffix)
         copy_file(bak, file, keepmeta=keepmeta)
         return
     latest = max([int(num_sfx) for file in files if (num_sfx := osp.splitext(file)[1][1:]).isnumeric()])
@@ -1857,7 +1920,7 @@ def save_lines(path, lines, toappend=False, addlineend=False, style='posix'):
     mode = 'a' if toappend else 'w'
     if addlineend:
         line_end = '\n' if style == 'posix' else '\r\n'
-        lines_to_write = [line+line_end for line in lines]
+        lines_to_write = [line + line_end for line in lines]
     par_dir = osp.split(path)[0]
     os.makedirs(par_dir, exist_ok=True)
     with open(path, mode) as fp:
@@ -2055,14 +2118,15 @@ def sanitize_text_as_path(text: str, fallback_char='_'):
     text is a part of path, excluding os.sep
     """
     invalid_chars_pattern = r'[\\\/:*?"<>|\x00-\x1F]'
-    return  re.sub(invalid_chars_pattern, fallback_char, text)
+    return re.sub(invalid_chars_pattern, fallback_char, text)
 
 
 def _test():
-    p = subprocess.Popen(['python3', '-c', 'print("hello world")'], stdout=subprocess.PIPE)
-    r = ChildPromptProxy(p.stdout)
-    r.start()
-    p.wait()
+    @logcall(msg='trace', logger=build_default_logger(logdir=osp.dirname(__file__), name='util', verbose=True))
+    def myfunc(n, s, f=1.0):
+        x = f'hello, {n}, {s}, {f}'
+        return x
+    myfunc(100, 'hello', f=0.99)
     pass
 
 

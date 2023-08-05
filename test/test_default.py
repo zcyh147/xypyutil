@@ -196,12 +196,34 @@ def test_save_json():
     shutil.rmtree(_gen_dir, ignore_errors=True)
 
 
+def test_tracer():
+    src = osp.join(_org_dir, 'trace_this.py')
+    cmd = ['poetry', 'run', 'python', src]
+    proc = util.run_cmd(cmd, cwd=osp.dirname(__file__))
+    assert proc.stdout.decode(util.TXT_CODEC) == """\
+Call: __main__.hello(n=100, s='world', f='0.99') - def hello(n, s, f):
+Call: __main__.hello => hello, 100, world, 0.99 - return x
+"""
+
+
 def test_get_md5_checksum():
     missing_file = 'missing'
     assert util.get_md5_checksum(missing_file) is None
     valid_file = osp.abspath(f'{_script_dir}/../LICENSE')
     # line-ends count
     assert util.get_md5_checksum(valid_file) == '5d326be91ee12591b87f17b6f4000efe' if platform.system() == 'Windows' else '7a3beb0af03d4afff89f8a69c70a87c0'
+
+
+def test_logcall():
+    src = osp.join(_org_dir, 'log_this.py')
+    cmd = ['poetry', 'run', 'python', src]
+    proc = util.run_cmd(cmd, cwd=osp.dirname(__file__))
+    stdout_lines = set(proc.stdout.decode(util.TXT_CODEC).splitlines())
+    key_lines = {
+        "Enter: 'myfunc' <= args=(100, 'hello'), kwargs={'f': 0.99}: trace",
+        "Exit: 'myfunc' => hello, 100, hello, 0.99",
+    }
+    assert key_lines.issubset(stdout_lines)
 
 
 def test_substitute_keywords():
