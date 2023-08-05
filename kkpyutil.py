@@ -12,6 +12,7 @@ Covering areas:
 # Import std-modules.
 import collections
 import cProfile as profile
+import concurrent.futures
 import copy
 import difflib
 import fnmatch
@@ -380,13 +381,16 @@ class Tracer:
                  include_filename_pattern: str = None,
                  exclude_funcname_pattern: str = None,
                  include_funcname_pattern: str = None,
-                 trace_func=None):
+                 trace_func=None,
+                 exclude_builtins=True):
         self.exclMods = {'builtins'} if excluded_modules is None else excluded_modules
         self.exclFilePatt = re.compile(exclude_filename_pattern) if exclude_filename_pattern else None
         self.inclFilePatt = re.compile(include_filename_pattern) if include_filename_pattern else None
         self.exclFuncPatt = re.compile(exclude_funcname_pattern) if exclude_funcname_pattern else None
         self.inclFuncPatt = re.compile(include_funcname_pattern) if include_funcname_pattern else None
         self.traceFunc = trace_func
+        if exclude_builtins:
+            self.ignore_stdlibs()
 
     def start(self):
         sys.settrace(self.traceFunc or self._trace_calls_and_returns)
@@ -400,8 +404,9 @@ class Tracer:
             import distutils.sysconfig
             stdlib_dir = distutils.sysconfig.get_python_lib(standard_lib=True)
             return {f.replace(".py", "") for f in os.listdir(stdlib_dir)}
+
         py_ver = sys.version_info
-        std_libs = set(sys.stdlib_module_names) if py_ver.major >=3 and py_ver.minor >= 10 else _get_stdlib_module_names()
+        std_libs = set(sys.stdlib_module_names) if py_ver.major >= 3 and py_ver.minor >= 10 else _get_stdlib_module_names()
         self.exclMods.update(std_libs)
 
     def _trace_calls_and_returns(self, frame, event, arg):
@@ -456,7 +461,6 @@ def logcall(msg='trace', logger=glogger):
     - only shows enter/exit
     - can be interrupted by exceptions
     """
-
     def wrap(function):
         @functools.wraps(function)
         def wrapper(*args, **kwargs):
@@ -464,105 +468,40 @@ def logcall(msg='trace', logger=glogger):
             ret = function(*args, **kwargs)
             logger.debug(f"Exit: '{function.__name__}' => {ret}")
             return ret
-
         return wrapper
-
     return wrap
 
 
-class ParallelWorker:
-    def __init__(self, *args, **kwargs):
-        pass
-
-    def main(self):
-        pass
+def is_toplevel_function(func):
+    return func.__qualname__ == func.__name__
 
 
-def init_concurrency(ntasks, nworkers=None, useio=False):
+def concur_map(worker, coll, worker_count=None, iobound=True, logger=None):
     """
-    Suggest concurrency approach based on tasks and number of processes.
-    - Use Processes when processes are few or having I/O tasks.
-    - Use Pool for many processes or no I/O.
-    - Use sequential when tasks are
-    :param ntasks: number of total tasks.
-    :param nworkers: number of processes, None means to let algorithm decide.
-    :param useio: are we I/O-bound?
-    :return: dict of all needed parameters.
+    - concurrent version of builtin map()
+    - due to GIL, threading is only good for io-bound tasks
+    - map function interface: worker((index, elem)) -> processed_elem
     """
-    if ntasks <= 1:
-        return types.SimpleNamespace(type='Sequential', workerCount=1)
-
-    # max out cores but don't take all them all
-    if not nworkers:
-        nworkers = 10 if useio else multiprocessing.cpu_count() - 1
-    concurrency_type = 'Thread' if useio else 'Process'
-    return types.SimpleNamespace(type='Thread', workerCount=nworkers)
-
-
-def ranged_worker(worker, rg, shared, lock):
-    results = [worker(shared['Tasks'][t]) for t in range(rg[0], rg[1])]
-    # pprint(results)
-    with lock:
-        tmp = shared['Results']
-        for r, result in enumerate(results):
-            tmp.append(result)
-        shared['Results'] = tmp
-    # pprint('tmp: {}'.format(tmp))
+    if not iobound:
+        assert is_toplevel_function(worker), 'must use top-level function as multiprocessing worker'
+    max_workers = 10 if iobound else multiprocessing.cpu_count()-1
+    n_workers = worker_count or max_workers
+    executor_class = concurrent.futures.ThreadPoolExecutor if iobound else concurrent.futures.ProcessPoolExecutor
+    if logger:
+        logger.debug(f'Concurrently run task: {worker.__name__} on collection, using {n_workers} {"threads" if iobound else "processes"} ...')
+    with executor_class(max_workers=n_workers) as executor:
+        return list(executor.map(worker, enumerate(coll)))
 
 
-def execute_concurrency(worker, shared, lock, algorithm):
+def profile_runs(funcname, modulefile, nruns=5, outdir=None):
     """
-    Execute tasks and return results, based on algorithm.
-    - worker is unit sequential worker, using single arg.
-    - worker returns result as (task['Index'], value).
-    - shared is a manager().dict().
-    - shared has keys: Title, Tasks.
-    - shared['Tasks']: tuple of args for each task worker instance
-    - shared['Tasks'][i] has keys: Title, Index, Args, Result
-        - Title: info for progress report
-        - Index: order of tasks, None for unordered
-        - Args: worker input args
-        - Result: worker returned results in order
+    - modulefile: script containing profileable wrapper functions
+    - funcname: arg-less wrapper function that instantiate modules/functions as the actual profiling target
     """
-    global glogger
-    # TODO: measure timeout for .join()
-    if algorithm['Type'] == 'Sequential':
-        results = []
-        for t, task in enumerate(shared['Tasks']):
-            glogger.debug('Execute {} in order: {} of {}: {}'.format(shared['Title'], t + 1, len(shared['Tasks']), task['Title']))
-            results.append(worker(task))
-        return [result[1] for result in results]
-    elif algorithm['Type'] == 'Process':
-        glogger.debug('Execute {} in pool of {} processes ...'.format(shared['Title'], algorithm['Count']))
-        #
-        # Known Issue:
-        # - https://bugs.python.org/issue9400
-        # - Python multiprocessing.Pool is buggy at join()
-        # Reference:
-        # - https://stackoverflow.com/questions/15314189/python-multiprocessing-pool-hangs-at-join
-        #
-        results = []
-        try:
-            with multiprocessing.Pool(processes=algorithm['Count']) as pool:
-                results = pool.map(worker, shared['Tasks'])
-                pool.close()
-                pool.join()
-        except Exception:
-            traceback.print_exc()
-        # Results are always sorted in pool.
-        return [result[1] for result in results]
-    elif algorithm['Type'] == 'Thread':
-        import concurrent.futures
-        glogger.debug('Execute {} in pool of {} threads ...'.format(shared['Title'], algorithm['Count']))
-        executor = concurrent.futures.ThreadPoolExecutor(max_workers=algorithm['Count'])
-        results = executor.map(worker, shared['Tasks'])
-        return [result[1] for result in results]
-    raise ValueError(format_error_message('Found undefined concurrency algorithm.', expected='One of: {}, {}, {}'.format('Sequential', 'Pool', 'Process'), got=algorithm['Type'], advice=('Check if this API is up to date', 'retry me'), reaction='Aborted'))
-
-
-def profile_runs(funcname, modulefile, nruns=5):
+    out_dir = outdir or osp.dirname(modulefile)
     module_name = osp.splitext(osp.basename(modulefile))[0]
-    stats_dir = osp.abspath(f'{osp.dirname(modulefile)}/stats')
+    mod = safe_import_module(module_name, osp.dirname(modulefile))
+    stats_dir = osp.join(out_dir, 'stats')
     os.makedirs(stats_dir, exist_ok=True)
     for r in range(nruns):
         stats_file = osp.abspath(f'{stats_dir}/profile_{funcname}_{r}.pstats.log')
@@ -579,14 +518,18 @@ def profile_runs(funcname, modulefile, nruns=5):
     return stats
 
 
-def save_plist(path, my_map):
+def load_plist(path, binary=False):
+    fmt = plistlib.FMT_BINARY if binary else plistlib.FMT_XML
     with open(path, 'rb') as fp:
-        plist = plistlib.load(fp, fmt=plistlib.FMT_XML)
-    plist.update(my_map)
-    par_dir = osp.split(path)[0]
+        return plistlib.load(fp, fmt=fmt)
+
+
+def save_plist(path, my_map, binary=False):
+    fmt = plistlib.FMT_BINARY if binary else plistlib.FMT_XML
+    par_dir = osp.dirname(path)
     os.makedirs(par_dir, exist_ok=True)
     with open(path, 'wb') as fp:
-        plistlib.dump(plist, fp)
+        plistlib.dump(my_map, fp, fmt=fmt)
 
 
 def substitute_keywords_in_file(file, str_map, useliteral=False):
@@ -2122,11 +2065,6 @@ def sanitize_text_as_path(text: str, fallback_char='_'):
 
 
 def _test():
-    @logcall(msg='trace', logger=build_default_logger(logdir=osp.dirname(__file__), name='util', verbose=True))
-    def myfunc(n, s, f=1.0):
-        x = f'hello, {n}, {s}, {f}'
-        return x
-    myfunc(100, 'hello', f=0.99)
     pass
 
 

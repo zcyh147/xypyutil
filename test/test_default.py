@@ -3,6 +3,7 @@ tests that don't need external data
 """
 import getpass
 import platform
+import plistlib
 import shutil
 import sys
 import os
@@ -224,6 +225,61 @@ def test_logcall():
         "Exit: 'myfunc' => hello, 100, hello, 0.99",
     }
     assert key_lines.issubset(stdout_lines)
+
+
+def map_worker(enum):
+    e, elem = enum[0], enum[1]
+    return elem*2
+
+
+def test_is_toplevel_function():
+    def inner_func(enum):
+        e, elem = enum[0], enum[1]
+        return elem * 2
+    assert util.is_toplevel_function(map_worker)
+    assert not util.is_toplevel_function(inner_func)
+
+
+def test_concur_map():
+    def inner_func(enum):
+        e, elem = enum[0], enum[1]
+        return elem * 2
+    n = 20
+    data = [i for i in range(n)]
+    logger = util.build_default_logger(
+        logdir=osp.abspath(f'{_gen_dir}'),
+        name='util',
+        verbose=True)
+    res = util.concur_map(inner_func, data, worker_count=5, iobound=True, logger=logger)
+    assert res == [i*2 for i in range(n)]
+    res = util.concur_map(map_worker, data, worker_count=5, iobound=False, logger=logger)
+    assert res == [i * 2 for i in range(n)]
+    shutil.rmtree(_gen_dir, ignore_errors=True)
+
+
+def test_profile_runs():
+    profile_mod = osp.join(_org_dir, 'profile_this.py')
+    funcname = 'run_profile_target'
+    stats = util.profile_runs(funcname, profile_mod, outdir=_gen_dir)
+    assert stats.total_calls == 575
+    shutil.rmtree(_gen_dir, ignore_errors=True)
+
+
+def test_load_save_plist():
+    my_plist = osp.join(_org_dir, 'my.plist')
+    loaded = util.load_plist(my_plist)
+    assert loaded['FirstName'] == 'John' and loaded['LastName'] == 'Doe'
+    bin_plist = osp.join(_org_dir, 'my.bin.plist')
+    loaded = util.load_plist(bin_plist, True)
+    assert loaded['FirstName'] == 'John' and loaded['LastName'] == 'Doe'
+    out_file = osp.join(_gen_dir, 'my.plist')
+    util.save_plist(out_file, loaded)
+    loaded = util.load_plist(out_file)
+    assert loaded['FirstName'] == 'John' and loaded['LastName'] == 'Doe'
+    util.save_plist(out_file, loaded, True)
+    loaded = util.load_plist(out_file, True)
+    assert loaded['FirstName'] == 'John' and loaded['LastName'] == 'Doe'
+    shutil.rmtree(_gen_dir, ignore_errors=True)
 
 
 def test_substitute_keywords():
