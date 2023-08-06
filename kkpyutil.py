@@ -535,12 +535,7 @@ def save_plist(path, my_map, binary=False):
 def substitute_keywords_in_file(file, str_map, useliteral=False):
     with open(file) as f:
         original = f.read()
-        if not useliteral:
-            updated = original % str_map
-        else:
-            updated = original
-            for src, dest in str_map.items():
-                updated = updated.replace(src, dest)
+        updated = substitute_keywords(original, str_map, useliteral)
     with open(file, 'w') as f:
         f.write(updated)
 
@@ -573,9 +568,11 @@ def get_uuid_version(text):
 
 
 def create_guid(uuid_version=4, uuid5_name=None):
-    if uuid_version not in [1, 3, 4, 5]:
-        uuid_version = 4
+    if uuid_version not in [1, 4, 5]:
+        return None
     if uuid_version == 5:
+        if uuid5_name is None:
+            return None
         namespace = uuid.UUID(str(uuid.uuid4()))
         uid = uuid.uuid5(namespace, uuid5_name)
         return get_guid_from_uuid(uid)

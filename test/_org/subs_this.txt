@@ -1,0 +1,3 @@
+变量 : %(var)s
+Escape : %%
+Variable in text: %(var)siable

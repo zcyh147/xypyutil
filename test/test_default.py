@@ -282,6 +282,28 @@ def test_load_save_plist():
     shutil.rmtree(_gen_dir, ignore_errors=True)
 
 
+def test_substitute_keywords_in_file():
+    fn = 'subs_this.txt'
+    org_file = osp.join(_org_dir, fn)
+    in_file = osp.join(_gen_dir, fn)
+    util.copy_file(org_file, in_file)
+    ref_file = osp.join(_ref_dir, 'subs_this.ref.txt')
+    str_map = {
+        'var': 'foo',
+    }
+    util.substitute_keywords_in_file(in_file, str_map)
+    assert util.compare_textfiles(in_file, ref_file, showdiff=True)
+    str_map = {
+        'var': 'foo',
+        '%%': '$$'
+    }
+    util.copy_file(org_file, in_file)
+    ref_file = osp.join(_ref_dir, 'subs_this_literal.ref.txt')
+    util.substitute_keywords_in_file(in_file, str_map, useliteral=True)
+    assert util.compare_textfiles(in_file, ref_file, showdiff=True)
+    shutil.rmtree(_gen_dir, ignore_errors=True)
+
+
 def test_substitute_keywords():
     str_map = {
         'var': 'foo',
@@ -329,6 +351,35 @@ def test_get_uuid_version():
     assert util.get_uuid_version(valid) == 1
     invalid = 'c9bf9e58'
     assert util.get_uuid_version(invalid) is None
+
+
+def test_create_guid():
+    uid = util.create_guid()
+    guid = util.create_guid()
+    assert isinstance(guid, str)
+    assert len(guid) == 38
+    assert guid[0] == '{'
+    assert guid[-1] == '}'
+    assert guid[9] == '-'
+    assert guid[14] == '-'
+    assert guid[19] == '-'
+    assert guid[24] == '-'
+    assert guid[37] == '}'
+    assert guid[1:9].isalnum()
+    assert guid[10:14].isalnum()
+    assert guid[15:19].isalnum()
+    assert guid[20:24].isalnum()
+    assert guid[25:37].isalnum()
+    assert guid.upper() == guid
+    assert util.get_uuid_version(uid) == 4
+    uid = util.create_guid(1)
+    assert util.get_uuid_version(uid) == 1
+    uid = util.create_guid(5, 'my_namespace')
+    assert util.get_uuid_version(uid) == 5
+    assert util.create_guid(5) is None
+    assert util.create_guid(3) is None
+    assert util.create_guid(2) is None
+    assert util.create_guid(999) is None
 
 
 def test_convert_to_wine_path():
@@ -675,25 +726,6 @@ def test_sanitize_path_part():
 def test_get_guid_from_uuid():
     uid = uuid.UUID('{e6a6dd92-5b96-4a09-9cc4-d44153b900a4}')
     assert util.get_guid_from_uuid(uid) == '{E6A6DD92-5B96-4A09-9CC4-D44153B900A4}'
-
-
-def test_create_guid():
-    guid = util.create_guid()
-    assert isinstance(guid, str)
-    assert len(guid) == 38
-    assert guid[0] == '{'
-    assert guid[-1] == '}'
-    assert guid[9] == '-'
-    assert guid[14] == '-'
-    assert guid[19] == '-'
-    assert guid[24] == '-'
-    assert guid[37] == '}'
-    assert guid[1:9].isalnum()
-    assert guid[10:14].isalnum()
-    assert guid[15:19].isalnum()
-    assert guid[20:24].isalnum()
-    assert guid[25:37].isalnum()
-    assert guid.upper() == guid
 
 
 def test_is_float_text():
