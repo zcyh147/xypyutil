@@ -438,6 +438,29 @@ def test_convert_from_wine_path():
     assert util.convert_from_wine_path(path) == path
 
 
+def test_kill_process_by_name_windows():
+    if platform.system() != 'Windows':
+        assert True
+        return
+
+
+def test_kill_process_by_name_macos():
+    long_proc = osp.join(_org_dir, 'kill_this.sh')
+    util.run_daemon([long_proc])
+    ret = util.kill_process_by_name('sleep')
+    assert ret == 0
+    long_proc = osp.join(_org_dir, 'kill_this.sh')
+    util.run_daemon([long_proc])
+    ret = util.kill_process_by_name('sleep', True)
+    assert ret == 0
+    ret = util.kill_process_by_name('missing_proc')
+    assert ret == 1
+    ret = util.kill_process_by_name('missing_proc', True)
+    assert ret == 1
+    ret = util.kill_process_by_name('mdworker', True)
+    assert ret == 2
+
+
 def test_find_first_line_in_range():
     lines = """
 keyword: other stuff
