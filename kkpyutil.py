@@ -1719,16 +1719,6 @@ def split_platform_drive(path):
     return drive.lower(), relpath
 
 
-def read_lines(file, striplineend=False, posix=True):
-    with open(file) as fp:
-        lines = fp.readlines()
-    if striplineend:
-        line_end = '\n' if posix else '\r\n'
-        for f, line in enumerate(lines):
-            lines[f] = line.strip(line_end)
-    return lines
-
-
 def open_in_browser(path, window='tab', islocal=True):
     import webbrowser as wb
     url = f'file://{path}' if islocal else path
