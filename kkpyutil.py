@@ -598,7 +598,7 @@ def alert(title, content, action='Close'):
     if platform.system() == 'Windows':
         cmd = ['mshta', f'vbscript:Execute("msgbox ""{content}"", 0,""{title}"":{action}")']
         os.system(' '.join(cmd))
-        return
+        return cmd
     if platform.system() == 'Darwin':
         cmd = ['osascript', '-e', f'display alert "{title}" message "{content}"']
     else:

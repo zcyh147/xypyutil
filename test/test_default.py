@@ -403,31 +403,19 @@ def test_get_clipboard_content():
 def test_alert_on_windows(monkeypatch):
     monkeypatch.setattr(platform, 'system', lambda: 'Windows')
     monkeypatch.setattr('os.system', lambda cmd: None)
-
-    util.alert("Title", "Content")
+    assert util.alert('Title', 'Content', 'Finish') == ['mshta', 'vbscript:Execute("msgbox ""Content"", 0,""Title"":Finish")']
 
 
 def test_alert_on_darwin(monkeypatch):
     monkeypatch.setattr(platform, 'system', lambda: 'Darwin')
     monkeypatch.setattr(subprocess, 'run', lambda cmd: None)
-
-    util.alert("Title", "Content")
+    assert util.alert('Title', 'Content') == ['osascript', '-e', 'display alert "Title" message "Content"']
 
 
 def test_alert_on_other_platform(monkeypatch):
     monkeypatch.setattr(platform, 'system', lambda: 'Other')
     monkeypatch.setattr(subprocess, 'run', lambda cmd: None)
-
-    util.alert("Title", "Content")
-
-
-def test_alert_on_other_platform_with_action(monkeypatch):
-    monkeypatch.setattr(platform, 'system', lambda: 'Other')
-    monkeypatch.setattr(subprocess, 'run', lambda cmd: None)
-
-    result = util.alert("Title", "Content", "Action")
-
-    assert result == ['echo', 'Title: Content: Action']
+    assert util.alert('Title', 'Content', 'Action') == ['echo', 'Title: Content: Action']
 
 
 def test_convert_to_wine_path():
