@@ -442,9 +442,17 @@ def test_kill_process_by_name_windows():
     if platform.system() != 'Windows':
         assert True
         return
+    long_wait_sec = 3600
+    cmd = ['timeout', '/t', f'{long_wait_sec}', '/nobreak']
+    util.run_daemon(cmd)
+    ret = util.kill_process_by_name('timeout - pauses command processing')
+    assert ret == 0
 
 
 def test_kill_process_by_name_macos():
+    if platform.system() != 'Darwin':
+        assert True
+        return
     long_proc = osp.join(_org_dir, 'kill_this.sh')
     util.run_daemon([long_proc])
     ret = util.kill_process_by_name('sleep')

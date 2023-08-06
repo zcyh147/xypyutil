@@ -3,6 +3,8 @@ test/_gen
 
 # JetBrains
 .idea/workspace.xml
+.idea/kkpyutil.iml
+.idea/misc.xml
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
