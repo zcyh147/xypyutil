@@ -18,7 +18,6 @@ keywords = [
 
 [tool.poetry.dependencies]
 python = "^3.9"
-requests = "*"
 
 [tool.poetry.dev-dependencies]
 pytest = "*"

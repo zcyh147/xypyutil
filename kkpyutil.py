@@ -604,6 +604,7 @@ def alert(title, content, action='Close'):
     else:
         cmd = ['echo', f'{title}: {content}: {action}']
     subprocess.run(cmd)
+    return cmd
 
 
 def convert_to_wine_path(path, drive=None):

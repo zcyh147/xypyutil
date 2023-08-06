@@ -3,16 +3,17 @@ tests that don't need external data
 """
 import getpass
 import platform
-import plistlib
 import shutil
 import sys
 import os
 import os.path as osp
 import subprocess
+from unittest.mock import patch
+
+
 # 3rd party
 import types
 import uuid
-
 import pytest
 # project
 _script_dir = osp.abspath(osp.dirname(__file__))
@@ -397,6 +398,36 @@ def test_get_clipboard_content():
     root.clipboard_append(content)
     root.quit()
     assert util.get_clipboard_content() == content
+
+
+def test_alert_on_windows(monkeypatch):
+    monkeypatch.setattr(platform, 'system', lambda: 'Windows')
+    monkeypatch.setattr('os.system', lambda cmd: None)
+
+    util.alert("Title", "Content")
+
+
+def test_alert_on_darwin(monkeypatch):
+    monkeypatch.setattr(platform, 'system', lambda: 'Darwin')
+    monkeypatch.setattr(subprocess, 'run', lambda cmd: None)
+
+    util.alert("Title", "Content")
+
+
+def test_alert_on_other_platform(monkeypatch):
+    monkeypatch.setattr(platform, 'system', lambda: 'Other')
+    monkeypatch.setattr(subprocess, 'run', lambda cmd: None)
+
+    util.alert("Title", "Content")
+
+
+def test_alert_on_other_platform_with_action(monkeypatch):
+    monkeypatch.setattr(platform, 'system', lambda: 'Other')
+    monkeypatch.setattr(subprocess, 'run', lambda cmd: None)
+
+    result = util.alert("Title", "Content", "Action")
+
+    assert result == ['echo', 'Title: Content: Action']
 
 
 def test_convert_to_wine_path():
