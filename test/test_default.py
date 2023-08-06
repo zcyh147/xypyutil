@@ -382,6 +382,23 @@ def test_create_guid():
     assert util.create_guid(999) is None
 
 
+def test_get_guid_from_uuid():
+    uid = uuid.UUID('{e6a6dd92-5b96-4a09-9cc4-d44153b900a4}')
+    assert util.get_guid_from_uuid(uid) == '{E6A6DD92-5B96-4A09-9CC4-D44153B900A4}'
+
+
+def test_get_clipboard_content():
+    content = 'hello world!'
+    import tkinter as tk
+    root = tk.Tk()
+    # keep the window from showing
+    root.withdraw()
+    root.clipboard_clear()
+    root.clipboard_append(content)
+    root.quit()
+    assert util.get_clipboard_content() == content
+
+
 def test_convert_to_wine_path():
     path = '/path/to/my/file'
     assert util.convert_to_wine_path(path) == 'Z:\\path\\to\\my\\file'
@@ -721,11 +738,6 @@ def test_split_platform_drive():
 def test_sanitize_path_part():
     path_part = 'tab: 天哪*?"<\\/\x00\x1F'
     assert util.sanitize_text_as_path(path_part) == 'tab_ 天哪________'
-
-
-def test_get_guid_from_uuid():
-    uid = uuid.UUID('{e6a6dd92-5b96-4a09-9cc4-d44153b900a4}')
-    assert util.get_guid_from_uuid(uid) == '{E6A6DD92-5B96-4A09-9CC4-D44153B900A4}'
 
 
 def test_is_float_text():
