@@ -79,10 +79,10 @@ class ChildPromptProxy(threading.Thread):
     def run(self):
         while True:
             # read one byte from the stream
-            buf = self.stream.read(1)
+            buf = self.stream.readline()
 
             # break if end of file reached
-            if len(buf) == 0:
+            if not buf:
                 break
 
             # save output to internal log
