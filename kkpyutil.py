@@ -31,6 +31,7 @@ import multiprocessing
 import operator
 import os
 import os.path as osp
+import queue
 import re
 import time
 import tokenize
@@ -57,40 +58,6 @@ TXT_CODEC = 'utf-8'  # Importable.
 LOCALE_CODEC = locale.getpreferredencoding()
 MAIN_CFG_FILENAME = 'app.json'
 DEFAULT_CFG_FILENAME = 'default.json'
-
-
-class ChildPromptProxy(threading.Thread):
-    """
-    When calling a subprocess that prompts for user input, transfer interaction to parent process to avoid indefinite blocking.
-    Thread which reads byte-by-byte from the input stream and writes it to the
-    standard out.
-    Example:
-        p = subprocess.Popen(cmd_that_prompts, stdout=subprocess.PIPE)
-        r = ChildPromptProxy(p.stdout)
-        r.start()
-        p.wait()
-    """
-
-    def __init__(self, stream):
-        self.stream = stream
-        self.log = bytearray()
-        super().__init__()
-
-    def run(self):
-        while True:
-            # read one byte from the stream
-            buf = self.stream.readline()
-
-            # break if end of file reached
-            if not buf:
-                break
-
-            # save output to internal log
-            self.log.extend(buf)
-
-            # write and flush to main standard output
-            sys.stdout.buffer.write(buf)
-            sys.stdout.flush()
 
 
 class SingletonDecorator:
@@ -976,7 +943,7 @@ cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
     return proc
 
 
-def run_daemon(cmd, cwd=None, logger=None, check=True, shell=False):
+def run_daemon(cmd, cwd=None, logger=None, shell=False):
     local_debug = logger.debug if logger else print
     local_info = logger.info if logger else print
     local_error = logger.error if logger else print
@@ -997,15 +964,19 @@ cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
     return proc
 
 
-def run_prompt(cmd, cwd=None, logger=None, check=True, shell=False, verbose=False):
+def watch_cmd(cmd, cwd=None, logger=None, shell=False, verbose=False, useexception=True, prompt=None, timeout=None):
     """
-    Use shell==True with autotools where new shell is needed to treat the entire command option sequence as a command,
-    e.g., shell=True means running sh -c ./configure CFLAGS="..."
+    realtime output
     """
+    def read_stream(stream, output_queue):
+        for line in iter(stream.readline, b''):
+            output_queue.put(line)
     local_debug = logger.debug if logger else print
     local_info = logger.info if logger else print
     local_error = logger.error if logger else print
     console_info = local_info if logger and verbose else local_debug
+    if return_error_proc := not useexception:
+        check, shell = False, True
     # show cmdline with or without exceptions
     cmd_log = f"""\
 {' '.join(cmd)}
@@ -1013,18 +984,35 @@ cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
 """
     local_info(cmd_log)
     try:
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
-        stdout_proxy = ChildPromptProxy(proc.stdout)
-        stderr_proxy = ChildPromptProxy(proc.stderr)
-        stdout_proxy.start()
-        stderr_proxy.start()
-        proc.wait()
-        stdout_log = stdout_proxy.log.decode(LOCALE_CODEC, errors='backslashreplace')
-        stderr_log = stderr_proxy.log.decode(LOCALE_CODEC, errors='backslashreplace')
-        if stdout_log:
-            console_info(f'stdout:\n{stdout_log}')
-        if stderr_log:
-            local_error(f'stderr:\n{stderr_log}')
+        # Start the subprocess with the slave ends as its stdout and stderr
+        process = subprocess.Popen(cmd, cwd=cwd, shell=shell, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout_queue, stderr_queue = queue.Queue(), queue.Queue()
+        # Start separate threads to read from stdout and stderr
+        stdout_thread = threading.Thread(target=read_stream, args=(process.stdout, stdout_queue))
+        stderr_thread = threading.Thread(target=read_stream, args=(process.stderr, stderr_queue))
+        stdout_thread.start()
+        stderr_thread.start()
+
+        # Read and print stdout and stderr in real-time
+        while True:
+            try:
+                stdout_line = stdout_queue.get_nowait().decode('utf-8')
+                sys.stdout.write(stdout_line)
+                sys.stdout.flush()
+            except queue.Empty:
+                pass
+            try:
+                stderr_line = stderr_queue.get_nowait().decode('utf-8')
+                sys.stderr.write(stderr_line)
+                sys.stderr.flush()
+            except queue.Empty:
+                pass
+            if process.poll() is not None and stdout_queue.empty() and stderr_queue.empty():
+                break
+        # Wait for the threads to finish
+        stdout_thread.join()
+        stderr_thread.join()
+        stdout, stderr = process.communicate()
     except subprocess.CalledProcessError as e:
         stdout_log = f'stdout:\n{e.stdout.decode(LOCALE_CODEC, errors="backslashreplace")}'
         stderr_log = f'stderr:\n{e.stderr.decode(LOCALE_CODEC, errors="backslashreplace")}'
@@ -1035,7 +1023,7 @@ cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
         # no need to have header, exception has it all
         local_error(e)
         raise e
-    return proc
+    return process.returncode, stdout, stderr
 
 
 def extract_call_args(file, caller, callee):

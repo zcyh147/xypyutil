@@ -2,6 +2,7 @@
 tests that don't need external data
 """
 import getpass
+import io
 import platform
 import shutil
 import sys
@@ -25,15 +26,6 @@ _case_dir = osp.dirname(__file__)
 _org_dir = osp.join(_case_dir, '_org')
 _gen_dir = osp.join(_case_dir, '_gen')
 _ref_dir = osp.join(_case_dir, '_ref')
-
-
-def test_childpromptproxy():
-    log = 'hello world'
-    parent = subprocess.Popen(['python3', '-c', f'print("{log}")'], stdout=subprocess.PIPE)
-    proxy = util.ChildPromptProxy(parent.stdout)
-    proxy.start()
-    parent.wait()
-    assert proxy.log.decode() == f'{log}\n'
 
 
 def test_singletion_decorator():
@@ -471,6 +463,13 @@ def test_kill_process_by_name_macos():
     assert ret == 1
     ret = util.kill_process_by_name('mdworker', True)
     assert ret == 2
+
+
+def test_pipe_cmd():
+    py = shutil.which('python' if platform.system() == 'Windows' else 'python3')
+    cmd = [py, osp.join(_org_dir, 'pipe_this.py')]
+    ret, stdout, stderr = util.watch_cmd(cmd)
+    assert ret == 0
 
 
 def test_find_first_line_in_range():
