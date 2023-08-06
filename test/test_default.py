@@ -442,11 +442,15 @@ def test_kill_process_by_name_windows():
     if platform.system() != 'Windows':
         assert True
         return
-    long_wait_sec = 3600
-    cmd = ['timeout', '/t', f'{long_wait_sec}', '/nobreak']
+    long_proc = osp.join(_org_dir, proc_name := 'kkpyutil_proc')
+    cmd = [long_proc]
     util.run_daemon(cmd)
-    ret = util.kill_process_by_name('timeout - pauses command processing')
+    ret = util.kill_process_by_name(proc_name+'.exe')
+    assert ret == 3
+    ret = util.kill_process_by_name(proc_name + '.exe', True)
     assert ret == 0
+    ret = util.kill_process_by_name('csrss.exe', True)
+    assert ret == 2
 
 
 def test_kill_process_by_name_macos():

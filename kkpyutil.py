@@ -655,7 +655,7 @@ def kill_process_by_name(name, forcekill=False):
         'success': 0,
         'procNotFound': 1,
         'permissionDenied': 2,
-        'unknownError': 3,
+        'unknownError': 3,  # triggered when softkilling a system process
     }
     plat = platform.system() if platform.system() in cmd_map else '*'
     cmd = cmd_map[plat]['hardKill'] if forcekill else cmd_map[plat]['softKill']
