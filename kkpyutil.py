@@ -715,7 +715,8 @@ class RerunLock:
                 signal.SIGALRM,
                 signal.SIGBUS,
                 # signal.SIGCHLD,
-                signal.SIGCONT,
+                # - SIGCONT: CTRL+Z is allowed for bg process
+                # signal.SIGCONT,
                 signal.SIGHUP,
                 # signal.SIGKILL,
                 signal.SIGPIPE,
