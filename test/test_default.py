@@ -465,6 +465,18 @@ def test_kill_process_by_name_macos():
     assert ret == 2
 
 
+def test_init_translator():
+    locale_dir = osp.join(_org_dir, 'locale')
+    trans = util.init_translator(locale_dir)
+    assert trans
+
+
+def test_match_files_except_lines():
+    file1 = osp.abspath(f'{_org_dir}/match_files/ours.txt')
+    file2 = osp.abspath(f'{_org_dir}/match_files/theirs.txt')
+    assert util.match_files_except_lines(file1, file2, excluded=[2, 3])
+
+
 def test_pipe_cmd():
     py = shutil.which('python' if platform.system() == 'Windows' else 'python3')
     cmd = [py, osp.join(_org_dir, 'pipe_this.py')]
