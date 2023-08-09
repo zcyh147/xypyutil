@@ -23,7 +23,8 @@ sys.path.insert(0, repo_root := osp.abspath(f'{_script_dir}/..'))
 import kkpyutil as util
 
 
-_case_dir = osp.dirname(__file__)
+_case_dir = _script_dir
+_src_dir = osp.abspath(osp.dirname(_case_dir))
 _org_dir = osp.join(_case_dir, '_org')
 _gen_dir = osp.join(_case_dir, '_gen')
 _ref_dir = osp.join(_case_dir, '_ref')
@@ -495,6 +496,14 @@ def test_rerun_lock():
     assert osp.isfile(save1)
     os.remove(save1)
 
+
+def test_get_ancestor_dirs():
+    file = osp.join(_org_dir, 'exclusive.py')
+    dirs = util.get_ancestor_dirs(file, depth=3)
+    assert dirs == [_org_dir, _case_dir, _src_dir]
+    folder = _org_dir
+    dirs = util.get_ancestor_dirs(folder, depth=2)
+    assert dirs == [_case_dir, _src_dir]
 
 def test_pipe_cmd():
     py = shutil.which('python' if platform.system() == 'Windows' else 'python3')

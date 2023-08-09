@@ -1609,19 +1609,27 @@ def safe_import_module(modname, path=None, prepend=True, reload=False):
     return mod
 
 
-def get_parent_dirs(file, subs=(), depth=1):
-    script_dir = osp.abspath(osp.dirname(file))
+def get_parent_dirs(file_or_dir, subs=(), depth=1):
+    """
+    - usually file_or_dir is simply __file__
+    - but __file__ is n/a when running under embedded python
+    - instead, give the file's folder, i.e., osp.dirname(file_or_dir), then append this dir to result on app side
+    """
+    script_dir = osp.abspath(osp.dirname(file_or_dir))
     par_seq = osp.normpath('../' * depth)
     root = osp.abspath(osp.join(script_dir, par_seq)) if depth > 0 else script_dir
     return script_dir, root, *[osp.join(root, sub) for sub in subs]
 
 
-def get_ancestor_dirs(file, depth=1):
+def get_ancestor_dirs(file_or_dir, depth=1):
     """
-    given structure: X > Y > Z > file,
-    return folder sequence: Z, Y, X
+    - given structure: X > Y > Z > file,
+    - return folder sequence: Z, Y, X
+    - usually file_or_dir is simply __file__
+    - but __file__ is n/a when running under embedded python
+    - instead, give the file's folder, i.e., osp.dirname(file_or_dir), then append this dir to result on app side
     """
-    par_dir = osp.abspath(osp.dirname(file))
+    par_dir = osp.abspath(osp.dirname(file_or_dir))
     if depth < 2:
         return par_dir
     dirs = [par_dir]
