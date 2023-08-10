@@ -2052,24 +2052,25 @@ def sanitize_text_as_path(text: str, fallback_char='_'):
     return re.sub(invalid_chars_pattern, fallback_char, text)
 
 
-def safe_remove(path, safe=True, logger=None):
-    if safe and not osp.exists(path):
+def safe_remove(path, logger=None):
+    if not osp.exists(path):
         logger = logger or glogger
         logger.debug(f'Missing file/folder: {path}; skipped removing')
         return
     if osp.isdir(path):
-        safe_rmtree(path, safe=safe)
+        remove_tree(path, safe=True)
     else:
         # no need to safe-check again
-        safe_remove_file(path, safe=False)
+        remove_file(path, safe=False)
 
-def safe_remove_file(file, safe=True):
+
+def remove_file(file, safe=True):
     if safe and not osp.isfile(file):
         return
     os.remove(file)
 
 
-def safe_rmtree(root, safe=True):
+def remove_tree(root, safe=True):
     shutil.rmtree(root, ignore_errors=safe)
 
 

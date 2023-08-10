@@ -877,4 +877,4 @@ def test_safe_remove():
         util.safe_remove(d)
         assert not osp.isdir(d)
     with pytest.raises(OSError):
-        util.safe_remove('missing', safe=False)
+        util.safe_remove('missing')
