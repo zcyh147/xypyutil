@@ -725,12 +725,11 @@ class RerunLock:
                 signal.signal(sig, self.handle_signal)
 
     def lock(self):
-        if not self.is_locked():
-            save_json(self.lockFile, {'pid': os.getpid()})
-            return True
-        else:
+        if self.is_locked():
             self.logger.warning('Locked by pid: {}. Will stay locked until it ends.'.format(os.getpid()))
             return False
+        save_json(self.lockFile, {'pid': os.getpid()})
+        return True
 
     def unlock(self):
         try:
@@ -2047,6 +2046,27 @@ def sanitize_text_as_path(text: str, fallback_char='_'):
     """
     invalid_chars_pattern = r'[\\\/:*?"<>|\x00-\x1F]'
     return re.sub(invalid_chars_pattern, fallback_char, text)
+
+
+def safe_remove(path, safe=True, logger=None):
+    if safe and not osp.exists(path):
+        logger = logger or glogger
+        logger.debug(f'Missing file/folder: {path}; skipped removing')
+        return
+    if osp.isdir(path):
+        safe_rmtree(path, safe=safe)
+    else:
+        # no need to safe-check again
+        safe_remove_file(path, safe=False)
+
+def safe_remove_file(file, safe=True):
+    if safe and not osp.isfile(file):
+        return
+    os.remove(file)
+
+
+def safe_rmtree(root, safe=True):
+    shutil.rmtree(root, ignore_errors=safe)
 
 
 def _test():

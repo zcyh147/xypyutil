@@ -9,6 +9,7 @@ import sys
 import os
 import os.path as osp
 import subprocess
+import tempfile
 import time
 from unittest.mock import patch
 
@@ -481,20 +482,25 @@ def test_match_files_except_lines():
 
 def test_rerun_lock():
     src = osp.join(_org_dir, 'exclusive.py')
-    lock1 = osp.join(util.get_platform_tmp_dir(), '_util', f'lock_test_rerun_lock.json')
+    lockfile = osp.join(util.get_platform_tmp_dir(), '_util', f'lock_test_rerun_lock.json')
     save1 = osp.join(util.get_platform_tmp_dir(), '_util', f'run_exclusive_1.json')
     save2 = osp.join(util.get_platform_tmp_dir(), '_util', f'run_exclusive_2.json')
+    for file in (save1, save2, lockfile):
+        util.safe_remove(file)
     cmd = ['poetry', 'run', 'python', src, '1']
     proc1 = util.run_daemon(cmd, cwd=_org_dir)
+    time.sleep(1)  # as daemon, the internal sleep won't work, so must sleep here
+    assert osp.isfile(lockfile)
     # run a second instance before the first finishes (bg)
     cmd2 = ['poetry', 'run', 'python', src, '2']
     proc2 = util.run_cmd(cmd2, cwd=_org_dir, useexception=True)
-    assert osp.isfile(lock1)
     assert not osp.isfile(save2)
     assert 'Locked by pid' in proc2.stderr.decode(util.TXT_CODEC)
     proc1.communicate()
+    assert not osp.isfile(lockfile)
     assert osp.isfile(save1)
-    os.remove(save1)
+    util.safe_remove(save1)
+    util.safe_remove(save2)
 
 
 def test_get_ancestor_dirs():
@@ -860,3 +866,16 @@ def test_compare_dsv_lines():
     assert not util.compare_dsv_lines(line1, line2)
     assert util.compare_dsv_lines(line1, line2, float_rel_tol=1e-5, float_abs_tol=1e-5, randomidok=True)
 
+
+def test_safe_remove():
+    file = osp.join(_gen_dir, 'to_remove.file')
+    util.touch(file)
+    assert osp.isfile(file)
+    util.safe_remove(file)
+    assert not osp.isfile(file)
+    with tempfile.TemporaryDirectory() as d:
+        assert osp.isdir(d)
+        util.safe_remove(d)
+        assert not osp.isdir(d)
+    with pytest.raises(OSError):
+        util.safe_remove('missing', safe=False)
