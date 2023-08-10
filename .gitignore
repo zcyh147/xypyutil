@@ -5,6 +5,7 @@ test/_gen
 .idea/workspace.xml
 .idea/kkpyutil.iml
 .idea/misc.xml
+.idea/inspectionProfiles
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

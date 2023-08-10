@@ -481,26 +481,25 @@ def test_match_files_except_lines():
 
 
 def test_rerun_lock():
-    src = osp.join(_org_dir, 'exclusive.py')
+    init = osp.join(_org_dir, 'exclusive.py')
+    reenter = osp.join(_org_dir, 'reenter.py')
     lockfile = osp.join(util.get_platform_tmp_dir(), '_util', f'lock_test_rerun_lock.json')
-    save1 = osp.join(util.get_platform_tmp_dir(), '_util', f'run_exclusive_1.json')
-    save2 = osp.join(util.get_platform_tmp_dir(), '_util', f'run_exclusive_2.json')
-    for file in (save1, save2, lockfile):
+    save = osp.join(util.get_platform_tmp_dir(), '_util', f'run_exclusive_1.json')
+    for file in (save, lockfile):
         util.safe_remove(file)
-    cmd = ['poetry', 'run', 'python', src, '1']
+    cmd = ['poetry', 'run', 'python', init, '3']
     proc1 = util.run_daemon(cmd, cwd=_org_dir)
-    time.sleep(1)  # as daemon, the internal sleep won't work, so must sleep here
+    time.sleep(1)
     assert osp.isfile(lockfile)
     # run a second instance before the first finishes (bg)
-    cmd2 = ['poetry', 'run', 'python', src, '2']
+    cmd2 = ['poetry', 'run', 'python', reenter, '1']
     proc2 = util.run_cmd(cmd2, cwd=_org_dir, useexception=True)
-    assert not osp.isfile(save2)
+    assert not osp.isfile(save)
     assert 'Locked by pid' in proc2.stderr.decode(util.TXT_CODEC)
     proc1.communicate()
     assert not osp.isfile(lockfile)
-    assert osp.isfile(save1)
-    util.safe_remove(save1)
-    util.safe_remove(save2)
+    for file in (save, lockfile):
+        util.safe_remove(file)
 
 
 def test_get_ancestor_dirs():

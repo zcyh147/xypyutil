@@ -729,6 +729,7 @@ class RerunLock:
             self.logger.warning('Locked by pid: {}. Will stay locked until it ends.'.format(os.getpid()))
             return False
         save_json(self.lockFile, {'pid': os.getpid()})
+        # CAUTION: race condition: saving needs a sec, it's up to application to await lockfile
         return True
 
     def unlock(self):
@@ -793,13 +794,16 @@ def await_while(condition, timeout_ms, step_ms=10):
     return waited_ms < timeout_ms
 
 
-def await_lockfile(lockpath, timeout_ms=float('inf'), step_ms=10):
+def await_lockfile(lockpath, until_gone=True, timeout_ms=float('inf'), step_ms=10):
+    """
+    - while lockfile exists, we wait
+    """
     class PathExistsCondition:
         def __init__(self, path):
             self.path = path
 
         def met(self):
-            return osp.exists(self.path)
+            return osp.exists(self.path) if until_gone else not osp.exists(self.path)
 
         def update(self):
             pass
