@@ -33,6 +33,7 @@ import os
 import os.path as osp
 import queue
 import re
+import string
 import time
 import tokenize
 import types
@@ -2072,6 +2073,10 @@ def remove_file(file, safe=True):
 
 def remove_tree(root, safe=True):
     shutil.rmtree(root, ignore_errors=safe)
+
+
+def is_non_ascii_text(text):
+    return any(char not in string.printable for char in text)
 
 
 def _test():
