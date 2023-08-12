@@ -1644,7 +1644,7 @@ def get_ancestor_dirs(file_or_dir, depth=1):
 
 
 def get_child_dirs(root, subs=()):
-    return (osp.join(root, sub) for sub in subs)
+    return [osp.join(root, sub) for sub in subs]
 
 
 def get_drivewise_commondirs(paths: list[str]):
@@ -1721,14 +1721,24 @@ def split_platform_drive(path):
 
 
 def open_in_browser(path, window='tab', islocal=True):
+    """
+    - path must be absolute
+    - widows path must be converted to posix
+    """
     import webbrowser as wb
-    url = f'file://{path}' if islocal else path
+    import urllib.parse
+    url_path = urllib.parse.quote(normalize_path(path, mode='posix').lstrip('/')) if islocal else path
+    if islocal:
+        # fix drive-letter false-alarm: 'file://C%3A/
+        url_path = re.sub(r'^([A-Za-z])%3A', r'\1:', url_path)
+    url = f'file:///{url_path}' if islocal else path
     api = {
         'current': wb.open,
         'tab': wb.open_new_tab,
         'window': wb.open_new,
     }
     api[window](url)
+    return url
 
 
 def open_in_editor(path):
@@ -1737,10 +1747,9 @@ def open_in_editor(path):
         'Darwin': 'open',
         'Linux': 'xdg-open',  # ubuntu
     }
-    # explorer only supports \
-    # start supports / and \, but is not an app cmd but open a prompt
-    if platform.system() == 'Windows':
-        path = path.replace('/', '\\')
+    # explorer.exe only supports \
+    # start.exe supports / and \, but is not an app cmd but open a prompt
+    path = normalize_paths([path])[0]
     cmd = [cmds[platform.system()], path]
     check = platform.system() != 'Windows'
     run_cmd(cmd, check=check)
@@ -1976,6 +1985,16 @@ def lazy_load_listfile(single_or_listfile: str, ext='.list'):
     return [single_item]
 
 
+def normalize_path(path, mode='native'):
+    if mode == 'native':
+        return path.replace('/', '\\') if platform.system() == 'Windows' else path.replace('\\', '/')
+    if mode == 'posix':
+        return path.replace('\\', '/')
+    if mode == 'win':
+        return path.replace('/', '\\')
+    raise NotImplementedError(f'Unsupported path noralization mode: {mode}')
+
+
 def normalize_paths(paths, mode='native'):
     """
     - modes:
@@ -1983,13 +2002,7 @@ def normalize_paths(paths, mode='native'):
       - posix: use /
       - win: use \\
     """
-    if mode == 'native':
-        return [path.replace('/', '\\') for path in paths] if platform.system() == 'Windows' else [path.replace('\\', '/') for path in paths]
-    if mode == 'posix':
-        return [path.replace('\\', '/') for path in paths]
-    if mode == 'win':
-        return [path.replace('/', '\\') for path in paths]
-    raise NotImplementedError(f'Unsupported mode: {mode}')
+    return [normalize_path(p) for p in paths]
 
 
 def lazy_load_filepaths(single_or_listfile: str, ext='.list', root=''):

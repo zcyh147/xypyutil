@@ -510,86 +510,46 @@ def test_get_ancestor_dirs():
     dirs = util.get_ancestor_dirs(folder, depth=2)
     assert dirs == [_case_dir, _src_dir]
 
-def test_pipe_cmd():
-    py = shutil.which('python' if platform.system() == 'Windows' else 'python3')
-    cmd = [py, osp.join(_org_dir, 'pipe_this.py')]
-    ret, stdout, stderr = util.watch_cmd(cmd)
-    assert ret == 0
+
+def test_get_child_dirs():
+    if platform.system() == 'Windows':
+        root = r'c:\path\to\root'
+        subs = ('ci', 'src', 'test')
+        assert util.get_child_dirs(root, subs) == [
+            r'c:\path\to\root\ci',
+            r'c:\path\to\root\src',
+            r'c:\path\to\root\test',
+        ]
+    else:
+        root = '/path/to/root'
+        subs = ('ci', 'src', 'test')
+        assert util.get_child_dirs(root, subs) == [
+            '/path/to/root/ci',
+            '/path/to/root/src',
+            '/path/to/root/test',
+        ]
 
 
-def test_find_first_line_in_range():
-    lines = """
-keyword: other stuff
-...... ...... ...... ...... ......
-...... ...... ...... ...... ......
-""".split('\n')
-    assert util.find_first_line_in_range(lines, 'keyword') == 1
-    lines = """
-other stuff: keyword
-...... ...... ...... ...... ......
-...... ...... ...... ...... ......
-""".split('\n')
-    assert util.find_first_line_in_range(lines, 'keyword', algo='endswith') == 1
-    lines = """
-other stuff: keyword: other stuff
-...... ...... ...... ...... ......
-...... ...... ...... ...... ......
-""".split('\n')
-    assert util.find_first_line_in_range(lines, 'keyword', algo='contains') == 1
-    lines = """
-...... ...... ...... ...... ......
-...... ...... ...... ...... ......
-keyword: other stuff
-...... ...... ...... ...... ......
-...... ...... ...... ...... ......
-""".split('\n')
-    assert util.find_first_line_in_range(lines, 'keyword', linerange=(3,)) == 3
-    lines = """0
-1...... ...... ...... ...... ......
-2...... ...... ...... ...... ......
-keyword: other stuff
-4...... ...... ...... ...... ......
-5...... ...... ...... ...... ......
-6...... ...... ...... ...... ......
-keyword: other stuff
-...... ...... ...... ...... ......
-...... ...... ...... ...... ......
-""".split('\n')
-    assert util.find_first_line_in_range(lines, 'keyword', linerange=(4,)) == 7
+def test_open_in_browser_windows(monkeypatch):
+    monkeypatch.setattr(platform, 'system', lambda: 'Windows')
+    path = 'C:\\Windows\\System32\\drivers\\etc\\hosts'
+    assert util.open_in_browser(path, islocal=True) == 'file:///C:/Windows/System32/drivers/etc/hosts'
+    assert util.open_in_browser(path, islocal=False) == 'C:\\Windows\\System32\\drivers\\etc\\hosts'
 
-    lines = """
-...... ...... ...... ...... ......
-...... ...... ...... ...... ......
-""".split('\n')
-    assert util.find_first_line_in_range(lines, 'keyword') is None
-    lines = """0
-1...... ...... ...... ...... ......
-2...... ...... ...... ...... ......
-keyword: other stuff
-4...... ...... ...... ...... ......
-5...... ...... ...... ...... ......
-6...... ...... ...... ...... ......
-keyword: other stuff
-8...... ...... ...... ...... ......
-9...... ...... ...... ...... ......
-""".split('\n')
-    assert util.find_first_line_in_range(lines, 'keyword', linerange=(8,)) is None
 
-    lines = """0
-keyword: other stuff
-2...... ...... ...... ...... ......
-3...... ...... ...... ...... ......
-""".split('\n')
-    with pytest.raises(AssertionError):
-        util.find_first_line_in_range(lines, 'keyword', linerange=(2, 0))
+def test_open_in_browser_macos(monkeypatch):
+    monkeypatch.setattr(platform, 'system', lambda: 'Darwin')
+    path = '/etc/hosts'
+    assert util.open_in_browser(path, islocal=True) == 'file:///etc/hosts'
+    assert util.open_in_browser(path, islocal=False) == '/etc/hosts'
+    path = '/path/to/filename with spaces'
+    assert util.open_in_browser(path, islocal=True) == 'file:///path/to/filename%20with%20spaces'
 
-    lines = """
-keyword: other stuff
-...... ...... ...... ...... ......
-...... ...... ...... ...... ......
-"""
-    with pytest.raises(TypeError):
-        util.find_first_line_in_range(lines, 'keyword')
+
+def test_open_in_editor():
+    path = 'C:\\Windows\\System32\\drivers\\etc\\hosts' if platform.system() == 'Windows' else '/etc/hosts'
+    util.open_in_editor(path)
+
 
 
 def test_flatten_nested_lists():
@@ -711,6 +671,88 @@ Detail:
 
 Advice:
 - (N/A)"""
+
+
+def test_pipe_cmd():
+    py = shutil.which('python' if platform.system() == 'Windows' else 'python3')
+    cmd = [py, osp.join(_org_dir, 'pipe_this.py')]
+    ret, stdout, stderr = util.watch_cmd(cmd)
+    assert ret == 0
+
+
+def test_find_first_line_in_range():
+    lines = """
+keyword: other stuff
+...... ...... ...... ...... ......
+...... ...... ...... ...... ......
+""".split('\n')
+    assert util.find_first_line_in_range(lines, 'keyword') == 1
+    lines = """
+other stuff: keyword
+...... ...... ...... ...... ......
+...... ...... ...... ...... ......
+""".split('\n')
+    assert util.find_first_line_in_range(lines, 'keyword', algo='endswith') == 1
+    lines = """
+other stuff: keyword: other stuff
+...... ...... ...... ...... ......
+...... ...... ...... ...... ......
+""".split('\n')
+    assert util.find_first_line_in_range(lines, 'keyword', algo='contains') == 1
+    lines = """
+...... ...... ...... ...... ......
+...... ...... ...... ...... ......
+keyword: other stuff
+...... ...... ...... ...... ......
+...... ...... ...... ...... ......
+""".split('\n')
+    assert util.find_first_line_in_range(lines, 'keyword', linerange=(3,)) == 3
+    lines = """0
+1...... ...... ...... ...... ......
+2...... ...... ...... ...... ......
+keyword: other stuff
+4...... ...... ...... ...... ......
+5...... ...... ...... ...... ......
+6...... ...... ...... ...... ......
+keyword: other stuff
+...... ...... ...... ...... ......
+...... ...... ...... ...... ......
+""".split('\n')
+    assert util.find_first_line_in_range(lines, 'keyword', linerange=(4,)) == 7
+
+    lines = """
+...... ...... ...... ...... ......
+...... ...... ...... ...... ......
+""".split('\n')
+    assert util.find_first_line_in_range(lines, 'keyword') is None
+    lines = """0
+1...... ...... ...... ...... ......
+2...... ...... ...... ...... ......
+keyword: other stuff
+4...... ...... ...... ...... ......
+5...... ...... ...... ...... ......
+6...... ...... ...... ...... ......
+keyword: other stuff
+8...... ...... ...... ...... ......
+9...... ...... ...... ...... ......
+""".split('\n')
+    assert util.find_first_line_in_range(lines, 'keyword', linerange=(8,)) is None
+
+    lines = """0
+keyword: other stuff
+2...... ...... ...... ...... ......
+3...... ...... ...... ...... ......
+""".split('\n')
+    with pytest.raises(AssertionError):
+        util.find_first_line_in_range(lines, 'keyword', linerange=(2, 0))
+
+    lines = """
+keyword: other stuff
+...... ...... ...... ...... ......
+...... ...... ...... ...... ......
+"""
+    with pytest.raises(TypeError):
+        util.find_first_line_in_range(lines, 'keyword')
 
 
 def test_pack_obj():
