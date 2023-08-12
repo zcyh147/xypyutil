@@ -244,7 +244,7 @@ def test_concur_map():
     data = [i for i in range(n)]
     logger = util.build_default_logger(
         logdir=osp.abspath(f'{_gen_dir}'),
-        name='util',
+        name='test_concur_map',
         verbose=True)
     res = util.concur_map(inner_func, data, worker_count=5, iobound=True, logger=logger)
     assert res == [i*2 for i in range(n)]
@@ -671,6 +671,22 @@ Detail:
 
 Advice:
 - (N/A)"""
+
+
+def test_init_repo():
+    src_file = osp.join('repo', 'app', 'src', 'my.code')
+    app = util.init_repo(src_file, organization='kk', logname='mylogtitle')
+    assert app.ancestorDirs == [
+        osp.abspath(osp.join('repo', 'app', 'src')),
+        osp.abspath(osp.join('repo', 'app')),
+        osp.abspath(osp.join('repo')),
+    ]
+    assert app.locDir == osp.abspath(osp.join('repo', 'app', 'locale'))
+    assert app.srcDir == osp.abspath(osp.join('repo', 'app', 'src'))
+    assert app.tmpDir == osp.abspath(osp.join('repo', 'app', 'temp'))
+    assert app.testDir == osp.abspath(osp.join('repo', 'app', 'test'))
+    assert app.pubTmpDir == osp.join(util.get_platform_tmp_dir(), 'kk', osp.basename(app.ancestorDirs[1]))
+    assert app.logger.name == 'mylogtitle'
 
 
 def test_pipe_cmd():

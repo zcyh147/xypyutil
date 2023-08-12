@@ -150,13 +150,9 @@ def get_platform_tmp_dir():
 
 def build_default_logger(logdir, name=None, verbose=False):
     """
-    Create per-file logger and output to shared log file.
-    - Otherwise use default config: save to /project_root/project_name.log.
+    create logger sharing global logging config except log file path
     - 'filename' in config is a filename; must prepend folder path to it.
-    :logdir: directory the log file is saved into.
-    :name: basename of the log file,
-    :cfgfile: config file in the format of dictConfig.
-    :return: logger object.
+    - name is log-id in config, and will get overwritten by subsequent in-process calls; THEREFORE, never build logger with the same name twice!
     """
     os.makedirs(logdir, exist_ok=True)
     filename = name or osp.basename(osp.basename(logdir.strip('\\/')))
@@ -201,6 +197,7 @@ def build_default_logger(logdir, name=None, verbose=False):
                 "stream": "ext://sys.stderr",
                 "filters": ["warn_hpf"]
             },
+            # filename gets overwritten every call
             "file": {
                 "level": "DEBUG",
                 "formatter": "file",
@@ -215,6 +212,7 @@ def build_default_logger(logdir, name=None, verbose=False):
                 "level": "INFO",
                 "propagate": True
             },
+            # do not show log in parent loggers
             "default": {
                 "handlers": ["console", "console_err", "file"],
                 "level": "DEBUG",
@@ -225,7 +223,6 @@ def build_default_logger(logdir, name=None, verbose=False):
     if name:
         logging_config['loggers'][name] = logging_config['loggers']['default']
     logging.config.dictConfig(logging_config)
-    # breakpoint()
     return logging.getLogger(name or 'default')
 
 
@@ -685,11 +682,11 @@ def match_files_except_lines(file1, file2, excluded=None):
 class RerunLock:
     """Lock process from reentering when seeing lock file on disk."""
 
-    def __init__(self, name, folder=None, logger=glogger):
+    def __init__(self, name, folder=None, logger=None):
         os.makedirs(folder, exist_ok=True)
         filename = f'lock_{name}.json' if name else 'lock_{}.json'.format(next(tempfile._get_candidate_names()))
         self.lockFile = osp.join(folder, filename) if folder else osp.join(get_platform_tmp_dir(), filename)
-        self.logger = logger
+        self.logger = logger or glogger
         # CAUTION:
         # - windows grpc server crashes with signals:
         #   - ValueError: signal only works in main thread of the main interpreter
@@ -1462,7 +1459,7 @@ def compare_dsv_lines(line1, line2, delim=' ', float_rel_tol=1e-6, float_abs_tol
         logger.error(f'number of fields mismatch: {len(cmp1)} vs. {len(cmp2)}')
         return False
     for v, (value1, value2) in enumerate(zip(cmp1, cmp2)):
-        log_header = (f'[Field {v}]')
+        log_header = f'[Field {v}]'
         if striptext:
             value1, value2 = value1.strip(), value2.strip()
         if (v1_is_float := is_float_text(value1)) != (v2_is_float := is_float_text(value2)):
@@ -1777,30 +1774,32 @@ def show_results(succeeded, detail, advice, dryrun=False):
     return report
 
 
-def init_repo(srcfile, appdepth=2, repodepth=3, organization='mycompany', logname=None, verbose=False, uselocale=False):
+def init_repo(srcfile_or_dir, appdepth=2, repodepth=3, organization='mycompany', logname=None, verbose=False, uselocale=False):
     """
-    assuming a project has a folder structure, create structure and facilities around it
-    - structure example: app > subs (src, test, temp, locale, ...), where app is app root
-    - structure example: repo > app > subs (src, test, temp, locale, ...), where repo is app-suite root
+    help source-file refer to its project-tree and utilities
+    - based on a 3-level folder structure: repo > app > sub-dirs
+    - sub-dirs are standard open-source folders, e.g., src, test, temp, locale, ...,
+    -
     - by default, assume srcfile is under repo > app > src
+    - deeper files such as test-case files may tweak appdepth and repodepth for pointing to a correct tree-level
     - set flag uselocale to use gettext localization, by using _T() function around non-fstrings
-    - set verbose to all show log levels in console
+    - set verbose to show debug log in console
     - set inter-app sharable tmp folder to platform_cache > organization > app
     """
     assert appdepth <= repodepth
-    common = types.SimpleNamespace()
-    common.ancestorDirs = get_ancestor_dirs(srcfile, depth=repodepth)
+    app = types.SimpleNamespace()
+    app.ancestorDirs = get_ancestor_dirs(srcfile_or_dir, depth=repodepth)
     # CAUTION:
     # - do not include repo to sys path here
     # - always use lazy_extend and lazy_remove
     # just have fixed initial folders to meet most needs in core and tests
-    common.locDir, common.srcDir, common.tmpDir, common.testDir = get_child_dirs(app_root := common.ancestorDirs[appdepth - 1], subs=('locale', 'src', 'temp', 'test'))
-    common.pubTmpDir = osp.join(get_platform_tmp_dir(), organization, osp.basename(app_root))
-    common.stem = osp.splitext(osp.basename(srcfile))[0]
-    common.logger = build_default_logger(common.tmpDir, name=logname if logname else common.stem, verbose=verbose)
+    app.locDir, app.srcDir, app.tmpDir, app.testDir = get_child_dirs(app_root := app.ancestorDirs[appdepth - 1], subs=('locale', 'src', 'temp', 'test'))
+    app.pubTmpDir = osp.join(get_platform_tmp_dir(), organization, osp.basename(app_root))
+    app.stem = osp.splitext(osp.basename(srcfile_or_dir))[0]
+    app.logger = build_default_logger(app.tmpDir, name=logname if logname else app.stem, verbose=verbose)
     if uselocale:
-        common.translator = init_translator(common.locDir)
-    return common
+        app.translator = init_translator(app.locDir)
+    return app
 
 
 def backup_file(file, dstdir=None, suffix='.1', keepmeta=True):
