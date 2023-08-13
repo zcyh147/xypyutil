@@ -1930,41 +1930,61 @@ def find_runs(lst):
     return runs
 
 
-def install_by_macports(pkg, ver=None, lazybin=None):
+def install_by_macports(pkg, lazybin=None):
     """
     Homebrew has the top priority.
     Macports only overrides in memory on demand.
     """
+    macports = shutil.which('port')
+    if not macports or not osp.isfile(macports):
+        raise FileNotFoundError('Missing MacPorts; Retry after installing MacPorts')
     os_paths = os.environ['PATH']
     prepend_to_os_paths('/opt/local/sbin', inmemonly=True)
     prepend_to_os_paths('/opt/local/bin', inmemonly=True)
     if lazybin and (exe := shutil.which(lazybin)):
-        print(f'Found binary: {exe}, and skipped installing package: {pkg}')
-        return
-    run_cmd(['sudo', 'port', 'install', pkg])
+        print(f'Found binary: {exe}; skipped installing package: {pkg}')
+        return exe
+    run_cmd(['sudo', macports, 'install', pkg])
     os.environ['PATH'] = os_paths
+    binary = pkg
+    return shutil.which(binary)
 
 
-def uninstall_by_macports(pkg, ver=None):
+def uninstall_by_macports(pkg):
     """
     Homebrew has the top priority.
     Macports only overrides in memory on demand.
     """
+    macports = shutil.which('port')
+    if not macports or not osp.isfile(macports):
+        raise FileNotFoundError('Missing MacPorts; Retry after installing MacPorts')
     os_paths = os.environ['PATH']
     prepend_to_os_paths('/opt/local/sbin', inmemonly=True)
     prepend_to_os_paths('/opt/local/bin', inmemonly=True)
-    run_cmd(['sudo', 'port', 'uninstall', pkg])
+    run_cmd(['sudo', macports, 'uninstall', pkg])
     os.environ['PATH'] = os_paths
 
 
-def install_by_homebrew(pkg, ver=None, lazybin=None):
+def install_by_homebrew(pkg, ver=None, lazybin=None, cask=False, buildsrc=False):
+    """
+    always upgrade homebrew to the latest
+    """
     if lazybin and (exe := shutil.which(lazybin)):
         print(f'Found binary: {exe}, and skipped installing package: {pkg}')
         return
-    run_cmd(['brew', 'install', pkg])
+    pkg_version = pkg if not ver else pkg+f'@{ver}'
+    cmd = ['brew', 'install']
+    if cask:
+        cmd += ['--cask']
+    if buildsrc:
+        cmd += ['--build-from-source']
+    run_cmd(cmd + [pkg_version])
 
 
-def uninstall_by_homebrew(pkg, ver=None):
+def uninstall_by_homebrew(pkg, lazybin=None):
+    if lazybin and not shutil.which(lazybin):
+        print(f'Missing binary: {lazybin}, and skipped uninstalling package: {pkg}')
+        return
     run_cmd(['brew', 'remove', pkg])
 
 
@@ -1989,12 +2009,12 @@ def lazy_load_listfile(single_or_listfile: str, ext='.list'):
     - we don't force return type-hint to be -> list for reusing args.path str
     - assume list can be text of any nature, i.e., not just paths
     """
-    if is_listfile := fnmatch.fnmatch(single_or_listfile, f'*{ext}'):
-        if not osp.isfile(single_or_listfile):
-            raise FileNotFoundError(f'Missing list file: {single_or_listfile}')
-        return load_lines(single_or_listfile, rmlineend=True)
-    single_item = single_or_listfile
-    return [single_item]
+    if is_single_item := osp.splitext(single_or_listfile)[1] != ext:
+        # we don't care whether it exists or not
+        return [single_or_listfile]
+    if not osp.isfile(single_or_listfile):
+        raise FileNotFoundError(f'Missing list file: {single_or_listfile}')
+    return load_lines(single_or_listfile, rmlineend=True)
 
 
 def normalize_path(path, mode='native'):
@@ -2014,7 +2034,7 @@ def normalize_paths(paths, mode='native'):
       - posix: use /
       - win: use \\
     """
-    return [normalize_path(p) for p in paths]
+    return [normalize_path(p, mode) for p in paths]
 
 
 def lazy_load_filepaths(single_or_listfile: str, ext='.list', root=''):
@@ -2026,18 +2046,20 @@ def lazy_load_filepaths(single_or_listfile: str, ext='.list', root=''):
     # if not file path, then user must give root for relative paths
     root = root or os.getcwd()
     # prepare for path normalization: must input posix paths for windows
-    root = root.replace('\\', '/')
+    root = normalize_path(root, mode='posix')
     abs_list_file = single_or_listfile
     if not osp.isabs(single_or_listfile):
-        abs_list_file = single_or_listfile.replace('\\', '/')
+        abs_list_file = normalize_path(single_or_listfile, mode='posix')
         abs_list_file = osp.abspath(f'{root}/{abs_list_file}')
-    if is_listfile := fnmatch.fnmatch(abs_list_file, f'*{ext}'):
-        if not osp.isfile(abs_list_file):
-            raise FileNotFoundError(f'Missing list file: {abs_list_file}')
-        paths = [osp.normpath(path) for path in load_lines(abs_list_file, rmlineend=True)]
-        return [path if osp.isabs(path) else osp.abspath(f'{root}/{path}') for path in paths]
-    single_item = abs_list_file
-    return [single_item]
+    if is_single_file := osp.splitext(abs_list_file)[1] != ext:
+        # we don't care whether it exists or not
+        return [single_or_listfile]
+    if not osp.isfile(abs_list_file):
+        raise FileNotFoundError(f'Missing list file: {abs_list_file}')
+    # native win-paths remain the same;
+    # posix-format win-paths are converted to native
+    paths = [osp.normpath(path) for path in load_lines(abs_list_file, rmlineend=True)]
+    return [path if osp.isabs(path) else osp.abspath(f'{root}/{path}') for path in paths]
 
 
 def is_link(path):

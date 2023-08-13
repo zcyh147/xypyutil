@@ -799,6 +799,118 @@ def test_find_runs():
     ]
 
 
+def test_install_uninstall_by_macports(monkeypatch):
+    if platform.system() != 'Darwin':
+        assert True
+        return
+    with pytest.raises(FileNotFoundError):
+        util.install_by_macports('cowsay')
+    with pytest.raises(FileNotFoundError):
+        util.uninstall_by_macports('cowsay')
+
+
+def test_install_uninstall_by_homebrew(monkeypatch):
+    if platform.system() != 'Darwin':
+        assert True
+        return
+    pkg, lazybin = 'fortune', 'fortune'
+    util.uninstall_by_homebrew(pkg, lazybin)
+    util.install_by_homebrew(pkg)
+    util.install_by_homebrew('fortune', lazybin='fortune')
+
+
+def test_validate_platform():
+    supported = ['os1', 'os2']
+    with pytest.raises(NotImplementedError):
+        util.validate_platform(supported)
+    supported = platform.system()
+    util.validate_platform(supported)
+
+
+def test_touch():
+    file = osp.join(_gen_dir, 'my.file')
+    util.touch(file)
+    assert osp.isfile(file)
+    util.safe_remove(_gen_dir)
+
+
+def test_lazy_load_listfile():
+    single_file = osp.join(_gen_dir, 'my.file')
+    assert util.lazy_load_listfile(single_file) == [single_file]
+    list_file = osp.join(_org_dir, 'my.list')
+    assert util.lazy_load_listfile(list_file) == [
+        'first line',
+        'second line',
+        'third line',
+    ]
+    list_file = osp.join(_org_dir, 'missing.list')
+    with pytest.raises(FileNotFoundError):
+        util.lazy_load_listfile(list_file)
+
+
+def test_normalize_paths(monkeypatch):
+    paths = [
+        'c:\\path/to/file',
+        '/path/to/file'
+    ]
+    assert util.normalize_paths(paths, mode='win') == [
+        'c:\\path\\to\\file',
+        '\\path\\to\\file',
+    ]
+    assert util.normalize_paths(paths, mode='posix') == [
+        'c:/path/to/file',
+        '/path/to/file',
+    ]
+    monkeypatch.setattr(platform, 'system', lambda : 'Windows')
+    assert util.normalize_paths(paths, mode='native') == [
+        'c:\\path\\to\\file',
+        '\\path\\to\\file',
+    ]
+    monkeypatch.setattr(platform, 'system', lambda: 'Darwin')
+    assert util.normalize_paths(paths, mode='native') == [
+        'c:/path/to/file',
+        '/path/to/file',
+    ]
+    with pytest.raises(NotImplementedError):
+        util.normalize_paths(paths, mode='invalid')
+
+
+def test_lazy_load_filepaths():
+    if platform.system() == 'Windows':
+        single_path = 'c:/path/to/file'
+        assert util.lazy_load_filepaths(single_path) == ['c:\\path\\to\\file']
+        list_file = osp.join(_org_dir, 'files_abs_win.list')
+        assert util.lazy_load_filepaths(list_file) == [
+            'c:\\path\\to\\file1',
+            'D:\\path\\to\\file2',
+        ]
+        list_file = osp.join(_org_dir, 'files_rel_win.list')
+        assert util.lazy_load_filepaths(list_file, root='c:\\root') == [
+            'c:\\root\\rel\\to\\file1',
+            'c:\\root\\rel\\to\\file2',
+        ]
+    else:
+        single_path = '/path/to/file'
+        assert util.lazy_load_filepaths(single_path) == ['/path/to/file']
+        list_file = osp.join(_org_dir, 'files_abs_posix.list')
+        assert util.lazy_load_filepaths(list_file) == [
+               '/path/to/file1',
+               '/path/to/file2',
+        ]
+        list_file = osp.join(_org_dir, 'files_rel_posix.list')
+        assert util.lazy_load_filepaths(list_file, root='/root') == [
+            '/root/rel/to/file1',
+            '/root/rel/to/file2',
+        ]
+    with pytest.raises(FileNotFoundError):
+        util.lazy_load_filepaths('missing.list')
+
+
+def test_is_link():
+    file = osp.join(_gen_dir, 'my.file')
+
+
+
 def test_pipe_cmd():
     py = shutil.which('python' if platform.system() == 'Windows' else 'python3')
     cmd = [py, osp.join(_org_dir, 'pipe_this.py')]
@@ -908,14 +1020,6 @@ def test_pack_obj():
     obj = MyClass()
     packed = util.pack_obj(obj, classes=(MyClass,))
     assert packed == '<KK-ENV>{"payload": {"n": 1, "s": "hello", "f": 9.99, "l": [1, 2, 3]}, "topic": "MyClass"}</KK-ENV>'
-
-
-def test_validate_platform():
-    supported = ['os1', 'os2']
-    with pytest.raises(NotImplementedError):
-        util.validate_platform(supported)
-    supported = platform.system()
-    util.validate_platform(supported)
 
 
 def test_raise_error():
