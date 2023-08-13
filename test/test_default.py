@@ -907,8 +907,13 @@ def test_lazy_load_filepaths():
 
 
 def test_is_link():
-    file = osp.join(_gen_dir, 'my.file')
-
+    if platform.system() == 'Windows':
+        pass
+    else:
+        file = osp.join(_org_dir, 'lines.txt')
+        symlink = osp.join(_org_dir, 'lines.txt.symlink')
+        assert util.is_link(symlink)
+        assert not util.is_link(file)
 
 
 def test_pipe_cmd():
