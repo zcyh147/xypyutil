@@ -906,6 +906,11 @@ def test_lazy_load_filepaths():
         util.lazy_load_filepaths('missing.list')
 
 
+def test_read_link():
+    lnk = osp.join(_org_dir, 'lines.txt.symlink')
+    assert util.read_link(lnk) == '/Users/kakyo/Desktop/_dev/kkpyutil/test/_org/lines.txt'
+
+
 def test_is_link():
     file = osp.join(_org_dir, 'lines.txt')
     if platform.system() == 'Windows':
@@ -915,6 +920,25 @@ def test_is_link():
         symlink = osp.join(_org_dir, 'lines.txt.symlink')
         assert util.is_link(symlink)
     assert not util.is_link(file)
+
+
+def test_raise_error():
+    errcls = NotImplementedError
+    detail = '- This is a test error'
+    advice = '- Fix it'
+    with pytest.raises(NotImplementedError) as diagnostics:
+        util.raise_error(errcls, detail, advice)
+    assert str(diagnostics.value) == """\
+Detail:
+- This is a test error
+
+Advice:
+- Fix it"""
+
+
+def test_sanitize_text_as_path():
+    path_part = 'tab: 天哪*?"<\\/\x00\x1F'
+    assert util.sanitize_text_as_path(path_part) == 'tab_ 天哪________'
 
 
 def test_pipe_cmd():
@@ -1028,20 +1052,6 @@ def test_pack_obj():
     assert packed == '<KK-ENV>{"payload": {"n": 1, "s": "hello", "f": 9.99, "l": [1, 2, 3]}, "topic": "MyClass"}</KK-ENV>'
 
 
-def test_raise_error():
-    errcls = NotImplementedError
-    detail = '- This is a test error'
-    advice = '- Fix it'
-    with pytest.raises(NotImplementedError) as diagnostics:
-        util.raise_error(errcls, detail, advice)
-    assert str(diagnostics.value) == """\
-Detail:
-- This is a test error
-
-Advice:
-- Fix it"""
-
-
 def test_get_drivewise_commondirs():
     # single path
     if is_posix := platform.system() != 'Windows':
@@ -1102,11 +1112,6 @@ def test_split_platform_drive():
         assert util.split_platform_drive(path) == ('/', 'path/to/dir1/file1')
         path = 'path/to/dir1/file1'
         assert util.split_platform_drive(path) == ('', 'path/to/dir1/file1')
-
-
-def test_sanitize_path_part():
-    path_part = 'tab: 天哪*?"<\\/\x00\x1F'
-    assert util.sanitize_text_as_path(path_part) == 'tab_ 天哪________'
 
 
 def test_is_float_text():
