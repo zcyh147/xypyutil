@@ -2062,25 +2062,45 @@ def lazy_load_filepaths(single_or_listfile: str, ext='.list', root=''):
     return [path if osp.isabs(path) else osp.abspath(f'{root}/{path}') for path in paths]
 
 
+def read_link(link_path):
+    """
+    cross-platform symlink/shortcut resolver
+    - Windows .lnk can be a command, thus can contain source-path and arguments
+    """
+    if platform.system() != 'Windows':
+        return os.readlink(link_path)
+    if osp.islink(link_path):
+        return os.readlink(link_path)
+    # get_target implementation by hannes, https://gist.github.com/Winand/997ed38269e899eb561991a0c663fa49
+    ps_command = \
+        "$WSShell = New-Object -ComObject Wscript.Shell;" \
+        "$Shortcut = $WSShell.CreateShortcut(\"" + str(link_path) + "\"); " \
+        "Write-Host $Shortcut.TargetPath ';' $shortcut.Arguments "
+    output = subprocess.run(["powershell.exe", ps_command], capture_output=True)
+    raw = output.stdout.decode('utf-8')
+    src_path, args = [x.strip() for x in raw.split(';', 1)]
+    return src_path
+
+
 def is_link(path):
     """
     on windows
     - osp.islink(path) always returns False
     - os.readlink(path) throws when link itself does not exist
-    - osp.isdir(path) / osp.exists(path) returns True only when linked source is an existing dir
+    - osp.isdir(path) returns True only when linked source is an existing dir
+    - os.readlink(file) raises OSError WinError 4390
+    - os.readlink(file.lnk) raises OSError WinError 4390
+    - osp.isfile(file.lnk) returns True
     on mac
     - osp.islink(path) returns True when link exists
     - osp.isdir(path) / osp.exists(path) returns True only when linked source is an existing dir
     """
-    if platform.system() == 'Windows':
-        try:
-            lnk = os.readlink(path)
-            return True
-        except FileNotFoundError:
-            return False
-        except OSError:
-            return False
-    return osp.islink(path)
+    if platform.system() != 'Windows':
+        return osp.islink(path)
+    if osp.islink(path):  # posix symlink
+        return True
+    src = read_link(path)
+    return src and src != path
 
 
 def raise_error(errcls, detail, advice):
