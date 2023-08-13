@@ -689,6 +689,116 @@ def test_init_repo():
     assert app.logger.name == 'mylogtitle'
 
 
+def test_backup_file():
+    file = osp.join(_gen_dir, 'my.file')
+    util.touch(file)
+    # non-numeric suffix
+    bak = util.backup_file(file, suffix='.bak')
+    assert osp.isfile(bak)
+    assert bak == osp.join(_gen_dir, 'my.file.bak')
+    # numeric suffix
+    bak = util.backup_file(file, suffix='.3')
+    assert osp.isfile(bak)
+    assert bak == osp.join(_gen_dir, 'my.file.3')
+    bak = util.backup_file(file, suffix='.1')
+    assert osp.isfile(bak)
+    assert bak == osp.join(_gen_dir, 'my.file.4')
+    util.safe_remove(_gen_dir)
+
+
+def test_recover_file():
+    file = osp.join(_gen_dir, 'my.file')
+    assert not osp.isfile(file)
+    bak = osp.join(_gen_dir, 'my.file.bak')
+    util.touch(bak)
+    bak = util.recover_file(file, suffix='.bak')
+    assert osp.isfile(file)
+    assert bak == osp.join(_gen_dir, 'my.file.bak')
+    util.safe_remove(_gen_dir)
+
+
+def test_deprecate_log():
+    msg = util.deprecate('old', 'new')
+    assert msg == 'old is deprecated; use new instead'
+
+
+def test_save_load_lines():
+    lines = [
+        'first line',
+        'second line',
+        'third line',
+    ]
+    file = osp.join(_gen_dir, 'lines.txt')
+    util.save_lines(file, lines, addlineend=True)
+    lines = util.load_lines(file, rmlineend=True)
+    assert lines == [
+        'first line',
+        'second line',
+        'third line',
+    ]
+    lines = util.load_lines(file)
+    assert lines == [
+        'first line\n',
+        'second line\n',
+        'third line\n',
+    ]
+    util.save_lines(file, lines)
+    lines = util.load_lines(file, rmlineend=True)
+    assert lines == [
+        'first line',
+        'second line',
+        'third line',
+    ]
+    util.save_lines(file, lines, toappend=True)
+    lines = util.load_lines(file, rmlineend=True)
+    assert lines == [
+        'first line',
+        'second line',
+        'third line',
+        'first linesecond linethird line',
+    ]
+    util.safe_remove(_gen_dir)
+
+
+def test_save_load_text():
+    text = '\n'.join([
+        'first line',
+        'second line',
+        'third line',
+    ])
+    file = osp.join(_gen_dir, 'text.txt')
+    util.save_text(file, text)
+    loaded = util.load_text(file)
+    assert loaded == text
+    util.save_text(file, text, toappend=True)
+    loaded = util.load_text(file)
+    assert loaded == text+text
+
+
+def test_find_duplication():
+    list_with_dups = [1, 2, 3, 2, 4, 1, 5]
+    assert util.find_duplication(list_with_dups) == {
+        1: [0, 5],
+        2: [1, 3],
+    }
+
+
+def test_remove_duplication():
+    list_with_dups = [1, 2, 3, 2, 5, 3]
+    assert (util.remove_duplication(list_with_dups)) == [1, 2, 3, 5]
+    list_with_dups = [1, 5.0, 'xyz', 5.0, 5, 'xyz']
+    assert (util.remove_duplication(list_with_dups)) == [1, 5.0, 'xyz']
+
+
+def test_find_runs():
+    list_with_runs = [1, 2, 2, 2, 4, 5, 6, 7, 7, 7, 7, 10, 10]
+    assert util.find_runs(list_with_runs) == [
+        [1, 2, 3],
+        [7, 8, 9, 10],
+        [11, 12],
+    ]
+
+
 def test_pipe_cmd():
     py = shutil.which('python' if platform.system() == 'Windows' else 'python3')
     cmd = [py, osp.join(_org_dir, 'pipe_this.py')]
@@ -798,13 +908,6 @@ def test_pack_obj():
     obj = MyClass()
     packed = util.pack_obj(obj, classes=(MyClass,))
     assert packed == '<KK-ENV>{"payload": {"n": 1, "s": "hello", "f": 9.99, "l": [1, 2, 3]}, "topic": "MyClass"}</KK-ENV>'
-
-
-def test_remove_duplication():
-    my_list = [1, 2, 3, 2, 5, 3]
-    assert (util.remove_duplication(my_list)) == [1, 2, 3, 5]
-    my_list = [1, 5.0, 'xyz', 5.0, 5, 'xyz']
-    assert (util.remove_duplication(my_list)) == [1, 5.0, 'xyz']
 
 
 def test_validate_platform():
@@ -934,7 +1037,7 @@ def test_safe_remove():
         assert osp.isdir(d)
         util.safe_remove(d)
         assert not osp.isdir(d)
-    util.safe_remove('missing')
+    util.safe_remove(_gen_dir)
 
 
 def test_is_non_ascii_text():

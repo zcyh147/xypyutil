@@ -48,6 +48,7 @@ import sys
 import tempfile
 import threading
 import traceback
+import warnings
 from types import SimpleNamespace
 import uuid
 
@@ -1813,36 +1814,43 @@ def backup_file(file, dstdir=None, suffix='.1', keepmeta=True):
     num = suffix[1:]
     if not num.isnumeric():
         copy_file(file, bak, keepmeta=keepmeta)
-        return
-    while osp.isfile(bak):
-        stem = osp.splitext(bak)[0]
-        num = int(osp.splitext(bak)[1][1:]) + 1
-        bak = stem + f'.{num}'
+        return bak
+    bn = osp.basename(file)
+    cur_numeric_suffixes = [int(_sfx) for bkfile in glob.glob(osp.join(bak_dir, f'{bn}.*')) if (_sfx := osp.splitext(bkfile)[1][1:]).isnumeric()]
+    bak = osp.join(bak_dir, f'{bn}.{max(cur_numeric_suffixes)+1}') if cur_numeric_suffixes else osp.join(bak_dir, f'{bn}{suffix}')
     copy_file(file, bak, keepmeta=keepmeta)
+    return bak
 
 
 def recover_file(file, bakdir=None, suffix=None, keepmeta=True):
     """
-    recover file from numeric backup in bakdir or same dir
+    recover file from backup in bakdir or same dir
+    - if no suffix is given, find the latest numeric backup
     """
     bak_dir = bakdir if bakdir else osp.dirname(file)
     assert osp.isdir(bak_dir)
     bn = osp.basename(file)
-    files = glob.glob(osp.join(bak_dir, f'{bn}.*'))
-    if not files:
-        raise FileNotFoundError(f'No backup found for {file} under {bak_dir}')
+    baks = glob.glob(osp.join(bak_dir, f'{bn}.*'))
+    if not baks:
+        return None
     if suffix:
         bak = osp.join(bak_dir, bn + suffix)
         copy_file(bak, file, keepmeta=keepmeta)
-        return
-    latest = max([int(num_sfx) for file in files if (num_sfx := osp.splitext(file)[1][1:]).isnumeric()])
-    bak = osp.join(bak_dir, f'{bn}.{latest}')
+        return bak
+    cur_numeric_suffixes = [int(_sfx) for bkfile in glob.glob(osp.join(bak_dir, f'{bn}.*')) if (_sfx := osp.splitext(bkfile)[1][1:]).isnumeric()]
+    if not cur_numeric_suffixes:
+        return None
+    suffix = max(cur_numeric_suffixes)
+    bak = osp.join(bak_dir, f'{bn}.{suffix}')
     copy_file(bak, file, keepmeta=keepmeta)
+    glogger.info(f'no suffix given, recovered from latest backup: {bak}')
+    return bak
 
 
-def deprecate_log(replacewith=None):
-    replacement = replacewith if replacewith else 'a documented replacement'
-    return f'This is deprecated; use {replacement} instead'
+def deprecate(old, new):
+    msg = f'{old} is deprecated; use {new} instead'
+    warnings.warn(msg, DeprecationWarning, stacklevel=2)
+    return msg
 
 
 def load_lines(path, rmlineend=False):
@@ -1903,17 +1911,22 @@ def remove_duplication(mylist):
 
 
 def find_runs(lst):
+    """
+    indexing contiguous elem sequences (runs)
+    """
     runs = []
-    current_group = []
+    cur_run = []
     for i, value in enumerate(lst):
         if i > 0 and value == lst[i - 1]:
-            current_group.append(i)
-        else:
-            if len(current_group) > 1:
-                runs.append(current_group)
-            current_group = [i]
-    if len(current_group) > 1:
-        runs.append(current_group)
+            cur_run.append(i)
+        else:  # current run ends
+            if len(cur_run) > 1:
+                runs.append(cur_run)
+            # new candidate run
+            cur_run = [i]
+    # tail run
+    if len(cur_run) > 1:
+        runs.append(cur_run)
     return runs
 
 
