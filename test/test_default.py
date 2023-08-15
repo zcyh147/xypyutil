@@ -1160,3 +1160,22 @@ def test_is_non_ascii_text():
     assert util.is_non_ascii_text(invalid)
     valid = "i'm me"
     assert not util.is_non_ascii_text(valid)
+
+
+def test_inspect_obj():
+    class MyClass:
+        def __init__(self, *args, **kwargs):
+            self.n: int = 1
+            self.s: str = 'hello'
+            self.f: float = 9.99
+            self.l: list[int] = [1, 2, 3]
+
+        def main(self):
+            pass
+    obj = MyClass()
+    assert util.inspect_obj(obj) == {
+        'type': 'MyClass',
+        'attrs': {'n': 1, 's': 'hello', 'f': 9.99, 'l': [1, 2, 3]},
+    }
+    num = 100
+    assert util.inspect_obj(num) == {'type': 'int', 'attrs': {}}

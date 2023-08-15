@@ -48,7 +48,6 @@ import sys
 import tempfile
 import threading
 import traceback
-import warnings
 from types import SimpleNamespace
 import uuid
 
@@ -151,9 +150,13 @@ def get_platform_tmp_dir():
 
 def build_default_logger(logdir, name=None, verbose=False):
     """
-    create logger sharing global logging config except log file path
+    Create per-file logger and output to shared log file.
+    - Otherwise use default config: save to /project_root/project_name.log.
     - 'filename' in config is a filename; must prepend folder path to it.
-    - name is log-id in config, and will get overwritten by subsequent in-process calls; THEREFORE, never build logger with the same name twice!
+    :logdir: directory the log file is saved into.
+    :name: basename of the log file,
+    :cfgfile: config file in the format of dictConfig.
+    :return: logger object.
     """
     os.makedirs(logdir, exist_ok=True)
     filename = name or osp.basename(osp.basename(logdir.strip('\\/')))
@@ -198,7 +201,6 @@ def build_default_logger(logdir, name=None, verbose=False):
                 "stream": "ext://sys.stderr",
                 "filters": ["warn_hpf"]
             },
-            # filename gets overwritten every call
             "file": {
                 "level": "DEBUG",
                 "formatter": "file",
@@ -213,7 +215,6 @@ def build_default_logger(logdir, name=None, verbose=False):
                 "level": "INFO",
                 "propagate": True
             },
-            # do not show log in parent loggers
             "default": {
                 "handlers": ["console", "console_err", "file"],
                 "level": "DEBUG",
@@ -224,6 +225,7 @@ def build_default_logger(logdir, name=None, verbose=False):
     if name:
         logging_config['loggers'][name] = logging_config['loggers']['default']
     logging.config.dictConfig(logging_config)
+    # breakpoint()
     return logging.getLogger(name or 'default')
 
 
@@ -683,11 +685,11 @@ def match_files_except_lines(file1, file2, excluded=None):
 class RerunLock:
     """Lock process from reentering when seeing lock file on disk."""
 
-    def __init__(self, name, folder=None, logger=None):
+    def __init__(self, name, folder=None, logger=glogger):
         os.makedirs(folder, exist_ok=True)
         filename = f'lock_{name}.json' if name else 'lock_{}.json'.format(next(tempfile._get_candidate_names()))
         self.lockFile = osp.join(folder, filename) if folder else osp.join(get_platform_tmp_dir(), filename)
-        self.logger = logger or glogger
+        self.logger = logger
         # CAUTION:
         # - windows grpc server crashes with signals:
         #   - ValueError: signal only works in main thread of the main interpreter
@@ -1460,7 +1462,7 @@ def compare_dsv_lines(line1, line2, delim=' ', float_rel_tol=1e-6, float_abs_tol
         logger.error(f'number of fields mismatch: {len(cmp1)} vs. {len(cmp2)}')
         return False
     for v, (value1, value2) in enumerate(zip(cmp1, cmp2)):
-        log_header = f'[Field {v}]'
+        log_header = (f'[Field {v}]')
         if striptext:
             value1, value2 = value1.strip(), value2.strip()
         if (v1_is_float := is_float_text(value1)) != (v2_is_float := is_float_text(value2)):
@@ -1642,7 +1644,7 @@ def get_ancestor_dirs(file_or_dir, depth=1):
 
 
 def get_child_dirs(root, subs=()):
-    return [osp.join(root, sub) for sub in subs]
+    return (osp.join(root, sub) for sub in subs)
 
 
 def get_drivewise_commondirs(paths: list[str]):
@@ -1719,24 +1721,14 @@ def split_platform_drive(path):
 
 
 def open_in_browser(path, window='tab', islocal=True):
-    """
-    - path must be absolute
-    - widows path must be converted to posix
-    """
     import webbrowser as wb
-    import urllib.parse
-    url_path = urllib.parse.quote(normalize_path(path, mode='posix').lstrip('/')) if islocal else path
-    if islocal:
-        # fix drive-letter false-alarm: 'file://C%3A/
-        url_path = re.sub(r'^([A-Za-z])%3A', r'\1:', url_path)
-    url = f'file:///{url_path}' if islocal else path
+    url = f'file://{path}' if islocal else path
     api = {
         'current': wb.open,
         'tab': wb.open_new_tab,
         'window': wb.open_new,
     }
     api[window](url)
-    return url
 
 
 def open_in_editor(path):
@@ -1745,9 +1737,10 @@ def open_in_editor(path):
         'Darwin': 'open',
         'Linux': 'xdg-open',  # ubuntu
     }
-    # explorer.exe only supports \
-    # start.exe supports / and \, but is not an app cmd but open a prompt
-    path = normalize_paths([path])[0]
+    # explorer only supports \
+    # start supports / and \, but is not an app cmd but open a prompt
+    if platform.system() == 'Windows':
+        path = path.replace('/', '\\')
     cmd = [cmds[platform.system()], path]
     check = platform.system() != 'Windows'
     run_cmd(cmd, check=check)
@@ -1775,32 +1768,30 @@ def show_results(succeeded, detail, advice, dryrun=False):
     return report
 
 
-def init_repo(srcfile_or_dir, appdepth=2, repodepth=3, organization='mycompany', logname=None, verbose=False, uselocale=False):
+def init_repo(srcfile, appdepth=2, repodepth=3, organization='mycompany', logname=None, verbose=False, uselocale=False):
     """
-    help source-file refer to its project-tree and utilities
-    - based on a 3-level folder structure: repo > app > sub-dirs
-    - sub-dirs are standard open-source folders, e.g., src, test, temp, locale, ...,
-    -
+    assuming a project has a folder structure, create structure and facilities around it
+    - structure example: app > subs (src, test, temp, locale, ...), where app is app root
+    - structure example: repo > app > subs (src, test, temp, locale, ...), where repo is app-suite root
     - by default, assume srcfile is under repo > app > src
-    - deeper files such as test-case files may tweak appdepth and repodepth for pointing to a correct tree-level
     - set flag uselocale to use gettext localization, by using _T() function around non-fstrings
-    - set verbose to show debug log in console
+    - set verbose to all show log levels in console
     - set inter-app sharable tmp folder to platform_cache > organization > app
     """
     assert appdepth <= repodepth
-    app = types.SimpleNamespace()
-    app.ancestorDirs = get_ancestor_dirs(srcfile_or_dir, depth=repodepth)
+    common = types.SimpleNamespace()
+    common.ancestorDirs = get_ancestor_dirs(srcfile, depth=repodepth)
     # CAUTION:
     # - do not include repo to sys path here
     # - always use lazy_extend and lazy_remove
     # just have fixed initial folders to meet most needs in core and tests
-    app.locDir, app.srcDir, app.tmpDir, app.testDir = get_child_dirs(app_root := app.ancestorDirs[appdepth - 1], subs=('locale', 'src', 'temp', 'test'))
-    app.pubTmpDir = osp.join(get_platform_tmp_dir(), organization, osp.basename(app_root))
-    app.stem = osp.splitext(osp.basename(srcfile_or_dir))[0]
-    app.logger = build_default_logger(app.tmpDir, name=logname if logname else app.stem, verbose=verbose)
+    common.locDir, common.srcDir, common.tmpDir, common.testDir = get_child_dirs(app_root := common.ancestorDirs[appdepth - 1], subs=('locale', 'src', 'temp', 'test'))
+    common.pubTmpDir = osp.join(get_platform_tmp_dir(), organization, osp.basename(app_root))
+    common.stem = osp.splitext(osp.basename(srcfile))[0]
+    common.logger = build_default_logger(common.tmpDir, name=logname if logname else common.stem, verbose=verbose)
     if uselocale:
-        app.translator = init_translator(app.locDir)
-    return app
+        common.translator = init_translator(common.locDir)
+    return common
 
 
 def backup_file(file, dstdir=None, suffix='.1', keepmeta=True):
@@ -1814,43 +1805,36 @@ def backup_file(file, dstdir=None, suffix='.1', keepmeta=True):
     num = suffix[1:]
     if not num.isnumeric():
         copy_file(file, bak, keepmeta=keepmeta)
-        return bak
-    bn = osp.basename(file)
-    cur_numeric_suffixes = [int(_sfx) for bkfile in glob.glob(osp.join(bak_dir, f'{bn}.*')) if (_sfx := osp.splitext(bkfile)[1][1:]).isnumeric()]
-    bak = osp.join(bak_dir, f'{bn}.{max(cur_numeric_suffixes)+1}') if cur_numeric_suffixes else osp.join(bak_dir, f'{bn}{suffix}')
+        return
+    while osp.isfile(bak):
+        stem = osp.splitext(bak)[0]
+        num = int(osp.splitext(bak)[1][1:]) + 1
+        bak = stem + f'.{num}'
     copy_file(file, bak, keepmeta=keepmeta)
-    return bak
 
 
 def recover_file(file, bakdir=None, suffix=None, keepmeta=True):
     """
-    recover file from backup in bakdir or same dir
-    - if no suffix is given, find the latest numeric backup
+    recover file from numeric backup in bakdir or same dir
     """
     bak_dir = bakdir if bakdir else osp.dirname(file)
     assert osp.isdir(bak_dir)
     bn = osp.basename(file)
-    baks = glob.glob(osp.join(bak_dir, f'{bn}.*'))
-    if not baks:
-        return None
+    files = glob.glob(osp.join(bak_dir, f'{bn}.*'))
+    if not files:
+        raise FileNotFoundError(f'No backup found for {file} under {bak_dir}')
     if suffix:
         bak = osp.join(bak_dir, bn + suffix)
         copy_file(bak, file, keepmeta=keepmeta)
-        return bak
-    cur_numeric_suffixes = [int(_sfx) for bkfile in glob.glob(osp.join(bak_dir, f'{bn}.*')) if (_sfx := osp.splitext(bkfile)[1][1:]).isnumeric()]
-    if not cur_numeric_suffixes:
-        return None
-    suffix = max(cur_numeric_suffixes)
-    bak = osp.join(bak_dir, f'{bn}.{suffix}')
+        return
+    latest = max([int(num_sfx) for file in files if (num_sfx := osp.splitext(file)[1][1:]).isnumeric()])
+    bak = osp.join(bak_dir, f'{bn}.{latest}')
     copy_file(bak, file, keepmeta=keepmeta)
-    glogger.info(f'no suffix given, recovered from latest backup: {bak}')
-    return bak
 
 
-def deprecate(old, new):
-    msg = f'{old} is deprecated; use {new} instead'
-    warnings.warn(msg, DeprecationWarning, stacklevel=2)
-    return msg
+def deprecate_log(replacewith=None):
+    replacement = replacewith if replacewith else 'a documented replacement'
+    return f'This is deprecated; use {replacement} instead'
 
 
 def load_lines(path, rmlineend=False):
@@ -1911,80 +1895,55 @@ def remove_duplication(mylist):
 
 
 def find_runs(lst):
-    """
-    indexing contiguous elem sequences (runs)
-    """
     runs = []
-    cur_run = []
+    current_group = []
     for i, value in enumerate(lst):
         if i > 0 and value == lst[i - 1]:
-            cur_run.append(i)
-        else:  # current run ends
-            if len(cur_run) > 1:
-                runs.append(cur_run)
-            # new candidate run
-            cur_run = [i]
-    # tail run
-    if len(cur_run) > 1:
-        runs.append(cur_run)
+            current_group.append(i)
+        else:
+            if len(current_group) > 1:
+                runs.append(current_group)
+            current_group = [i]
+    if len(current_group) > 1:
+        runs.append(current_group)
     return runs
 
 
-def install_by_macports(pkg, lazybin=None):
+def install_by_macports(pkg, ver=None, lazybin=None):
     """
     Homebrew has the top priority.
     Macports only overrides in memory on demand.
     """
-    macports = shutil.which('port')
-    if not macports or not osp.isfile(macports):
-        raise FileNotFoundError('Missing MacPorts; Retry after installing MacPorts')
     os_paths = os.environ['PATH']
     prepend_to_os_paths('/opt/local/sbin', inmemonly=True)
     prepend_to_os_paths('/opt/local/bin', inmemonly=True)
-    if lazybin and (exe := shutil.which(lazybin)):
-        print(f'Found binary: {exe}; skipped installing package: {pkg}')
-        return exe
-    run_cmd(['sudo', macports, 'install', pkg])
-    os.environ['PATH'] = os_paths
-    binary = pkg
-    return shutil.which(binary)
-
-
-def uninstall_by_macports(pkg):
-    """
-    Homebrew has the top priority.
-    Macports only overrides in memory on demand.
-    """
-    macports = shutil.which('port')
-    if not macports or not osp.isfile(macports):
-        raise FileNotFoundError('Missing MacPorts; Retry after installing MacPorts')
-    os_paths = os.environ['PATH']
-    prepend_to_os_paths('/opt/local/sbin', inmemonly=True)
-    prepend_to_os_paths('/opt/local/bin', inmemonly=True)
-    run_cmd(['sudo', macports, 'uninstall', pkg])
-    os.environ['PATH'] = os_paths
-
-
-def install_by_homebrew(pkg, ver=None, lazybin=None, cask=False, buildsrc=False):
-    """
-    always upgrade homebrew to the latest
-    """
     if lazybin and (exe := shutil.which(lazybin)):
         print(f'Found binary: {exe}, and skipped installing package: {pkg}')
         return
-    pkg_version = pkg if not ver else pkg+f'@{ver}'
-    cmd = ['brew', 'install']
-    if cask:
-        cmd += ['--cask']
-    if buildsrc:
-        cmd += ['--build-from-source']
-    run_cmd(cmd + [pkg_version])
+    run_cmd(['sudo', 'port', 'install', pkg])
+    os.environ['PATH'] = os_paths
 
 
-def uninstall_by_homebrew(pkg, lazybin=None):
-    if lazybin and not shutil.which(lazybin):
-        print(f'Missing binary: {lazybin}, and skipped uninstalling package: {pkg}')
+def uninstall_by_macports(pkg, ver=None):
+    """
+    Homebrew has the top priority.
+    Macports only overrides in memory on demand.
+    """
+    os_paths = os.environ['PATH']
+    prepend_to_os_paths('/opt/local/sbin', inmemonly=True)
+    prepend_to_os_paths('/opt/local/bin', inmemonly=True)
+    run_cmd(['sudo', 'port', 'uninstall', pkg])
+    os.environ['PATH'] = os_paths
+
+
+def install_by_homebrew(pkg, ver=None, lazybin=None):
+    if lazybin and (exe := shutil.which(lazybin)):
+        print(f'Found binary: {exe}, and skipped installing package: {pkg}')
         return
+    run_cmd(['brew', 'install', pkg])
+
+
+def uninstall_by_homebrew(pkg, ver=None):
     run_cmd(['brew', 'remove', pkg])
 
 
@@ -2009,22 +1968,12 @@ def lazy_load_listfile(single_or_listfile: str, ext='.list'):
     - we don't force return type-hint to be -> list for reusing args.path str
     - assume list can be text of any nature, i.e., not just paths
     """
-    if is_single_item := osp.splitext(single_or_listfile)[1] != ext:
-        # we don't care whether it exists or not
-        return [single_or_listfile]
-    if not osp.isfile(single_or_listfile):
-        raise FileNotFoundError(f'Missing list file: {single_or_listfile}')
-    return load_lines(single_or_listfile, rmlineend=True)
-
-
-def normalize_path(path, mode='native'):
-    if mode == 'native':
-        return path.replace('/', '\\') if platform.system() == 'Windows' else path.replace('\\', '/')
-    if mode == 'posix':
-        return path.replace('\\', '/')
-    if mode == 'win':
-        return path.replace('/', '\\')
-    raise NotImplementedError(f'Unsupported path noralization mode: {mode}')
+    if is_listfile := fnmatch.fnmatch(single_or_listfile, f'*{ext}'):
+        if not osp.isfile(single_or_listfile):
+            raise FileNotFoundError(f'Missing list file: {single_or_listfile}')
+        return load_lines(single_or_listfile, rmlineend=True)
+    single_item = single_or_listfile
+    return [single_item]
 
 
 def normalize_paths(paths, mode='native'):
@@ -2034,7 +1983,13 @@ def normalize_paths(paths, mode='native'):
       - posix: use /
       - win: use \\
     """
-    return [normalize_path(p, mode) for p in paths]
+    if mode == 'native':
+        return [path.replace('/', '\\') for path in paths] if platform.system() == 'Windows' else [path.replace('\\', '/') for path in paths]
+    if mode == 'posix':
+        return [path.replace('\\', '/') for path in paths]
+    if mode == 'win':
+        return [path.replace('/', '\\') for path in paths]
+    raise NotImplementedError(f'Unsupported mode: {mode}')
 
 
 def lazy_load_filepaths(single_or_listfile: str, ext='.list', root=''):
@@ -2046,40 +2001,18 @@ def lazy_load_filepaths(single_or_listfile: str, ext='.list', root=''):
     # if not file path, then user must give root for relative paths
     root = root or os.getcwd()
     # prepare for path normalization: must input posix paths for windows
-    root = normalize_path(root, mode='posix')
+    root = root.replace('\\', '/')
     abs_list_file = single_or_listfile
     if not osp.isabs(single_or_listfile):
-        abs_list_file = normalize_path(single_or_listfile, mode='posix')
+        abs_list_file = single_or_listfile.replace('\\', '/')
         abs_list_file = osp.abspath(f'{root}/{abs_list_file}')
-    if is_single_file := osp.splitext(abs_list_file)[1] != ext:
-        # we don't care whether it exists or not
-        return [single_or_listfile]
-    if not osp.isfile(abs_list_file):
-        raise FileNotFoundError(f'Missing list file: {abs_list_file}')
-    # native win-paths remain the same;
-    # posix-format win-paths are converted to native
-    paths = [osp.normpath(path) for path in load_lines(abs_list_file, rmlineend=True)]
-    return [path if osp.isabs(path) else osp.abspath(f'{root}/{path}') for path in paths]
-
-
-def read_link(link_path):
-    """
-    cross-platform symlink/shortcut resolver
-    - Windows .lnk can be a command, thus can contain source-path and arguments
-    """
-    if platform.system() != 'Windows':
-        return os.readlink(link_path)
-    if osp.islink(link_path):
-        return os.readlink(link_path)
-    # get_target implementation by hannes, https://gist.github.com/Winand/997ed38269e899eb561991a0c663fa49
-    ps_command = \
-        "$WSShell = New-Object -ComObject Wscript.Shell;" \
-        "$Shortcut = $WSShell.CreateShortcut(\"" + str(link_path) + "\"); " \
-        "Write-Host $Shortcut.TargetPath ';' $shortcut.Arguments "
-    output = subprocess.run(["powershell.exe", ps_command], capture_output=True)
-    raw = output.stdout.decode('utf-8')
-    src_path, args = [x.strip() for x in raw.split(';', 1)]
-    return src_path
+    if is_listfile := fnmatch.fnmatch(abs_list_file, f'*{ext}'):
+        if not osp.isfile(abs_list_file):
+            raise FileNotFoundError(f'Missing list file: {abs_list_file}')
+        paths = [osp.normpath(path) for path in load_lines(abs_list_file, rmlineend=True)]
+        return [path if osp.isabs(path) else osp.abspath(f'{root}/{path}') for path in paths]
+    single_item = abs_list_file
+    return [single_item]
 
 
 def is_link(path):
@@ -2087,20 +2020,20 @@ def is_link(path):
     on windows
     - osp.islink(path) always returns False
     - os.readlink(path) throws when link itself does not exist
-    - osp.isdir(path) returns True only when linked source is an existing dir
-    - os.readlink(file) raises OSError WinError 4390
-    - os.readlink(file.lnk) raises OSError WinError 4390
-    - osp.isfile(file.lnk) returns True
+    - osp.isdir(path) / osp.exists(path) returns True only when linked source is an existing dir
     on mac
     - osp.islink(path) returns True when link exists
     - osp.isdir(path) / osp.exists(path) returns True only when linked source is an existing dir
     """
-    if platform.system() != 'Windows':
-        return osp.islink(path)
-    if osp.islink(path):  # posix symlink
-        return True
-    src = read_link(path)
-    return src and src != path
+    if platform.system() == 'Windows':
+        try:
+            lnk = os.readlink(path)
+            return True
+        except FileNotFoundError:
+            return False
+        except OSError:
+            return False
+    return osp.islink(path)
 
 
 def raise_error(errcls, detail, advice):
@@ -2144,6 +2077,18 @@ def remove_tree(root, safe=True):
 
 def is_non_ascii_text(text):
     return any(char not in string.printable for char in text)
+
+
+def inspect_obj(obj):
+    """
+    - return dict instead pf namespace for easier data-exchange via json serialization
+    """
+    type_name = type(obj).__name__
+    try:
+        attrs = vars(obj)
+    except TypeError:
+        attrs = {}
+    return {'type': type_name, 'attrs': attrs}
 
 
 def _test():
