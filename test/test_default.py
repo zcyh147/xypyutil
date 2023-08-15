@@ -1173,9 +1173,9 @@ def test_inspect_obj():
         def main(self):
             pass
     obj = MyClass()
-    assert util.inspect_obj(obj) == {
-        'type': 'MyClass',
-        'attrs': {'n': 1, 's': 'hello', 'f': 9.99, 'l': [1, 2, 3]},
-    }
+    obj_info = util.inspect_obj(obj)
+    assert obj_info['type'] == 'MyClass'
+    assert obj_info['attrs'] == {'n': 1, 's': 'hello', 'f': 9.99, 'l': [1, 2, 3]}
+    assert '<test_default.test_inspect_obj.<locals>.MyClass object' in obj_info['repr']
     num = 100
-    assert util.inspect_obj(num) == {'type': 'int', 'attrs': {}}
+    assert util.inspect_obj(num) == {'type': 'int', 'attrs': {}, 'repr': '100'}

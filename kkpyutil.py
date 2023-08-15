@@ -2088,7 +2088,7 @@ def inspect_obj(obj):
         attrs = vars(obj)
     except TypeError:
         attrs = {}
-    return {'type': type_name, 'attrs': attrs}
+    return {'type': type_name, 'attrs': attrs, 'repr': repr(obj)}
 
 
 def _test():
