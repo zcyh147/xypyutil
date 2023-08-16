@@ -504,20 +504,20 @@ def test_rerun_lock():
         util.safe_remove(file)
 
 
-# def test_await_while():
-#     class Condition:
-#         def __init__(self, *args, **kwargs):
-#             self.timerMs = 0
-#
-#         def met(self):
-#             return self.timerMs > 3000
-#
-#         def update(self):
-#             self.timerMs += 10
-#     cond = Condition()
-#     assert not cond.met()
-#     assert util.await_while(cond, 3100, 10)
-#     assert cond.met()
+def test_await_while():
+    class Condition:
+        def __init__(self, *args, **kwargs):
+            self.timerMs = 0
+
+        def met(self):
+            return self.timerMs > 3000
+
+        def update(self):
+            self.timerMs += 10
+    cond = Condition()
+    assert not cond.met()
+    assert util.await_while(cond, 3100, 10)
+    assert cond.met()
 
 
 def test_get_ancestor_dirs():

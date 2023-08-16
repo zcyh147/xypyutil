@@ -1923,9 +1923,9 @@ def find_runs(lst):
                 runs.append(cur_run)
             # new candidate run
             cur_run = [i]
-            # tail run
-        if len(cur_run) > 1:
-            runs.append(cur_run)
+    # tail run
+    if len(cur_run) > 1:
+        runs.append(cur_run)
     return runs
 
 
