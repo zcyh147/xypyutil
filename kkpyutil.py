@@ -788,7 +788,7 @@ def await_while(condition, timeout_ms, step_ms=10):
     - under concurrency, caller must ensure thread/process safety, e.g., implement locking in condition
     """
     waited_ms = 0
-    while waited_ms < timeout_ms and condition.met():
+    while waited_ms < timeout_ms and not condition.met():
         condition.update()
         time.sleep(step_ms / 1000)
         waited_ms += step_ms

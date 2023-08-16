@@ -13,16 +13,15 @@ import tempfile
 import time
 from unittest.mock import patch
 
-
 # 3rd party
 import types
 import uuid
 import pytest
+
 # project
 _script_dir = osp.abspath(osp.dirname(__file__))
 sys.path.insert(0, repo_root := osp.abspath(f'{_script_dir}/..'))
 import kkpyutil as util
-
 
 _case_dir = _script_dir
 _src_dir = osp.abspath(osp.dirname(_case_dir))
@@ -36,6 +35,7 @@ def test_singletion_decorator():
         def __init__(self, n, s):
             self.n = n
             self.s = s
+
     singleton_class = util.SingletonDecorator(MyClass, 100, 'hello')
     obj1 = singleton_class(100, 'hello')
     obj2 = singleton_class(200, 'world')
@@ -225,13 +225,14 @@ def test_logcall():
 
 def map_worker(enum):
     e, elem = enum[0], enum[1]
-    return elem*2
+    return elem * 2
 
 
 def test_is_toplevel_function():
     def inner_func(enum):
         e, elem = enum[0], enum[1]
         return elem * 2
+
     assert util.is_toplevel_function(map_worker)
     assert not util.is_toplevel_function(inner_func)
 
@@ -240,6 +241,7 @@ def test_concur_map():
     def inner_func(enum):
         e, elem = enum[0], enum[1]
         return elem * 2
+
     n = 20
     data = [i for i in range(n)]
     logger = util.build_default_logger(
@@ -247,7 +249,7 @@ def test_concur_map():
         name='test_concur_map',
         verbose=True)
     res = util.concur_map(inner_func, data, worker_count=5, iobound=True, logger=logger)
-    assert res == [i*2 for i in range(n)]
+    assert res == [i * 2 for i in range(n)]
     res = util.concur_map(map_worker, data, worker_count=5, iobound=False, logger=logger)
     assert res == [i * 2 for i in range(n)]
     shutil.rmtree(_gen_dir, ignore_errors=True)
@@ -440,7 +442,7 @@ def test_kill_process_by_name_windows():
     long_proc = osp.join(_org_dir, proc_name := 'kkpyutil_proc')
     cmd = [long_proc]
     util.run_daemon(cmd)
-    ret = util.kill_process_by_name(proc_name+'.exe')
+    ret = util.kill_process_by_name(proc_name + '.exe')
     assert ret == 3
     ret = util.kill_process_by_name(proc_name + '.exe', True)
     assert ret == 0
@@ -502,6 +504,22 @@ def test_rerun_lock():
         util.safe_remove(file)
 
 
+def test_await_while():
+    class Condition:
+        def __init__(self, *args, **kwargs):
+            self.timerMs = 0
+
+        def met(self):
+            return self.timerMs > 3000
+
+        def update(self):
+            self.timerMs += 10
+    cond = Condition()
+    assert not cond.met()
+    assert util.await_while(cond, 3100, 10)
+    assert cond.met()
+
+
 def test_get_ancestor_dirs():
     file = osp.join(_org_dir, 'exclusive.py')
     dirs = util.get_ancestor_dirs(file, depth=3)
@@ -549,7 +567,6 @@ def test_open_in_browser_macos(monkeypatch):
 def test_open_in_editor():
     path = 'C:\\Windows\\System32\\drivers\\etc\\hosts' if platform.system() == 'Windows' else '/etc/hosts'
     util.open_in_editor(path)
-
 
 
 def test_flatten_nested_lists():
@@ -772,7 +789,7 @@ def test_save_load_text():
     assert loaded == text
     util.save_text(file, text, toappend=True)
     loaded = util.load_text(file)
-    assert loaded == text+text
+    assert loaded == text + text
 
 
 def test_find_duplication():
@@ -861,7 +878,7 @@ def test_normalize_paths(monkeypatch):
         'c:/path/to/file',
         '/path/to/file',
     ]
-    monkeypatch.setattr(platform, 'system', lambda : 'Windows')
+    monkeypatch.setattr(platform, 'system', lambda: 'Windows')
     assert util.normalize_paths(paths, mode='native') == [
         'c:\\path\\to\\file',
         '\\path\\to\\file',
@@ -894,8 +911,8 @@ def test_lazy_load_filepaths():
         assert util.lazy_load_filepaths(single_path) == ['/path/to/file']
         list_file = osp.join(_org_dir, 'files_abs_posix.list')
         assert util.lazy_load_filepaths(list_file) == [
-               '/path/to/file1',
-               '/path/to/file2',
+            '/path/to/file1',
+            '/path/to/file2',
         ]
         list_file = osp.join(_org_dir, 'files_rel_posix.list')
         assert util.lazy_load_filepaths(list_file, root='/root') == [
@@ -1047,6 +1064,7 @@ def test_pack_obj():
 
         def main(self):
             pass
+
     obj = MyClass()
     packed = util.pack_obj(obj, classes=(MyClass,))
     assert packed == '<KK-ENV>{"payload": {"n": 1, "s": "hello", "f": 9.99, "l": [1, 2, 3]}, "topic": "MyClass"}</KK-ENV>'
@@ -1172,11 +1190,18 @@ def test_inspect_obj():
 
         def main(self):
             pass
+
     obj = MyClass()
     obj_info = util.inspect_obj(obj)
     assert obj_info['type'] == 'MyClass'
     assert obj_info['attrs'] == {'n': 1, 's': 'hello', 'f': 9.99, 'l': [1, 2, 3]}
     assert '<test_default.test_inspect_obj.<locals>.MyClass object' in obj_info['repr']
-    assert obj_info['details'] == ['__class__', '__delattr__', '__dict__', '__dir__', '__doc__', '__eq__', '__format__', '__ge__', '__getattribute__', '__getstate__', '__gt__', '__hash__', '__init__', '__init_subclass__', '__le__', '__lt__', '__module__', '__ne__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__sizeof__', '__str__', '__subclasshook__', '__weakref__', 'f', 'l', 'main', 'n', 's']
+    assert obj_info['details'] == ['__class__', '__delattr__', '__dict__', '__dir__', '__doc__', '__eq__', '__format__', '__ge__', '__getattribute__', '__getstate__', '__gt__', '__hash__', '__init__', '__init_subclass__', '__le__', '__lt__', '__module__',
+                                   '__ne__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__sizeof__', '__str__', '__subclasshook__', '__weakref__', 'f', 'l', 'main', 'n', 's']
     num = 100
-    assert util.inspect_obj(num) == {'type': 'int', 'attrs': {}, 'repr': '100', 'details': ['__abs__', '__add__', '__and__', '__bool__', '__ceil__', '__class__', '__delattr__', '__dir__', '__divmod__', '__doc__', '__eq__', '__float__', '__floor__', '__floordiv__', '__format__', '__ge__', '__getattribute__', '__getnewargs__', '__getstate__', '__gt__', '__hash__', '__index__', '__init__', '__init_subclass__', '__int__', '__invert__', '__le__', '__lshift__', '__lt__', '__mod__', '__mul__', '__ne__', '__neg__', '__new__', '__or__', '__pos__', '__pow__', '__radd__', '__rand__', '__rdivmod__', '__reduce__', '__reduce_ex__', '__repr__', '__rfloordiv__', '__rlshift__', '__rmod__', '__rmul__', '__ror__', '__round__', '__rpow__', '__rrshift__', '__rshift__', '__rsub__', '__rtruediv__', '__rxor__', '__setattr__', '__sizeof__', '__str__', '__sub__', '__subclasshook__', '__truediv__', '__trunc__', '__xor__', 'as_integer_ratio', 'bit_count', 'bit_length', 'conjugate', 'denominator', 'from_bytes', 'imag', 'numerator', 'real', 'to_bytes']}
+    assert util.inspect_obj(num) == {'type': 'int', 'attrs': {}, 'repr': '100',
+                                     'details': ['__abs__', '__add__', '__and__', '__bool__', '__ceil__', '__class__', '__delattr__', '__dir__', '__divmod__', '__doc__', '__eq__', '__float__', '__floor__', '__floordiv__', '__format__', '__ge__',
+                                                 '__getattribute__', '__getnewargs__', '__getstate__', '__gt__', '__hash__', '__index__', '__init__', '__init_subclass__', '__int__', '__invert__', '__le__', '__lshift__', '__lt__', '__mod__', '__mul__',
+                                                 '__ne__', '__neg__', '__new__', '__or__', '__pos__', '__pow__', '__radd__', '__rand__', '__rdivmod__', '__reduce__', '__reduce_ex__', '__repr__', '__rfloordiv__', '__rlshift__', '__rmod__', '__rmul__',
+                                                 '__ror__', '__round__', '__rpow__', '__rrshift__', '__rshift__', '__rsub__', '__rtruediv__', '__rxor__', '__setattr__', '__sizeof__', '__str__', '__sub__', '__subclasshook__', '__truediv__', '__trunc__',
+                                                 '__xor__', 'as_integer_ratio', 'bit_count', 'bit_length', 'conjugate', 'denominator', 'from_bytes', 'imag', 'numerator', 'real', 'to_bytes']}
