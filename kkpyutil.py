@@ -1968,12 +1968,22 @@ def lazy_load_listfile(single_or_listfile: str, ext='.list'):
     - we don't force return type-hint to be -> list for reusing args.path str
     - assume list can be text of any nature, i.e., not just paths
     """
-    if is_listfile := fnmatch.fnmatch(single_or_listfile, f'*{ext}'):
-        if not osp.isfile(single_or_listfile):
-            raise FileNotFoundError(f'Missing list file: {single_or_listfile}')
-        return load_lines(single_or_listfile, rmlineend=True)
-    single_item = single_or_listfile
-    return [single_item]
+    if is_single_item := osp.splitext(single_or_listfile)[1] != ext:
+        # we don't care whether it exists or not
+        return [single_or_listfile]
+    if not osp.isfile(single_or_listfile):
+        raise FileNotFoundError(f'Missing list file: {single_or_listfile}')
+    return load_lines(single_or_listfile, rmlineend=True)
+
+
+def normalize_path(path, mode='native'):
+    if mode == 'native':
+        return path.replace('/', '\\') if platform.system() == 'Windows' else path.replace('\\', '/')
+    if mode == 'posix':
+        return path.replace('\\', '/')
+    if mode == 'win':
+        return path.replace('/', '\\')
+    raise NotImplementedError(f'Unsupported path noralization mode: {mode}')
 
 
 def normalize_paths(paths, mode='native'):
@@ -1983,13 +1993,7 @@ def normalize_paths(paths, mode='native'):
       - posix: use /
       - win: use \\
     """
-    if mode == 'native':
-        return [path.replace('/', '\\') for path in paths] if platform.system() == 'Windows' else [path.replace('\\', '/') for path in paths]
-    if mode == 'posix':
-        return [path.replace('\\', '/') for path in paths]
-    if mode == 'win':
-        return [path.replace('/', '\\') for path in paths]
-    raise NotImplementedError(f'Unsupported mode: {mode}')
+    return [normalize_path(p, mode) for p in paths]
 
 
 def lazy_load_filepaths(single_or_listfile: str, ext='.list', root=''):
@@ -2001,18 +2005,40 @@ def lazy_load_filepaths(single_or_listfile: str, ext='.list', root=''):
     # if not file path, then user must give root for relative paths
     root = root or os.getcwd()
     # prepare for path normalization: must input posix paths for windows
-    root = root.replace('\\', '/')
+    root = normalize_path(root, mode='posix')
     abs_list_file = single_or_listfile
     if not osp.isabs(single_or_listfile):
-        abs_list_file = single_or_listfile.replace('\\', '/')
+        abs_list_file = normalize_path(single_or_listfile, mode='posix')
         abs_list_file = osp.abspath(f'{root}/{abs_list_file}')
-    if is_listfile := fnmatch.fnmatch(abs_list_file, f'*{ext}'):
-        if not osp.isfile(abs_list_file):
-            raise FileNotFoundError(f'Missing list file: {abs_list_file}')
-        paths = [osp.normpath(path) for path in load_lines(abs_list_file, rmlineend=True)]
-        return [path if osp.isabs(path) else osp.abspath(f'{root}/{path}') for path in paths]
-    single_item = abs_list_file
-    return [single_item]
+    if is_single_file := osp.splitext(abs_list_file)[1] != ext:
+        # we don't care whether it exists or not
+        return [single_or_listfile]
+    if not osp.isfile(abs_list_file):
+        raise FileNotFoundError(f'Missing list file: {abs_list_file}')
+    # native win-paths remain the same;
+    # posix-format win-paths are converted to native
+    paths = [osp.normpath(path) for path in load_lines(abs_list_file, rmlineend=True)]
+    return [path if osp.isabs(path) else osp.abspath(f'{root}/{path}') for path in paths]
+
+
+def read_link(link_path):
+    """
+    cross-platform symlink/shortcut resolver
+    - Windows .lnk can be a command, thus can contain source-path and arguments
+    """
+    if platform.system() != 'Windows':
+        return os.readlink(link_path)
+    if osp.islink(link_path):
+        return os.readlink(link_path)
+    # get_target implementation by hannes, https://gist.github.com/Winand/997ed38269e899eb561991a0c663fa49
+    ps_command = \
+        "$WSShell = New-Object -ComObject Wscript.Shell;" \
+        "$Shortcut = $WSShell.CreateShortcut(\"" + str(link_path) + "\"); " \
+                                                                    "Write-Host $Shortcut.TargetPath ';' $shortcut.Arguments "
+    output = subprocess.run(["powershell.exe", ps_command], capture_output=True)
+    raw = output.stdout.decode('utf-8')
+    src_path, args = [x.strip() for x in raw.split(';', 1)]
+    return src_path
 
 
 def is_link(path):
@@ -2020,20 +2046,20 @@ def is_link(path):
     on windows
     - osp.islink(path) always returns False
     - os.readlink(path) throws when link itself does not exist
-    - osp.isdir(path) / osp.exists(path) returns True only when linked source is an existing dir
+    - osp.isdir(path) returns True only when linked source is an existing dir
+    - os.readlink(file) raises OSError WinError 4390
+    - os.readlink(file.lnk) raises OSError WinError 4390
+    - osp.isfile(file.lnk) returns True
     on mac
     - osp.islink(path) returns True when link exists
     - osp.isdir(path) / osp.exists(path) returns True only when linked source is an existing dir
     """
-    if platform.system() == 'Windows':
-        try:
-            lnk = os.readlink(path)
-            return True
-        except FileNotFoundError:
-            return False
-        except OSError:
-            return False
-    return osp.islink(path)
+    if platform.system() != 'Windows':
+        return osp.islink(path)
+    if osp.islink(path):  # posix symlink
+        return True
+    src = read_link(path)
+    return src and src != path
 
 
 def raise_error(errcls, detail, advice):
