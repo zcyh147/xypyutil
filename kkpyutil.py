@@ -2111,13 +2111,12 @@ def inspect_obj(obj):
 
 class Cache:
     """
-    using temp-file to retrieve data based on hash changes
+    cross-session caching: using temp-file to retrieve data based on hash changes
     - constraints:
       - data retrieval/parsing is expensive
       - one cache per data-source
     - cache is a mediator b/w app and data-source as a retriever only, cuz user's saving intent is always towards source, no need to cache a saving action
-    - first-time access: data is retrieved, saved, and hashed, cache-file name is created via hashing data-source
-    - followup access: incoming source-hash is compared with the cached, if same, load cache, else, redo first-time access
+    - for cross-session caching, save hash into cache, then when instantiate cache object, always load hash from cache to compare with incoming hash
     - app must provide retriever function: retriever(src) -> json_data
       - because it'd cost the same to retrieve data from a json-file source as from cache, so no json default is provided
     - e.g., loading a complex tree-structure from a file:
@@ -2125,15 +2124,17 @@ class Cache:
       - # ... later
       - cached_tree_data = tree_cache.retrieve()
     """
-    def __init__(self, data_source, data_retriever, cache_dir=get_platform_tmp_dir(), cache_type='cache', algo='checksum'):
+    def __init__(self, data_source, data_retriever, cache_dir=get_platform_tmp_dir(), cache_type='cache', algo='checksum', source_seed='6ba7b810-9dad-11d1-80b4-00c04fd430c8'):
         assert algo in ['checksum', 'mtime']
         self.srcURL = data_source
         self.retriever = data_retriever
-        namespace = uuid.UUID(str(uuid.uuid4()))
+        # use a fixed namespace for each data-source to ensure inter-session consistency
+        namespace = uuid.UUID(str(source_seed))
         uid = str(uuid.uuid5(namespace, self.srcURL))
         self.cacheFile = osp.join(cache_dir, f'{uid}.{cache_type}.json')
         self.hashAlgo = algo
-        self.prevSrcHash = None
+        # first comparison needs
+        self.prevSrcHash = load_json(self.cacheFile).get('cacheHash') if osp.isfile(self.cacheFile) else None
 
     def retrieve(self):
         if self._compare_hash():
@@ -2146,27 +2147,38 @@ class Cache:
         - useful when app needs to force update cache
         """
         data = self.retriever(self.srcURL)
+        data.update({'cacheHash': self.prevSrcHash})
         save_json(self.cacheFile, data)
         return data
 
     def _compare_hash(self):
+        in_src_hash = self._compute_hash()
+        if changed := in_src_hash != self.prevSrcHash or self.prevSrcHash is None:
+            self.prevSrcHash = in_src_hash
+        return changed
+
+    def _compute_hash(self):
         hash_algo_map = {
             'checksum': self._compute_hash_as_checksum,
             'mtime': self._compute_hash_as_modified_time,
         }
-        src_hash = hash_algo_map[self.hashAlgo]()
-        if changed := src_hash != self.prevSrcHash or self.prevSrcHash is None:
-            self.prevSrcHash = src_hash
-        return changed
+        return hash_algo_map[self.hashAlgo]()
 
     def _compute_hash_as_checksum(self):
         return get_md5_checksum(self.srcURL)
 
     def _compute_hash_as_modified_time(self):
-        return osp.getmtime(self.srcURL)
+        try:
+            return osp.getmtime(self.srcURL)
+        except FileNotFoundError:
+            return None
 
 
-def caching(maxsize=None):
+def mem_caching(maxsize=None):
+    """
+    - per-process lru caching for multiple data sources
+    - cache is outdated when process exits
+    """
     def decorator(func):
         cache = functools.lru_cache(maxsize=maxsize)(func)
 

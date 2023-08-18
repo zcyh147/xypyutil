@@ -1212,9 +1212,11 @@ def test_cache():
     retriever = util.load_json
     util.save_json(src_file, {'a': 1, 'b': 2})
     cache = util.Cache(src_file, retriever)
-    assert cache.retrieve() == {'a': 1, 'b': 2}
+    retrieved = cache.retrieve()
+    assert retrieved['a'] == 1 and retrieved['b'] == 2
     util.save_json(src_file, {'a': 1, 'b': 200})
-    assert cache.retrieve() == {'a': 1, 'b': 200}
+    retrieved = cache.retrieve()
+    assert retrieved['a'] == 1 and retrieved['b'] == 200
     cache = util.Cache(src_file, retriever, cache_type='test')
     assert cache.cacheFile.split('.')[-2:] == ['test', 'json']
     cache = util.Cache(src_file, retriever, algo='mtime')
@@ -1225,8 +1227,8 @@ def test_cache():
     util.safe_remove(_gen_dir)
 
 
-def test_caching():
-    @util.caching(maxsize=None)
+def test_mem_caching():
+    @util.mem_caching(maxsize=None)
     def load(src):
         time.sleep(1)
         return util.load_json(src)
