@@ -2166,6 +2166,17 @@ class Cache:
         return osp.getmtime(self.srcURL)
 
 
+def caching(maxsize=None):
+    def decorator(func):
+        cache = functools.lru_cache(maxsize=maxsize)(func)
+
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            return cache(*args, **kwargs)
+        return wrapper
+    return decorator
+
+
 def _test():
     pass
 

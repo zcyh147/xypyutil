@@ -1,6 +1,7 @@
 """
 tests that don't need external data
 """
+import functools
 import getpass
 import io
 import platform
@@ -1222,3 +1223,18 @@ def test_cache():
     os.utime(src_file, (time.time(), time.time()))
     assert cache._compare_hash()
     util.safe_remove(_gen_dir)
+
+
+def test_caching():
+    @util.caching(maxsize=None)
+    def load(src):
+        time.sleep(1)
+        return util.load_json(src)
+    src1 = src_file = osp.join(_gen_dir, 'data1.json')
+    src2 = src_file = osp.join(_gen_dir, 'data2.json')
+    util.save_json(src1, {'a': 1, 'b': 2})
+    util.save_json(src2, {'a': 100, 'b': 200})
+    assert load(src1) == {'a': 1, 'b': 2}
+    assert load(src2) == {'a': 100, 'b': 200}
+    assert load(src1) == {'a': 1, 'b': 2}
+    assert load(src2) == {'a': 100, 'b': 200}
