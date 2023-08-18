@@ -397,19 +397,19 @@ def test_get_clipboard_content():
 def test_alert_on_windows(monkeypatch):
     monkeypatch.setattr(platform, 'system', lambda: 'Windows')
     monkeypatch.setattr('os.system', lambda cmd: None)
-    assert util.alert('Title', 'Content', 'Finish') == ['mshta', 'vbscript:Execute("msgbox ""Content"", 0,""Title"":Finish")']
+    assert util.alert('Content', 'Title', 'Finish') == ['mshta', 'vbscript:Execute("msgbox ""Content"", 0,""Title"":Finish")']
 
 
 def test_alert_on_darwin(monkeypatch):
     monkeypatch.setattr(platform, 'system', lambda: 'Darwin')
     monkeypatch.setattr(subprocess, 'run', lambda cmd: None)
-    assert util.alert('Title', 'Content') == ['osascript', '-e', 'display alert "Title" message "Content"']
+    assert util.alert('Content') == ['osascript', '-e', 'display alert "Debug" message "Content"']
 
 
 def test_alert_on_other_platform(monkeypatch):
     monkeypatch.setattr(platform, 'system', lambda: 'Other')
     monkeypatch.setattr(subprocess, 'run', lambda cmd: None)
-    assert util.alert('Title', 'Content', 'Action') == ['echo', 'Title: Content: Action']
+    assert util.alert('Content', 'Title', 'Action') == ['echo', 'Title: Content: Action']
 
 
 def test_convert_to_wine_path():
