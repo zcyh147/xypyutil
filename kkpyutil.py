@@ -2109,6 +2109,63 @@ def inspect_obj(obj):
     return {'type': type_name, 'attrs': attrs, 'repr': repr(obj), 'details': details}
 
 
+class Cache:
+    """
+    using temp-file to retrieve data based on hash changes
+    - constraints:
+      - data retrieval/parsing is expensive
+      - one cache per data-source
+    - cache is a mediator b/w app and data-source as a retriever only, cuz user's saving intent is always towards source, no need to cache a saving action
+    - first-time access: data is retrieved, saved, and hashed, cache-file name is created via hashing data-source
+    - followup access: incoming source-hash is compared with the cached, if same, load cache, else, redo first-time access
+    - app must provide retriever function: retriever(src) -> json_data
+      - because it'd cost the same to retrieve data from a json-file source as from cache, so no json default is provided
+    - e.g., loading a complex tree-structure from a file:
+      - tree_cache = Cache('/path/to/file.tree', lambda: src: load_data(src), '/tmp/my_app')
+      - # ... later
+      - cached_tree_data = tree_cache.retrieve()
+    """
+    def __init__(self, data_source, data_retriever, cache_dir=get_platform_tmp_dir(), cache_type='cache', algo='checksum'):
+        assert algo in ['checksum', 'mtime']
+        self.srcURL = data_source
+        self.retriever = data_retriever
+        namespace = uuid.UUID(str(uuid.uuid4()))
+        uid = str(uuid.uuid5(namespace, self.srcURL))
+        self.cacheFile = osp.join(cache_dir, f'{uid}.{cache_type}.json')
+        self.hashAlgo = algo
+        self.prevSrcHash = None
+
+    def retrieve(self):
+        if self._compare_hash():
+            return self.update()
+        return load_json(self.cacheFile)
+
+    def update(self):
+        """
+        - update cache directly
+        - useful when app needs to force update cache
+        """
+        data = self.retriever(self.srcURL)
+        save_json(self.cacheFile, data)
+        return data
+
+    def _compare_hash(self):
+        hash_algo_map = {
+            'checksum': self._compute_hash_as_checksum,
+            'mtime': self._compute_hash_as_modified_time,
+        }
+        src_hash = hash_algo_map[self.hashAlgo]()
+        if changed := src_hash != self.prevSrcHash or self.prevSrcHash is None:
+            self.prevSrcHash = src_hash
+        return changed
+
+    def _compute_hash_as_checksum(self):
+        return get_md5_checksum(self.srcURL)
+
+    def _compute_hash_as_modified_time(self):
+        return osp.getmtime(self.srcURL)
+
+
 def _test():
     pass
 

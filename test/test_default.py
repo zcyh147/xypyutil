@@ -1204,3 +1204,21 @@ def test_inspect_obj():
                                                  '__ne__', '__neg__', '__new__', '__or__', '__pos__', '__pow__', '__radd__', '__rand__', '__rdivmod__', '__reduce__', '__reduce_ex__', '__repr__', '__rfloordiv__', '__rlshift__', '__rmod__', '__rmul__',
                                                  '__ror__', '__round__', '__rpow__', '__rrshift__', '__rshift__', '__rsub__', '__rtruediv__', '__rxor__', '__setattr__', '__sizeof__', '__str__', '__sub__', '__subclasshook__', '__truediv__', '__trunc__',
                                                  '__xor__', 'as_integer_ratio', 'bit_count', 'bit_length', 'conjugate', 'denominator', 'from_bytes', 'imag', 'numerator', 'real', 'to_bytes']}
+
+
+def test_cache():
+    src_file = osp.join(_gen_dir, 'data.json')
+    retriever = util.load_json
+    util.save_json(src_file, {'a': 1, 'b': 2})
+    cache = util.Cache(src_file, retriever)
+    assert cache.retrieve() == {'a': 1, 'b': 2}
+    util.save_json(src_file, {'a': 1, 'b': 200})
+    assert cache.retrieve() == {'a': 1, 'b': 200}
+    cache = util.Cache(src_file, retriever, cache_type='test')
+    assert cache.cacheFile.split('.')[-2:] == ['test', 'json']
+    cache = util.Cache(src_file, retriever, algo='mtime')
+    assert cache._compare_hash()
+    assert not cache._compare_hash()
+    os.utime(src_file, (time.time(), time.time()))
+    assert cache._compare_hash()
+    util.safe_remove(_gen_dir)
