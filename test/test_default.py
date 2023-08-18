@@ -120,15 +120,6 @@ def test_catch_unknown_exception():
     util.catch_unknown_exception(RuntimeError, 'exception info', None)
 
 
-def test_build_logger():
-    src_file = __file__
-    logger = util.build_logger(src_file)
-    logger.debug('hello source logger')
-    log_file = osp.join(osp.dirname(src_file), 'test_default.log')
-    assert osp.isfile(log_file)
-    os.remove(log_file)
-
-
 def test_format_error_message():
     got = util.format_error_message(
         situation='task result is wrong',
@@ -194,7 +185,11 @@ def test_save_json():
 
 
 def test_tracer():
-    src = osp.join(_org_dir, 'trace_this.py')
+    """
+    - test tracer directly would quit test
+    - must use a different file
+    """
+    src = osp.join(_org_dir, 'test_trace_this.py')
     cmd = ['poetry', 'run', 'python', src]
     proc = util.run_cmd(cmd, cwd=osp.dirname(__file__))
     assert proc.stdout.decode(util.TXT_CODEC) == """\
@@ -207,8 +202,10 @@ def test_get_md5_checksum():
     missing_file = 'missing'
     assert util.get_md5_checksum(missing_file) is None
     valid_file = osp.abspath(f'{_script_dir}/../LICENSE')
+    assert osp.isfile(valid_file)
     # line-ends count
-    assert util.get_md5_checksum(valid_file) == '5d326be91ee12591b87f17b6f4000efe' if platform.system() == 'Windows' else '7a3beb0af03d4afff89f8a69c70a87c0'
+    expected = '5d326be91ee12591b87f17b6f4000efe' if util.PLATFORM == 'Windows' else '7a3beb0af03d4afff89f8a69c70a87c0'
+    assert util.get_md5_checksum(valid_file) == expected
 
 
 def test_logcall():
@@ -704,6 +701,7 @@ def test_init_repo():
     assert app.testDir == osp.abspath(osp.join('repo', 'app', 'test'))
     assert app.pubTmpDir == osp.join(util.get_platform_tmp_dir(), 'kk', osp.basename(app.ancestorDirs[1]))
     assert app.logger.name == 'mylogtitle'
+    util.safe_remove(app.ancestorDirs[2])
 
 
 def test_backup_file():
@@ -790,6 +788,7 @@ def test_save_load_text():
     util.save_text(file, text, toappend=True)
     loaded = util.load_text(file)
     assert loaded == text + text
+    util.safe_remove(_gen_dir)
 
 
 def test_find_duplication():

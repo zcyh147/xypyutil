@@ -60,7 +60,7 @@ TXT_CODEC = 'utf-8'  # Importable.
 LOCALE_CODEC = locale.getpreferredencoding()
 MAIN_CFG_FILENAME = 'app.json'
 DEFAULT_CFG_FILENAME = 'default.json'
-
+PLATFORM = platform.system()
 
 class SingletonDecorator:
     """
@@ -119,34 +119,26 @@ class BandPassLogFilter(object):
 
 
 def get_platform_home_dir():
-    plat = platform.system()
-    if plat == 'Windows':
-        return os.getenv('USERPROFILE')
-    elif plat == 'Darwin':
-        return osp.expanduser('~')
-    elif plat == 'Linux':
-        return osp.expanduser('~')
-    raise NotImplementedError(f'unsupported platform: {plat}')
+    home_envvar = 'USERPROFILE' if PLATFORM == 'Windows' else 'HOME'
+    return os.getenv(home_envvar)
 
 
 def get_platform_appdata_dir(winroam=True):
-    plat = platform.system()
-    if plat == 'Windows':
-        return os.getenv('APPDATA' if winroam else 'LOCALAPPDATA')
-    elif plat == 'Darwin':
-        return osp.expanduser('~/Library/Application Support')
-    raise NotImplementedError(f'unsupported platform: {plat}')
+    plat_dir_map = {
+        'Windows': os.getenv('APPDATA' if winroam else 'LOCALAPPDATA'),
+        'Darwin': osp.expanduser('~/Library/Application Support'),
+        'Linux': osp.expanduser('~/.config')
+    }
+    return plat_dir_map.get(PLATFORM)
 
 
 def get_platform_tmp_dir():
-    plat = platform.system()
-    if plat == 'Windows':
-        return osp.join(os.getenv('LOCALAPPDATA'), 'Temp')
-    elif plat == 'Darwin':
-        return osp.join(osp.expanduser('~'), 'Library', 'Caches')
-    elif plat == 'Linux':
-        return '/tmp'
-    raise NotImplementedError(f'unsupported platform: {plat}')
+    plat_dir_map = {
+        'Windows': osp.join(str(os.getenv('LOCALAPPDATA')), 'Temp'),
+        'Darwin': osp.expanduser('~/Library/Caches'),
+        'Linux': '/tmp'
+    }
+    return plat_dir_map.get(PLATFORM)
 
 
 def build_default_logger(logdir, name=None, verbose=False):
@@ -242,51 +234,6 @@ def catch_unknown_exception(exc_type, exc_value, exc_traceback):
 sys.excepthook = catch_unknown_exception
 
 
-def build_logger(srcpath, logpath=None):
-    """
-    Build per-file logger.
-    :param srcpath: Path to source file.
-    :param logpath: Path to log file, default to /same/dir/basename.log.
-    :return: Logger object.
-    """
-    src_basename = osp.basename(srcpath)
-
-    # Must have to see DEBUG/INFO at all
-    logging.basicConfig(level=logging.DEBUG)
-    logger = logging.getLogger(src_basename)
-    logger.setLevel(logging.DEBUG)
-
-    # Hide dependency module's logging
-    logger.propagate = False
-
-    # Avoid redundant logs from duplicated handlers created by other modules.
-    if len(logger.handlers) > 1:
-        return logger
-
-    # Console log for end-users: no debug messages.
-    handler = logging.StreamHandler()
-    handler.setLevel(logging.INFO)
-    handler.setFormatter(logging.Formatter(
-        '%(levelname)s: %(name)s: %(message)s')
-    )
-    logger.addHandler(handler)
-
-    logpath = logpath or osp.abspath(f'{osp.dirname(srcpath)}/{osp.splitext(src_basename)[0]}.log')
-
-    # Log file for coders: with debug messages.
-    logdir = osp.abspath(osp.dirname(logpath))
-    if not osp.exists(logdir):
-        os.makedirs(logdir)
-    handler = logging.FileHandler(logpath)
-    handler.setLevel(logging.DEBUG)
-    handler.setFormatter(logging.Formatter(
-        '%(levelname)s: %(pathname)s: %(lineno)d: %(asctime)s: \n%(message)s\n')
-    )
-    logger.addHandler(handler)
-
-    return logger
-
-
 def format_error_message(situation, expected, got, advice, reaction):
     return f"""\
 {situation}:
@@ -304,24 +251,20 @@ def is_python3():
     return sys.version_info[0] > 2
 
 
-def load_json(path, as_namespace=False):
+def load_json(path, as_namespace=False, encoding=TXT_CODEC):
     """
     - Load Json configuration file.
     - supports UTF-8 only, due to no way to support mixed encodings
     - most usecases involve either utf-8 or mixed encodings
     - windows users must fix their region and localization setup via control panel
     """
-    if is_python3():
-        with open(path, 'r', encoding=TXT_CODEC, errors='backslashreplace', newline=None) as f:
-            text = f.read()
-    else:
-        with open(path, 'rU') as f:
-            text = f.read()
+    with open(path, 'r', encoding=encoding, errors='backslashreplace', newline=None) as f:
+        text = f.read()
     # Add object_pairs_hook=collections.OrderedDict hook for py3.5 and lower.
     return json.loads(text, object_pairs_hook=collections.OrderedDict) if not as_namespace else json.loads(text, object_hook=lambda d: SimpleNamespace(**d))
 
 
-def save_json(path, config):
+def save_json(path, config, encoding=TXT_CODEC):
     """
     Use io.open(), aka open() with py3 to produce a file object that encodes
     Unicode as you write, then use json.dump() to write to that file.
@@ -330,7 +273,7 @@ def save_json(path, config):
     dict_config = vars(config) if isinstance(config, types.SimpleNamespace) else config
     par_dir = osp.split(path)[0]
     os.makedirs(par_dir, exist_ok=True)
-    with open(path, 'w', encoding=TXT_CODEC) as f:
+    with open(path, 'w', encoding=encoding) as f:
         return json.dump(dict_config, f, ensure_ascii=False, indent=4)
 
 
@@ -339,6 +282,11 @@ class Tracer:
     - custom module-ignore rules
     - trace calls and returns
     - exclude first, then include
+    - usage: use in source code
+      - tracer = util.Tracer(exclude_funcname_pattern='stop')
+      - tracer.start()
+      - # add traceable code here
+      - tracer.stop()
     """
 
     def __init__(self,
@@ -560,7 +508,7 @@ def get_clipboard_content():
     return content
 
 
-def alert(title, content, action='Close'):
+def alert(content, title='Debug', action='Close'):
     if platform.system() == 'Windows':
         cmd = ['mshta', f'vbscript:Execute("msgbox ""{content}"", 0,""{title}"":{action}")']
         os.system(' '.join(cmd))

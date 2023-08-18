@@ -6,8 +6,12 @@ def hello(n, s, f):
     return x
 
 
-if __name__ == '__main__':
+def test_tracer():
     tracer = util.Tracer(exclude_funcname_pattern='stop')
     tracer.start()
     hello(100, 'world', '0.99')
     tracer.stop()
+
+
+if __name__ == '__main__':
+    test_tracer()
