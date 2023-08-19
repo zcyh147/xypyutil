@@ -2,6 +2,7 @@
 tests that don't need external data
 """
 import getpass
+import gettext
 import platform
 import shutil
 import sys
@@ -10,12 +11,10 @@ import os.path as osp
 import subprocess
 import tempfile
 import time
-
-# 3rd party
 import types
 import uuid
 
-import psutil
+# 3rd party
 import pytest
 
 
@@ -477,9 +476,19 @@ def test_kill_process_by_name_macos():
 
 
 def test_init_translator():
+    """
+    locale folder must contain .mo files
+    """
     locale_dir = osp.join(_org_dir, 'locale')
     trans = util.init_translator(locale_dir)
-    assert trans
+    assert isinstance(trans, types.MethodType)
+    trans = util.init_translator(locale_dir, langs=['en', 'zh'])
+    assert isinstance(trans, types.MethodType)
+    # hit exception with empty folder
+    locale_dir = osp.join(_gen_dir, 'locale')
+    trans = util.init_translator(locale_dir, langs=['en', 'zh'])
+    assert issubclass(trans, str)
+    util.safe_remove(_gen_dir)
 
 
 def test_match_files_except_lines():
@@ -1253,3 +1262,4 @@ def test_mem_caching():
     assert load(src2) == {'a': 100, 'b': 200}
     assert load(src1) == {'a': 1, 'b': 2}
     assert load(src2) == {'a': 100, 'b': 200}
+    util.safe_remove(_gen_dir)

@@ -1,0 +1,12 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "Hello, world!"
+msgstr "Bonjour, le monde !"
+
+msgid "Welcome to our application."
+msgstr "Bienvenue dans notre application."
+
+msgid "Click the button to continue."
+msgstr "Cliquez sur le bouton pour continuer."
