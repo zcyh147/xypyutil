@@ -774,34 +774,38 @@ def append_to_os_paths(bindir, usesyspath=True, inmemonly=False):
     """
     On macOS, PATH update will only take effect after calling `source ~/.bash_profile` directly in shell. It won't work 
     """
+    path_var = 'Path' if PLATFORM == 'Windows' else 'PATH'
+    if bindir.lower() in os.environ[path_var].lower():
+        return
+    if inmemonly:
+        os.environ[path_var] += os.pathsep + bindir
+        return
     if platform.system() == 'Windows':
         import winreg
         root_key = winreg.HKEY_LOCAL_MACHINE if usesyspath else winreg.HKEY_CURRENT_USER
         sub_key = r'SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment' if usesyspath else r'Environment'
-        path_var = 'Path'
-        separator = ';'
         with winreg.ConnectRegistry(None, root_key):
             with winreg.OpenKey(root_key, sub_key, 0, winreg.KEY_ALL_ACCESS) as key:
                 env_paths, _ = winreg.QueryValueEx(key, path_var)
-                matches = [path for path in env_paths.split(separator) if path.lower() == bindir.lower()]
-                if matches:
-                    return
-                if env_paths[-1] != separator:
-                    env_paths += separator
-                env_paths += f'{bindir}{separator}'
+                # SoC: here bindir must be a newcomer
+                if env_paths[-1] != os.pathsep:
+                    env_paths += os.pathsep
+                env_paths += f'{bindir}{os.pathsep}'
                 winreg.SetValueEx(key, path_var, 0, winreg.REG_EXPAND_SZ, env_paths)
     else:
-        path_var = 'PATH'
-        cfg_file = os.path.expanduser('~/.bash_profile') if platform.system() == 'Darwin' else os.path.expanduser('~/.bashrc')
-        if bindir in os.environ[path_var]:
-            return
-        with open(cfg_file, 'a') as fp:
-            fp.write(f'\nexport {path_var}="${path_var}:{bindir}"\n\n')
+        cfg_file = os.path.expanduser('~/.bash_profile' if os.getenv('SHELL') == '/bin/bash' else '~/.zshrc')
+        save_lines(cfg_file, [
+            '',
+            f'export {path_var}="${path_var}:{bindir}"',
+            '',
+        ], toappend=True, addlineend=True)
     os.environ[path_var] += os.pathsep + bindir
 
 
 def prepend_to_os_paths(bindir, usesyspath=True, inmemonly=False):
-    path_var = 'Path' if platform.system() == 'Windows' else 'PATH'
+    path_var = 'Path' if PLATFORM == 'Windows' else 'PATH'
+    if bindir.lower() in os.environ[path_var].lower():
+        return
     if inmemonly:
         os.environ[path_var] = bindir + os.pathsep + os.environ[path_var]
         return
@@ -812,27 +816,25 @@ def prepend_to_os_paths(bindir, usesyspath=True, inmemonly=False):
         with winreg.ConnectRegistry(None, root_key):
             with winreg.OpenKey(root_key, sub_key, 0, winreg.KEY_ALL_ACCESS) as key:
                 env_paths, _ = winreg.QueryValueEx(key, path_var)
-                matches = [path for path in env_paths.split(os.pathsep) if path.lower() == bindir.lower()]
-                if matches:
-                    return
-                env_paths = f'{bindir}{os.pathsep}' + env_paths
+                # SoC: here bindir must be a newcomer
+                env_paths = f'{bindir}{os.pathsep}{env_paths}'
                 winreg.SetValueEx(key, path_var, 0, winreg.REG_EXPAND_SZ, env_paths)
     else:
-        cfg_file = os.path.expanduser('~/.bash_profile') if platform.system() == 'Darwin' else os.path.expanduser('~/.bashrc')
-        if bindir in os.environ[path_var]:
-            return
-        with open(cfg_file) as fp:
-            lines = fp.readlines()
-        lines = [f'\nexport {path_var}="{bindir}:${path_var}"\n\n'] + lines
-        with open(cfg_file, 'w') as fp:
-            fp.writelines(lines)
+        cfg_file = os.path.expanduser('~/.bash_profile' if os.getenv('SHELL') == '/bin/bash' else '~/.zshrc')
+        save_lines(cfg_file, [
+            '',
+            f'export {path_var}="{bindir}:${path_var}"',
+            '',
+        ], toappend=True, addlineend=True)
     os.environ[path_var] = bindir + os.pathsep + os.environ[path_var]
 
 
 def remove_from_os_paths(bindir, usesyspath=True, inmemonly=False):
     path_var = 'Path' if platform.system() == 'Windows' else 'PATH'
+    if bindir.lower() not in os.environ[path_var].lower():
+        return
+    os.environ[path_var] = os.environ[path_var].replace(bindir, '')
     if inmemonly:
-        os.environ[path_var] = os.environ[path_var].replace(bindir, '')
         return
     if platform.system() == 'Windows':
         import winreg
@@ -841,31 +843,19 @@ def remove_from_os_paths(bindir, usesyspath=True, inmemonly=False):
         with winreg.ConnectRegistry(None, root_key):
             with winreg.OpenKey(root_key, sub_key, 0, winreg.KEY_ALL_ACCESS) as key:
                 env_paths, _ = winreg.QueryValueEx(key, path_var)
-                matches = [path for path in env_paths.split(os.pathsep) if path.lower() == bindir.lower()]
-                if not matches:
-                    return
                 keepers = [path for path in env_paths.split(os.pathsep) if path.lower() != bindir.lower()]
                 env_paths = os.pathsep.join(keepers)
                 winreg.SetValueEx(key, path_var, 0, winreg.REG_EXPAND_SZ, env_paths)
     else:
-        cfg_file = os.path.expanduser('~/.bash_profile') if platform.system() == 'Darwin' else os.path.expanduser('~/.bashrc')
-        if bindir not in os.environ[path_var]:
-            return
-        # keyword = r'^[\s](*)export PATH="{}:$PATH"'.format(bindir)
+        cfg_file = os.path.expanduser('~/.bash_profile' if os.getenv('SHELL') == '/bin/bash' else '~/.zshrc')
         # escape to handle metachars
         pattern_prepend = f'export {path_var}="{bindir}:${path_var}"'
         pattern_append = f'export {path_var}="${path_var}:{bindir}"'
-        with open(cfg_file) as fp:
-            lines = fp.readlines()
-        for li, line in enumerate(lines):
-            line = line.strip()
-            if line.startswith(pattern_prepend):
-                lines[li] = line.replace(pattern_prepend, '')
-            elif line.startswith(pattern_append):
-                lines[li] = line.replace(pattern_append, '')
-        with open(cfg_file, 'w') as fp:
-            fp.writelines(lines)
-    os.environ[path_var] = os.environ[path_var].replace(bindir, '')
+        str_map = {
+            pattern_append: '',
+            pattern_prepend: '',
+        }
+        substitute_keywords_in_file(cfg_file, str_map, useliteral=True)
 
 
 def run_cmd(cmd, cwd=None, logger=None, check=True, shell=False, verbose=False, useexception=True):

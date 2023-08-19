@@ -630,6 +630,42 @@ def test_await_lockfile():
     util.safe_remove(lock_dir)
 
 
+def test_append_to_os_paths():
+    path_var = 'Path' if util.PLATFORM == 'Windows' else 'PATH'
+    bin_dir = 'my_bin'
+    os.environ[path_var].replace(bin_dir, '')
+    # in-mem only
+    util.append_to_os_paths(bin_dir, inmemonly=True)
+    assert os.environ[path_var].endswith(f'{os.pathsep}{bin_dir}')
+    util.remove_from_os_paths(bin_dir, inmemonly=True)
+    # persistent
+    if util.PLATFORM == 'Darwin':
+        cfg_file = os.path.expanduser('~/.bash_profile' if os.getenv('SHELL') == '/bin/bash' else '~/.zshrc')
+        util.append_to_os_paths(bin_dir, inmemonly=False)
+        lines = util.load_lines(cfg_file, rmlineend=True)
+        assert lines[-2].endswith(f'{os.pathsep}{bin_dir}"')
+        util.remove_from_os_paths(bin_dir)
+    #TODO: support windows after imp. low-level regedit wrapper
+
+
+def test_prepend_to_os_paths():
+    path_var = 'Path' if util.PLATFORM == 'Windows' else 'PATH'
+    bin_dir = 'my_bin'
+    os.environ[path_var].replace(bin_dir, '')
+    # in-mem only
+    util.prepend_to_os_paths(bin_dir, inmemonly=True)
+    assert os.environ[path_var].startswith(bin_dir)
+    util.remove_from_os_paths(bin_dir, inmemonly=True)
+    # persistent
+    if util.PLATFORM == 'Darwin':
+        cfg_file = os.path.expanduser('~/.bash_profile' if os.getenv('SHELL') == '/bin/bash' else '~/.zshrc')
+        util.prepend_to_os_paths(bin_dir, inmemonly=False)
+        lines = util.load_lines(cfg_file, rmlineend=True)
+        assert lines[-2].startswith(f'export PATH="{bin_dir}{os.pathsep}')
+        util.remove_from_os_paths(bin_dir)
+    # TODO: support windows after imp. low-level regedit wrapper
+
+
 def test_get_ancestor_dirs():
     file = osp.join(_org_dir, 'exclusive.py')
     dirs = util.get_ancestor_dirs(file, depth=3)
