@@ -1,9 +1,7 @@
 """
 tests that don't need external data
 """
-import functools
 import getpass
-import io
 import platform
 import shutil
 import sys
@@ -12,12 +10,14 @@ import os.path as osp
 import subprocess
 import tempfile
 import time
-from unittest.mock import patch
 
 # 3rd party
 import types
 import uuid
+
+import psutil
 import pytest
+
 
 # project
 _script_dir = osp.abspath(osp.dirname(__file__))
@@ -29,6 +29,8 @@ _src_dir = osp.abspath(osp.dirname(_case_dir))
 _org_dir = osp.join(_case_dir, '_org')
 _gen_dir = osp.join(_case_dir, '_gen')
 _ref_dir = osp.join(_case_dir, '_ref')
+_skip_slow_tests = osp.isfile(osp.join(_case_dir, 'skip_slow_tests.cfg.txt'))
+_skip_reason = 'tests requires long network or file i/o are temporarily skipped during tdd'
 
 
 def test_singletion_decorator():
@@ -188,6 +190,7 @@ def test_save_json():
 def test_tracer():
     """
     - test tracer directly would quit test
+    - start tracer directly under pytest triggers "missing excinfo attribute" when referencing frame object
     - must use a different file
     """
     src = osp.join(_org_dir, 'test_trace_this.py')
@@ -210,15 +213,19 @@ def test_get_md5_checksum():
 
 
 def test_logcall():
-    src = osp.join(_org_dir, 'log_this.py')
-    cmd = ['poetry', 'run', 'python', src]
-    proc = util.run_cmd(cmd, cwd=osp.dirname(__file__))
-    stdout_lines = set(proc.stdout.decode(util.TXT_CODEC).splitlines())
+    @util.logcall('trace', logger=util.build_default_logger(logdir := osp.join(util.get_platform_tmp_dir(), '_util'), name='test_logcall'))
+    def myfunc(n, s, f=1.0):
+        x = f'hello, {n}, {s}, {f}'
+        return x
     key_lines = {
         "Enter: 'myfunc' <= args=(100, 'hello'), kwargs={'f': 0.99}: trace",
         "Exit: 'myfunc' => hello, 100, hello, 0.99",
     }
-    assert key_lines.issubset(stdout_lines)
+    myfunc(100, 'hello', f=0.99)
+    log_file = osp.join(logdir, 'test_logcall.log')
+    log = util.load_lines(log_file, rmlineend=True)
+    assert key_lines.issubset(log)
+
 
 
 def map_worker(enum):
@@ -428,7 +435,8 @@ def test_convert_from_wine_path():
     path = ' Z:\\path\\to\\my\\file   '
     assert util.convert_from_wine_path(path) == '/path/to/my/file'
     path = 'Y:\\my\\file'
-    assert util.convert_from_wine_path(path) == '~/my/file' if platform.system() == 'Windows' else f'{os.environ.get("HOME")}/my/file'
+    expected = '~/my/file' if platform.system() == 'Windows' else f'{os.environ.get("HOME")}/my/file'
+    assert util.convert_from_wine_path(path) == expected
     path = 'X:\\my\\file'
     assert util.convert_from_wine_path(path) == path
 
@@ -546,6 +554,7 @@ def test_get_child_dirs():
         ]
 
 
+@pytest.mark.skipif(_skip_slow_tests, reason=_skip_reason)
 def test_open_in_browser_windows(monkeypatch):
     monkeypatch.setattr(platform, 'system', lambda: 'Windows')
     path = 'C:\\Windows\\System32\\drivers\\etc\\hosts'
@@ -553,6 +562,7 @@ def test_open_in_browser_windows(monkeypatch):
     assert util.open_in_browser(path, islocal=False) == 'C:\\Windows\\System32\\drivers\\etc\\hosts'
 
 
+@pytest.mark.skipif(_skip_slow_tests, reason=_skip_reason)
 def test_open_in_browser_macos(monkeypatch):
     monkeypatch.setattr(platform, 'system', lambda: 'Darwin')
     path = '/etc/hosts'
@@ -562,6 +572,7 @@ def test_open_in_browser_macos(monkeypatch):
     assert util.open_in_browser(path, islocal=True) == 'file:///path/to/filename%20with%20spaces'
 
 
+@pytest.mark.skipif(_skip_slow_tests, reason=_skip_reason)
 def test_open_in_editor():
     path = 'C:\\Windows\\System32\\drivers\\etc\\hosts' if platform.system() == 'Windows' else '/etc/hosts'
     util.open_in_editor(path)
@@ -816,6 +827,7 @@ def test_find_runs():
     ]
 
 
+@pytest.mark.skipif(_skip_slow_tests, reason=_skip_reason)
 def test_install_uninstall_by_macports(monkeypatch):
     if platform.system() != 'Darwin':
         assert True
@@ -826,6 +838,7 @@ def test_install_uninstall_by_macports(monkeypatch):
         util.uninstall_by_macports('cowsay')
 
 
+@pytest.mark.skipif(_skip_slow_tests, reason=_skip_reason)
 def test_install_uninstall_by_homebrew(monkeypatch):
     if platform.system() != 'Darwin':
         assert True
