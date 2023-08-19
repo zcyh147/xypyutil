@@ -703,7 +703,6 @@ class RerunLock:
 
 def rerun_lock(name, folder=None, logger=glogger):
     """Decorator for reentrance locking on functions"""
-
     def decorator(f):
         @functools.wraps(f)
         def wrapper(*args, **kwargs):
@@ -748,17 +747,27 @@ def await_lockfile(lockpath, until_gone=True, timeout_ms=float('inf'), step_ms=1
     """
     - while lockfile exists, we wait
     """
-    class PathExistsCondition:
+    class UntilLockGoneCondition:
         def __init__(self, path):
             self.path = path
 
         def met(self):
-            return osp.exists(self.path) if until_gone else not osp.exists(self.path)
+            return not osp.exists(self.path)
 
         def update(self):
             pass
 
-    return await_while(PathExistsCondition(lockpath), timeout_ms, step_ms)
+    class UntilLockAppearCondition:
+        def __init__(self, path):
+            self.path = path
+
+        def met(self):
+            return osp.exists(self.path)
+
+        def update(self):
+            pass
+    condition_cls = UntilLockGoneCondition if until_gone else UntilLockAppearCondition
+    return await_while(condition_cls(lockpath), timeout_ms, step_ms)
 
 
 def append_to_os_paths(bindir, usesyspath=True, inmemonly=False):

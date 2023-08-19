@@ -10,6 +10,7 @@ import os
 import os.path as osp
 import subprocess
 import tempfile
+import threading
 import time
 import types
 import unittest.mock as um
@@ -528,12 +529,20 @@ def test_rerunlock_class(monkeypatch):
     assert str(exc_info.value) == f"Terminated due to signal: {signal.Signals(signal.SIGINT).name}; Will unlock"
 
 
-def test_rerun_lock():
+def test_rerun_lock(monkeypatch):
     @util.rerun_lock('test', _gen_dir)
     def _worker():
         assert osp.isfile(osp.join(_gen_dir, 'lock_test.json'))
         util.touch(osp.join(_gen_dir, 'entered'))
         print('entered')
+
+    @util.rerun_lock('test', _gen_dir)
+    def _mock_ctrl_c():
+        raise KeyboardInterrupt
+
+    @util.rerun_lock('test', _gen_dir)
+    def _mock_misc_exception():
+        raise Exception
     init = osp.join(_org_dir, 'exclusive.py')
     reenter = osp.join(_org_dir, 'reenter.py')
     lockfile = osp.join(util.get_platform_tmp_dir(), '_util', f'lock_test_rerun_lock.json')
@@ -563,6 +572,20 @@ def test_rerun_lock():
     util.touch(lock_file)
     _worker()
     assert not osp.isfile(osp.join(_gen_dir, 'entered'))
+    # ctrl+c term
+    util.safe_remove(lock_file)
+    try:
+        _mock_ctrl_c()
+    except KeyboardInterrupt:
+        assert not osp.isfile(lock_file)
+    util.safe_remove(_gen_dir)
+    # other exception term
+    util.safe_remove(lock_file)
+    try:
+        _mock_misc_exception()
+    except Exception:
+        assert not osp.isfile(lock_file)
+    util.safe_remove(_gen_dir)
 
 
 def test_await_while():
@@ -579,6 +602,32 @@ def test_await_while():
     assert not cond.met()
     assert util.await_while(cond, 3100, 10)
     assert cond.met()
+
+
+def test_await_lockfile():
+    def _delayed_unlock():
+        time.sleep(2)
+        util.safe_remove(lock_dir)
+
+    def _delayed_lock():
+        time.sleep(2)
+        os.makedirs(lock_dir, exist_ok=True)
+    # until gone
+    lock_dir = _gen_dir
+    os.makedirs(lock_dir, exist_ok=True)
+    th = threading.Thread(target=_delayed_unlock)
+    th.start()
+    util.await_lockfile(lock_dir)
+    th.join()
+    assert not osp.isdir(lock_dir)
+    # until appear
+    util.safe_remove(lock_dir)
+    th = threading.Thread(target=_delayed_lock)
+    th.start()
+    util.await_lockfile(lock_dir, until_gone=False)
+    th.join()
+    assert osp.isdir(lock_dir)
+    util.safe_remove(lock_dir)
 
 
 def test_get_ancestor_dirs():
