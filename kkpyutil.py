@@ -141,6 +141,10 @@ def get_platform_tmp_dir():
     return plat_dir_map.get(PLATFORM)
 
 
+def get_posix_shell_cfgfile():
+    return os.path.expanduser('~/.bash_profile' if os.getenv('SHELL') == '/bin/bash' else '~/.zshrc')
+
+
 def build_default_logger(logdir, name=None, verbose=False):
     """
     create logger sharing global logging config except log file path
@@ -793,7 +797,7 @@ def append_to_os_paths(bindir, usesyspath=True, inmemonly=False):
                 env_paths += f'{bindir}{os.pathsep}'
                 winreg.SetValueEx(key, path_var, 0, winreg.REG_EXPAND_SZ, env_paths)
     else:
-        cfg_file = os.path.expanduser('~/.bash_profile' if os.getenv('SHELL') == '/bin/bash' else '~/.zshrc')
+        cfg_file = get_posix_shell_cfgfile()
         save_lines(cfg_file, [
             '',
             f'export {path_var}="${path_var}:{bindir}"',
@@ -820,7 +824,7 @@ def prepend_to_os_paths(bindir, usesyspath=True, inmemonly=False):
                 env_paths = f'{bindir}{os.pathsep}{env_paths}'
                 winreg.SetValueEx(key, path_var, 0, winreg.REG_EXPAND_SZ, env_paths)
     else:
-        cfg_file = os.path.expanduser('~/.bash_profile' if os.getenv('SHELL') == '/bin/bash' else '~/.zshrc')
+        cfg_file = get_posix_shell_cfgfile()
         save_lines(cfg_file, [
             '',
             f'export {path_var}="{bindir}:${path_var}"',
@@ -847,7 +851,7 @@ def remove_from_os_paths(bindir, usesyspath=True, inmemonly=False):
                 env_paths = os.pathsep.join(keepers)
                 winreg.SetValueEx(key, path_var, 0, winreg.REG_EXPAND_SZ, env_paths)
     else:
-        cfg_file = os.path.expanduser('~/.bash_profile' if os.getenv('SHELL') == '/bin/bash' else '~/.zshrc')
+        cfg_file = get_posix_shell_cfgfile()
         # escape to handle metachars
         pattern_prepend = f'export {path_var}="{bindir}:${path_var}"'
         pattern_append = f'export {path_var}="${path_var}:{bindir}"'

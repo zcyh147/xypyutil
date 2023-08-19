@@ -111,6 +111,15 @@ def test_get_platform_tmp_dir():
             util.get_platform_tmp_dir()
 
 
+def test_get_posix_user_cfgfile():
+    sh = os.environ['SHELL']
+    os.environ['SHELL'] = '/bin/bash'
+    assert util.get_posix_shell_cfgfile() == osp.join(os.environ['HOME'], '.bash_profile')
+    os.environ['SHELL'] = '/bin/zsh'
+    assert util.get_posix_shell_cfgfile() == osp.join(os.environ['HOME'], '.zshrc')
+    os.environ['SHELL'] = sh
+
+
 def test_build_default_logger():
     log_dir = osp.dirname(__file__)
     logger = util.build_default_logger(log_dir, name='my')
