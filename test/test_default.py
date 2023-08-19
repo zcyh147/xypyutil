@@ -2,9 +2,9 @@
 tests that don't need external data
 """
 import getpass
-import gettext
 import platform
 import shutil
+import signal
 import sys
 import os
 import os.path as osp
@@ -12,6 +12,7 @@ import subprocess
 import tempfile
 import time
 import types
+import unittest.mock as um
 import uuid
 
 # 3rd party
@@ -516,9 +517,23 @@ def test_rerunlock_class(monkeypatch):
     # unknown exceptions
     monkeypatch.setattr("os.remove", _mock_os_remove)
     assert not run_lock.unlock()
+    # handle signal
+    # Create a mock instance of the RerunLock class
+    run_lock.logger = um.Mock()  # Mock the logger
+    # Create a mock frame object for testing
+    mock_frame = um.Mock()
+    # Call the handle_signal method with a mocked signal and frame
+    with pytest.raises(RuntimeError) as exc_info:
+        run_lock.handle_signal(signal.SIGINT, mock_frame)
+    assert str(exc_info.value) == f"Terminated due to signal: {signal.Signals(signal.SIGINT).name}; Will unlock"
 
 
 def test_rerun_lock():
+    @util.rerun_lock('test', _gen_dir)
+    def _worker():
+        assert osp.isfile(osp.join(_gen_dir, 'lock_test.json'))
+        util.touch(osp.join(_gen_dir, 'entered'))
+        print('entered')
     init = osp.join(_org_dir, 'exclusive.py')
     reenter = osp.join(_org_dir, 'reenter.py')
     lockfile = osp.join(util.get_platform_tmp_dir(), '_util', f'lock_test_rerun_lock.json')
@@ -538,6 +553,16 @@ def test_rerun_lock():
     assert not osp.isfile(lockfile)
     for file in (save, lockfile):
         util.safe_remove(file)
+    # decorator
+    lock_file = osp.join(_gen_dir, 'lock_test.json')
+    util.safe_remove(lock_file)
+    _worker()
+    assert not osp.isfile(lock_file)
+    util.safe_remove(_gen_dir)
+    # lock it in advance
+    util.touch(lock_file)
+    _worker()
+    assert not osp.isfile(osp.join(_gen_dir, 'entered'))
 
 
 def test_await_while():
