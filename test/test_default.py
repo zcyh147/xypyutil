@@ -497,6 +497,27 @@ def test_match_files_except_lines():
     assert util.match_files_except_lines(file1, file2, excluded=[2, 3])
 
 
+def test_rerunlock_class(monkeypatch):
+    def _mock_os_remove(*args, **kwargs):
+        raise Exception("Mocked exception")
+    lock_file = osp.join(util.get_platform_tmp_dir(), '_util', 'lock_test.json')
+    util.safe_remove(lock_file)
+    run_lock = util.RerunLock(name='test')
+    run_lock.lock()
+    assert osp.isfile(lock_file)
+    run_lock.unlock()
+    assert not osp.isfile(lock_file)
+    # reenter
+    util.touch(lock_file)
+    assert not run_lock.lock()
+    util.safe_remove(lock_file)
+    # unlock fallthrough
+    assert not run_lock.unlock()
+    # unknown exceptions
+    monkeypatch.setattr("os.remove", _mock_os_remove)
+    assert not run_lock.unlock()
+
+
 def test_rerun_lock():
     init = osp.join(_org_dir, 'exclusive.py')
     reenter = osp.join(_org_dir, 'reenter.py')

@@ -632,9 +632,9 @@ class RerunLock:
     """Lock process from reentering when seeing lock file on disk."""
 
     def __init__(self, name, folder=None, logger=None):
-        os.makedirs(folder, exist_ok=True)
-        filename = f'lock_{name}.json' if name else 'lock_{}.json'.format(next(tempfile._get_candidate_names()))
-        self.lockFile = osp.join(folder, filename) if folder else osp.join(get_platform_tmp_dir(), filename)
+        folder = folder or osp.join(get_platform_tmp_dir(), '_util')
+        filename = f'lock_{name}.json' if name else f'lock_{next(tempfile._get_candidate_names())}.json'
+        self.lockFile = osp.join(folder, filename)
         self.logger = logger or glogger
         # CAUTION:
         # - windows grpc server crashes with signals:
@@ -684,9 +684,12 @@ class RerunLock:
             os.remove(self.lockFile)
         except FileNotFoundError:
             self.logger.warning('Already unlocked. Aborted.')
+            return False
         except Exception:
             failure = traceback.format_exc()
             self.logger.error('{}\nFailed to unlock. Must delete the lock by hand: {}.'.format(failure, self.lockFile))
+            return False
+        return True
 
     def is_locked(self):
         return osp.isfile(self.lockFile)
