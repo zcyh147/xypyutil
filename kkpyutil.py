@@ -50,7 +50,6 @@ import traceback
 import types
 import uuid
 import warnings
-import winreg
 from types import SimpleNamespace
 
 #
@@ -62,6 +61,9 @@ LOCALE_CODEC = locale.getpreferredencoding()
 MAIN_CFG_FILENAME = 'app.json'
 DEFAULT_CFG_FILENAME = 'default.json'
 PLATFORM = platform.system()
+if PLATFORM == 'Windows':
+    import winreg
+
 
 class SingletonDecorator:
     """
@@ -884,7 +886,7 @@ def load_winreg_record(full_key, var):
     return value
 
 
-def save_winreg_record(full_key, var, value, value_type=winreg.REG_EXPAND_SZ):
+def save_winreg_record(full_key, var, value, value_type=winreg.REG_EXPAND_SZ if PLATFORM == 'Windows' else None):
     """
     refer value_type to: https://docs.python.org/3/library/winreg.html#value-types
     """
