@@ -9,9 +9,9 @@ Covering areas:
     - Decoupled parameter server-client arch;
 """
 
+import cProfile as profile
 # Import std-modules.
 import collections
-import cProfile as profile
 import concurrent.futures
 import copy
 import difflib
@@ -31,26 +31,27 @@ import multiprocessing
 import operator
 import os
 import os.path as osp
-import queue
-import re
-import string
-import time
-import tokenize
-import types
 import platform
 import plistlib
 import pprint as pp
 import pstats
+import queue
+import re
 import shutil
 import signal
+import string
 import subprocess
 import sys
 import tempfile
 import threading
+import time
+import tokenize
 import traceback
-import warnings
-from types import SimpleNamespace
+import types
 import uuid
+import warnings
+import winreg
+from types import SimpleNamespace
 
 #
 # Globals
@@ -513,16 +514,15 @@ def get_clipboard_content():
 
 
 def alert(content, title='Debug', action='Close'):
-    if platform.system() == 'Windows':
+    if PLATFORM == 'Windows':
         cmd = ['mshta', f'vbscript:Execute("msgbox ""{content}"", 0,""{title}"":{action}")']
         os.system(' '.join(cmd))
         return cmd
-    if platform.system() == 'Darwin':
+    if PLATFORM == 'Darwin':
         cmd = ['osascript', '-e', f'display alert "{title}" message "{content}"']
     else:
         cmd = ['echo', f'{title}: {content}: {action}']
-    subprocess.run(cmd)
-    return cmd
+    return subprocess.run(cmd)
 
 
 def convert_to_wine_path(path, drive=None):
@@ -534,7 +534,7 @@ def convert_to_wine_path(path, drive=None):
     """
     full_path = osp.expanduser(path)
     assert osp.isabs(full_path), f'expected absolute paths, got: {full_path}'
-    home_folder = os.environ['USERPROFILE'] if platform.system() == 'Windows' else os.environ['HOME']
+    home_folder = os.environ['USERPROFILE'] if PLATFORM == 'Windows' else os.environ['HOME']
     if leading_homefolder := full_path.startswith(home_folder):
         mapped_drive = drive or 'Y:'
         full_path = full_path.removeprefix(home_folder)
@@ -553,7 +553,7 @@ def convert_from_wine_path(path):
     if path.startswith('Z:') or path.startswith('z:'):
         return path[2:].replace('\\', '/') if len(path) > 2 else '/'
     elif path.startswith('Y:') or path.startswith('y:'):
-        home_folder = '~/' if platform.system() == 'Windows' else os.environ['HOME']
+        home_folder = '~/' if PLATFORM == 'Windows' else os.environ['HOME']
         return osp.join(home_folder, path[2:].replace('\\', '/').strip('/'))
     return path
 
@@ -575,7 +575,7 @@ def kill_process_by_name(name, forcekill=False):
         'permissionDenied': 2,
         'unknownError': 3,  # triggered when softkilling a system process
     }
-    plat = platform.system() if platform.system() in cmd_map else '*'
+    plat = PLATFORM if PLATFORM in cmd_map else '*'
     cmd = cmd_map[plat]['hardKill'] if forcekill else cmd_map[plat]['softKill']
     if plat == '*':
         proc = run_cmd(["pgrep", "-x", name], check=False)
@@ -672,7 +672,7 @@ class RerunLock:
                 # - CTRL_C_EVENT, CTRL_BREAK_EVENT not working on Windows
                 # signal.CTRL_C_EVENT,
                 # signal.CTRL_BREAK_EVENT,
-            ] if platform.system() == 'Windows' else [
+            ] if PLATFORM == 'Windows' else [
                 # CAUTION:
                 # - SIGCHLD as an alias is safe to ignore
                 # - SIGKILL must be handled by os.kill()
@@ -792,87 +792,109 @@ def append_to_os_paths(bindir, usesyspath=True, inmemonly=False):
     On macOS, PATH update will only take effect after calling `source ~/.bash_profile` directly in shell. It won't work 
     """
     path_var = 'Path' if PLATFORM == 'Windows' else 'PATH'
-    if bindir.lower() in os.environ[path_var].lower():
-        return
-    if inmemonly:
-        os.environ[path_var] += os.pathsep + bindir
-        return
-    if platform.system() == 'Windows':
-        import winreg
-        root_key = winreg.HKEY_LOCAL_MACHINE if usesyspath else winreg.HKEY_CURRENT_USER
-        sub_key = r'SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment' if usesyspath else r'Environment'
-        with winreg.ConnectRegistry(None, root_key):
-            with winreg.OpenKey(root_key, sub_key, 0, winreg.KEY_ALL_ACCESS) as key:
-                env_paths, _ = winreg.QueryValueEx(key, path_var)
-                # SoC: here bindir must be a newcomer
-                if env_paths[-1] != os.pathsep:
-                    env_paths += os.pathsep
-                env_paths += f'{bindir}{os.pathsep}'
-                winreg.SetValueEx(key, path_var, 0, winreg.REG_EXPAND_SZ, env_paths)
-    else:
-        cfg_file = get_posix_shell_cfgfile()
-        save_lines(cfg_file, [
-            '',
-            f'export {path_var}="${path_var}:{bindir}"',
-            '',
-        ], toappend=True, addlineend=True)
     os.environ[path_var] += os.pathsep + bindir
+    if inmemonly:
+        return os.environ[path_var]
+    if PLATFORM == 'Windows':
+        root_key = 'HKEY_LOCAL_MACHINE' if usesyspath else 'HKEY_CURRENT_USER'
+        full_key=f'{root_key}\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment'
+        env_paths = load_winreg_record(full_key, path_var)
+        # SoC: here bindir must be a newcomer
+        if env_paths[-1] != os.pathsep:
+            env_paths += os.pathsep
+        env_paths += f'{bindir}{os.pathsep}'
+        save_winreg_record(full_key, path_var, env_paths)
+        return os.environ[path_var]
+    # posix
+    cfg_file = get_posix_shell_cfgfile()
+    save_lines(cfg_file, [
+        '',
+        f'export {path_var}="${path_var}:{bindir}"',
+        '',
+    ], toappend=True, addlineend=True)
+    return os.environ[path_var]
 
 
 def prepend_to_os_paths(bindir, usesyspath=True, inmemonly=False):
     path_var = 'Path' if PLATFORM == 'Windows' else 'PATH'
-    if bindir.lower() in os.environ[path_var].lower():
-        return
-    if inmemonly:
-        os.environ[path_var] = bindir + os.pathsep + os.environ[path_var]
-        return
-    if platform.system() == 'Windows':
-        import winreg
-        root_key = winreg.HKEY_LOCAL_MACHINE if usesyspath else winreg.HKEY_CURRENT_USER
-        sub_key = r'SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment' if usesyspath else r'Environment'
-        with winreg.ConnectRegistry(None, root_key):
-            with winreg.OpenKey(root_key, sub_key, 0, winreg.KEY_ALL_ACCESS) as key:
-                env_paths, _ = winreg.QueryValueEx(key, path_var)
-                # SoC: here bindir must be a newcomer
-                env_paths = f'{bindir}{os.pathsep}{env_paths}'
-                winreg.SetValueEx(key, path_var, 0, winreg.REG_EXPAND_SZ, env_paths)
-    else:
-        cfg_file = get_posix_shell_cfgfile()
-        save_lines(cfg_file, [
-            '',
-            f'export {path_var}="{bindir}:${path_var}"',
-            '',
-        ], toappend=True, addlineend=True)
     os.environ[path_var] = bindir + os.pathsep + os.environ[path_var]
+    if inmemonly:
+        return os.environ[path_var]
+    if PLATFORM == 'Windows':
+        root_key = 'HKEY_LOCAL_MACHINE' if usesyspath else 'HKEY_CURRENT_USER'
+        full_key = f'{root_key}\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment'
+        env_paths = load_winreg_record(full_key, path_var)
+        # SoC: here bindir must be a newcomer
+        env_paths = f'{bindir}{os.pathsep}{env_paths}'
+        save_winreg_record(full_key, path_var, env_paths)
+        return os.environ[path_var]
+    # posix
+    cfg_file = get_posix_shell_cfgfile()
+    save_lines(cfg_file, [
+        '',
+        f'export {path_var}="{bindir}:${path_var}"',
+        '',
+    ], toappend=True, addlineend=True)
+    return os.environ[path_var]
 
 
 def remove_from_os_paths(bindir, usesyspath=True, inmemonly=False):
-    path_var = 'Path' if platform.system() == 'Windows' else 'PATH'
-    if bindir.lower() not in os.environ[path_var].lower():
-        return
+    """
+    - on windows, bindir is missing from PATH before restarting explorer if freshly added
+    - so we don't lazy remove to avoid miss
+    """
+    path_var = 'Path' if PLATFORM == 'Windows' else 'PATH'
     os.environ[path_var] = os.environ[path_var].replace(bindir, '')
     if inmemonly:
-        return
-    if platform.system() == 'Windows':
-        import winreg
-        root_key = winreg.HKEY_LOCAL_MACHINE if usesyspath else winreg.HKEY_CURRENT_USER
-        sub_key = r'SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment' if usesyspath else r'Environment'
-        with winreg.ConnectRegistry(None, root_key):
-            with winreg.OpenKey(root_key, sub_key, 0, winreg.KEY_ALL_ACCESS) as key:
-                env_paths, _ = winreg.QueryValueEx(key, path_var)
-                keepers = [path for path in env_paths.split(os.pathsep) if path.lower() != bindir.lower()]
-                env_paths = os.pathsep.join(keepers)
-                winreg.SetValueEx(key, path_var, 0, winreg.REG_EXPAND_SZ, env_paths)
-    else:
-        cfg_file = get_posix_shell_cfgfile()
-        # escape to handle metachars
-        pattern_prepend = f'export {path_var}="{bindir}:${path_var}"'
-        pattern_append = f'export {path_var}="${path_var}:{bindir}"'
-        str_map = {
-            pattern_append: '',
-            pattern_prepend: '',
-        }
-        substitute_keywords_in_file(cfg_file, str_map, useliteral=True)
+        return os.environ[path_var]
+    if PLATFORM == 'Windows':
+        root_key = 'HKEY_LOCAL_MACHINE' if usesyspath else 'HKEY_CURRENT_USER'
+        full_key = f'{root_key}\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment'
+        env_paths = load_winreg_record(full_key, path_var)
+        keepers = [path for path in env_paths.split(os.pathsep) if path.lower() != bindir.lower()]
+        env_paths = os.pathsep.join(keepers)
+        save_winreg_record(full_key, path_var, env_paths)
+        return os.environ[path_var]
+    cfg_file = get_posix_shell_cfgfile()
+    # escape to handle metachars
+    pattern_prepend = f'export {path_var}="{bindir}:${path_var}"'
+    pattern_append = f'export {path_var}="${path_var}:{bindir}"'
+    str_map = {
+        pattern_append: '',
+        pattern_prepend: '',
+    }
+    substitute_keywords_in_file(cfg_file, str_map, useliteral=True)
+    return os.environ[path_var]
+
+
+def load_winreg_record(full_key, var):
+    """
+    - windows registry record path
+      - root_key/sub_key/var
+    - input should be the full path to the key, and the variable name
+    - support posix-style path
+    """
+    reg_key = normalize_path(full_key, 'win')
+    key_comps = reg_key.split(os.sep)
+    root_key = getattr(winreg, key_comps[0])
+    sub_key = os.sep.join(key_comps[1:])
+    with winreg.ConnectRegistry(None, root_key):
+        with winreg.OpenKey(root_key, sub_key, 0, winreg.KEY_ALL_ACCESS) as key:
+            value, _ = winreg.QueryValueEx(key, var)
+    return value
+
+
+def save_winreg_record(full_key, var, value, value_type=winreg.REG_EXPAND_SZ):
+    """
+    refer value_type to: https://docs.python.org/3/library/winreg.html#value-types
+    """
+    reg_key = normalize_path(full_key, 'win')
+    key_comps = reg_key.split(os.sep)
+    root_key = getattr(winreg, key_comps[0])
+    sub_key = os.sep.join(key_comps[1:])
+    with winreg.ConnectRegistry(None, root_key):
+        with winreg.OpenKey(root_key, sub_key, 0, winreg.KEY_ALL_ACCESS) as key:
+            winreg.SetValueEx(key, var, 0, value_type, value)
 
 
 def run_cmd(cmd, cwd=None, logger=None, check=True, shell=False, verbose=False, useexception=True):
@@ -1370,7 +1392,7 @@ def duplicate_dir(srcdir, dstdir):
         cmd = ['xcopy', '/I', '/E', '/Q', '/Y', sdir, f'{ddir}\\']
         run_cmd(cmd, sdir)
 
-    if platform.system() == 'Windows':
+    if PLATFORM == 'Windows':
         _dup_dir_windows(srcdir, dstdir)
         return
     _dup_dir_posix(srcdir, dstdir)
@@ -1638,7 +1660,7 @@ def get_drivewise_commondirs(paths: list[str]):
       - path\\to\\dir9\\file7
     - on windows, we normalize all paths to lowercase
     """
-    if is_posix := platform.system() != 'Windows':
+    if is_posix := PLATFORM != 'Windows':
         single_cm_dir = osp.commonpath(paths)
         if len(paths) == 1:
             single_cm_dir = osp.dirname(single_cm_dir)
@@ -1677,7 +1699,7 @@ def split_platform_drive(path):
       - '' for relative paths
     - on windows, convert drive letter to use lower case
     """
-    if platform.system() != 'Windows':
+    if PLATFORM != 'Windows':
         drive, relpath = osp.splitdrive(path)
         drive = '/' if relpath.startswith('/') else ''
         return drive, relpath[1:] if drive else relpath
@@ -1719,7 +1741,7 @@ def open_in_editor(path, foreground=False):
     # explorer.exe only supports \
     # start.exe supports / and \, but is not an app cmd but open a prompt
     path = normalize_paths([path])[0]
-    cmd = [cmds[platform.system()], path]
+    cmd = [cmds[PLATFORM], path]
     if foreground:
         run_cmd(cmd, check=PLATFORM != 'Windows')
         return
@@ -1963,7 +1985,7 @@ def uninstall_by_homebrew(pkg, lazybin=None):
 def validate_platform(supported_plats):
     if isinstance(supported_plats, str):
         supported_plats = [supported_plats]
-    if (plat := platform.system()) in supported_plats:
+    if (plat := PLATFORM) in supported_plats:
         return
     raise NotImplementedError(f'Expected to run on {supported_plats}, but got {plat}')
 
@@ -1991,7 +2013,7 @@ def lazy_load_listfile(single_or_listfile: str, ext='.list'):
 
 def normalize_path(path, mode='native'):
     if mode == 'native':
-        return path.replace('/', '\\') if platform.system() == 'Windows' else path.replace('\\', '/')
+        return path.replace('/', '\\') if PLATFORM == 'Windows' else path.replace('\\', '/')
     if mode == 'posix':
         return path.replace('\\', '/')
     if mode == 'win':
@@ -2039,7 +2061,7 @@ def read_link(link_path):
     cross-platform symlink/shortcut resolver
     - Windows .lnk can be a command, thus can contain source-path and arguments
     """
-    if platform.system() != 'Windows':
+    if PLATFORM != 'Windows':
         try:
             return os.readlink(link_path)
         except OSError as is_win_lnk:
@@ -2074,7 +2096,7 @@ def is_link(path):
     - osp.islink(path) returns True when symlink exists
     - osp.isdir(path) / osp.exists(path) returns True only when linked source is an existing dir
     """
-    if platform.system() != 'Windows':
+    if PLATFORM != 'Windows':
         return osp.islink(path)
     # windows
     src = read_link(path)
@@ -2221,7 +2243,7 @@ def mem_caching(maxsize=None):
 
 
 def _test():
-    read_link(r'D:\desktop\_dev\kkpyutil\test\_org\lines.txt.symlink')
+    remove_from_os_paths('missing')
     pass
 
 

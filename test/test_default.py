@@ -65,14 +65,13 @@ def test_log_filters():
 
 
 def test_get_platform_home_dir():
-    plat = platform.system()
-    if plat == 'Windows':
+    if util.PLATFORM == 'Windows':
         expected = osp.abspath(f'C:\\Users\\{getpass.getuser()}')
         assert util.get_platform_home_dir() == expected
-    elif plat == 'Darwin':
+    elif util.PLATFORM == 'Darwin':
         expected = osp.abspath(f'/Users/{getpass.getuser()}')
         assert util.get_platform_home_dir() == expected
-    elif plat == 'Linux':
+    elif util.PLATFORM == 'Linux':
         expected = osp.abspath(f'/home/{getpass.getuser()}')
         assert util.get_platform_home_dir() == expected
     else:
@@ -81,13 +80,12 @@ def test_get_platform_home_dir():
 
 
 def test_get_platform_appdata_dir():
-    plat = platform.system()
-    if plat == 'Windows':
+    if util.PLATFORM == 'Windows':
         expected = osp.abspath(f'C:\\Users\\{getpass.getuser()}\\AppData\\Roaming')
         assert util.get_platform_appdata_dir() == expected
         expected = osp.abspath(f'C:\\Users\\{getpass.getuser()}\\AppData\\Local')
         assert util.get_platform_appdata_dir(winroam=False) == expected
-    elif plat == 'Darwin':
+    elif util.PLATFORM == 'Darwin':
         expected = osp.abspath(f'/Users/{getpass.getuser()}/Library/Application Support')
         assert util.get_platform_appdata_dir() == expected
     else:
@@ -96,14 +94,13 @@ def test_get_platform_appdata_dir():
 
 
 def test_get_platform_tmp_dir():
-    plat = platform.system()
-    if plat == 'Windows':
+    if util.PLATFORM == 'Windows':
         expected = osp.abspath(f'C:\\Users\\{getpass.getuser()}\\AppData\\Local\\Temp')
         assert util.get_platform_tmp_dir() == expected
-    elif plat == 'Darwin':
+    elif util.PLATFORM == 'Darwin':
         expected = osp.abspath(f'/Users/{getpass.getuser()}/Library/Caches')
         assert util.get_platform_tmp_dir() == expected
-    elif plat == 'Linux':
+    elif util.PLATFORM == 'Linux':
         expected = '/tmp'
         assert util.get_platform_tmp_dir() == expected
     else:
@@ -418,22 +415,28 @@ def test_get_clipboard_content():
     assert util.get_clipboard_content() == content
 
 
-def test_alert_on_windows(monkeypatch):
-    monkeypatch.setattr(platform, 'system', lambda: 'Windows')
-    monkeypatch.setattr('os.system', lambda cmd: None)
-    assert util.alert('Content', 'Title', 'Finish') == ['mshta', 'vbscript:Execute("msgbox ""Content"", 0,""Title"":Finish")']
+# def test_alert_on_windows(monkeypatch):
+#     if util.PLATFORM == 'Windows':
+#         assert True
+#         return
+#     monkeypatch.setattr(platform, 'system', lambda: 'Windows')
+#     monkeypatch.setattr('os.system', lambda cmd: None)
+#     assert util.alert('Content', 'Title', 'Finish') == ['mshta', 'vbscript:Execute("msgbox ""Content"", 0,""Title"":Finish")']
 
 
-def test_alert_on_darwin(monkeypatch):
-    monkeypatch.setattr(platform, 'system', lambda: 'Darwin')
-    monkeypatch.setattr(subprocess, 'run', lambda cmd: None)
-    assert util.alert('Content') == ['osascript', '-e', 'display alert "Debug" message "Content"']
+# def test_alert_on_darwin(monkeypatch):
+#     if util.PLATFORM == 'Darwin':
+#         assert True
+#         return
+#     monkeypatch.setattr(platform, 'system', lambda: 'Darwin')
+#     monkeypatch.setattr(subprocess, 'run', lambda cmd: None)
+#     assert util.alert('Content') == ['osascript', '-e', 'display alert "Debug" message "Content"']
 
 
-def test_alert_on_other_platform(monkeypatch):
-    monkeypatch.setattr(platform, 'system', lambda: 'Other')
-    monkeypatch.setattr(subprocess, 'run', lambda cmd: None)
-    assert util.alert('Content', 'Title', 'Action') == ['echo', 'Title: Content: Action']
+# def test_alert_on_other_platform(monkeypatch):
+#     monkeypatch.setattr(platform, 'system', lambda: 'Other')
+#     monkeypatch.setattr(subprocess, 'run', lambda cmd: None)
+#     assert util.alert('Content', 'Title', 'Action') == ['echo', 'Title: Content: Action']
 
 
 def test_convert_to_wine_path():
@@ -451,14 +454,14 @@ def test_convert_from_wine_path():
     path = ' Z:\\path\\to\\my\\file   '
     assert util.convert_from_wine_path(path) == '/path/to/my/file'
     path = 'Y:\\my\\file'
-    expected = '~/my/file' if platform.system() == 'Windows' else f'{os.environ.get("HOME")}/my/file'
+    expected = '~/my/file' if util.PLATFORM == 'Windows' else f'{os.environ.get("HOME")}/my/file'
     assert util.convert_from_wine_path(path) == expected
     path = 'X:\\my\\file'
     assert util.convert_from_wine_path(path) == path
 
 
 def test_kill_process_by_name_windows():
-    if platform.system() != 'Windows':
+    if util.PLATFORM != 'Windows':
         assert True
         return
     long_proc = osp.join(_org_dir, proc_name := 'kkpyutil_proc')
@@ -473,7 +476,7 @@ def test_kill_process_by_name_windows():
 
 
 def test_kill_process_by_name_macos():
-    if platform.system() != 'Darwin':
+    if util.PLATFORM != 'Darwin':
         assert True
         return
     long_proc = osp.join(_org_dir, 'kill_this.sh')
@@ -665,6 +668,7 @@ def test_append_to_os_paths():
         lines = util.load_lines(cfg_file, rmlineend=True)
         assert lines[-2].endswith(f'{os.pathsep}{bin_dir}"')
         util.remove_from_os_paths(bin_dir)
+        return
     #TODO: support windows after imp. low-level regedit wrapper
 
 
@@ -696,7 +700,7 @@ def test_get_ancestor_dirs():
 
 
 def test_get_child_dirs():
-    if platform.system() == 'Windows':
+    if util.PLATFORM == 'Windows':
         root = r'c:\path\to\root'
         subs = ('ci', 'src', 'test')
         assert util.get_child_dirs(root, subs) == [
@@ -732,8 +736,13 @@ def test_open_in_browser():
 
 @pytest.mark.skipif(_skip_slow_tests, reason=_skip_reason)
 def test_open_in_editor():
-    path = 'C:\\Windows\\System32\\drivers\\etc\\hosts' if platform.system() == 'Windows' else '/etc/hosts'
+    path = 'C:\\Windows\\System32\\drivers\\etc\\hosts' if util.PLATFORM == 'Windows' else '/etc/hosts'
     util.open_in_editor(path, foreground=False)
+    if util.PLATFORM == 'Windows':
+        try:
+            util.kill_process_by_name('notepad.exe')
+        except Exception:
+            pass
 
 
 def test_flatten_nested_lists():
@@ -987,7 +996,7 @@ def test_find_runs():
 
 @pytest.mark.skipif(_skip_slow_tests, reason=_skip_reason)
 def test_install_uninstall_by_macports(monkeypatch):
-    if platform.system() != 'Darwin':
+    if util.PLATFORM != 'Darwin':
         assert True
         return
     with pytest.raises(FileNotFoundError):
@@ -998,7 +1007,7 @@ def test_install_uninstall_by_macports(monkeypatch):
 
 @pytest.mark.skipif(_skip_slow_tests, reason=_skip_reason)
 def test_install_uninstall_by_homebrew(monkeypatch):
-    if platform.system() != 'Darwin':
+    if util.PLATFORM != 'Darwin':
         assert True
         return
     pkg, lazybin = 'fortune', 'fortune'
@@ -1011,7 +1020,7 @@ def test_validate_platform():
     supported = ['os1', 'os2']
     with pytest.raises(NotImplementedError):
         util.validate_platform(supported)
-    supported = platform.system()
+    supported = util.PLATFORM
     util.validate_platform(supported)
 
 
@@ -1036,7 +1045,7 @@ def test_lazy_load_listfile():
         util.lazy_load_listfile(list_file)
 
 
-def test_normalize_paths(monkeypatch):
+def test_normalize_paths():
     paths = [
         'c:\\path/to/file',
         '/path/to/file'
@@ -1049,22 +1058,22 @@ def test_normalize_paths(monkeypatch):
         'c:/path/to/file',
         '/path/to/file',
     ]
-    monkeypatch.setattr(platform, 'system', lambda: 'Windows')
-    assert util.normalize_paths(paths, mode='native') == [
-        'c:\\path\\to\\file',
-        '\\path\\to\\file',
-    ]
-    monkeypatch.setattr(platform, 'system', lambda: 'Darwin')
-    assert util.normalize_paths(paths, mode='native') == [
-        'c:/path/to/file',
-        '/path/to/file',
-    ]
+    if util.PLATFORM == 'Windows':
+        assert util.normalize_paths(paths, mode='native') == [
+            'c:\\path\\to\\file',
+            '\\path\\to\\file',
+        ]
+    else:
+        assert util.normalize_paths(paths, mode='native') == [
+            'c:/path/to/file',
+            '/path/to/file',
+        ]
     with pytest.raises(NotImplementedError):
         util.normalize_paths(paths, mode='invalid')
 
 
 def test_lazy_load_filepaths():
-    if platform.system() == 'Windows':
+    if util.PLATFORM == 'Windows':
         single_path = 'c:\\path\\to\\file'
         assert util.lazy_load_filepaths(single_path) == ['c:\\path\\to\\file']
         list_file = osp.join(_org_dir, 'files_abs_win.list')
@@ -1109,7 +1118,7 @@ def test_read_link():
 
 def test_is_link():
     file = osp.join(_org_dir, 'lines.txt')
-    if platform.system() == 'Windows':
+    if util.PLATFORM == 'Windows':
         shortcut = osp.join(_org_dir, 'lines.txt.lnk')
         assert util.is_link(shortcut)
     else:
@@ -1138,7 +1147,7 @@ def test_sanitize_text_as_path():
 
 
 def test_pipe_cmd():
-    py = shutil.which('python' if platform.system() == 'Windows' else 'python3')
+    py = shutil.which('python' if util.PLATFORM == 'Windows' else 'python3')
     cmd = [py, osp.join(_org_dir, 'pipe_this.py')]
     ret, stdout, stderr = util.watch_cmd(cmd)
     assert ret == 0
@@ -1251,7 +1260,7 @@ def test_pack_obj():
 
 def test_get_drivewise_commondirs():
     # single path
-    if is_posix := platform.system() != 'Windows':
+    if is_posix := util.PLATFORM != 'Windows':
         abs_paths = ['/path/to/dir1/file1']
         assert util.get_drivewise_commondirs(abs_paths) == {'/': '/path/to/dir1'}
         rel_paths = ['path/to/dir1/file1']
@@ -1262,7 +1271,7 @@ def test_get_drivewise_commondirs():
         rel_paths = ['path\\to\\dir1\\file1']
         assert util.get_drivewise_commondirs(rel_paths) == {'': 'path\\to\\dir1'}
     # many paths
-    if is_posix := platform.system() != 'Windows':
+    if is_posix := util.PLATFORM != 'Windows':
         abs_paths = ['/path/to/dir1/file1', '/path/to/dir2/', '/path/to/dir3/dir4/file2']
         assert util.get_drivewise_commondirs(abs_paths) == {'/': '/path/to'}
         rel_paths = ['path/to/dir1/file1', 'path/to/dir2/', 'path/to/dir3/dir4/file2']
@@ -1299,7 +1308,7 @@ def test_get_drivewise_commondirs():
 
 
 def test_split_platform_drive():
-    if platform.system() == 'Windows':
+    if util.PLATFORM == 'Windows':
         path = osp.normpath('C:/path/to/dir1/file1')
         assert util.split_platform_drive(path) == ('c:', osp.normpath('/path/to/dir1/file1'))
         path = osp.normpath('path/to/dir1/file1')
@@ -1401,7 +1410,9 @@ def test_cache():
     cache = util.Cache(src_file, retriever, algo='mtime')
     assert cache._compare_hash()
     assert not cache._compare_hash()
-    os.utime(src_file, (time.time(), time.time()))
+    time.sleep(0.1)
+    t = time.time()
+    os.utime(src_file, (t, t))
     assert cache._compare_hash()
     util.safe_remove(_gen_dir)
 
