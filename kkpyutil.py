@@ -1710,7 +1710,7 @@ def open_in_browser(path, window='tab', islocal=True, foreground=False):
     return url
 
 
-def open_in_editor(path, foreground=True):
+def open_in_editor(path, foreground=False):
     cmds = {
         'Windows': 'explorer' if osp.splitext(path)[1] else 'notepad',
         'Darwin': 'open',

@@ -1,6 +1,6 @@
 import sys
 import os.path as osp
-sys.path.append(osp.abspath(f'{__file__}/../..'))
+sys.path.append(osp.abspath(f'{__file__}/../../..'))
 import kkpyutil as util
 
 
