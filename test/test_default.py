@@ -619,23 +619,12 @@ def test_await_while():
     assert cond.met()
 
 
-def test_await_lockfile():
-    def _delayed_unlock():
-        time.sleep(2)
-        util.safe_remove(lock_dir)
-
+def test_await_lockfile_until_appear():
     def _delayed_lock():
         time.sleep(2)
         os.makedirs(lock_dir, exist_ok=True)
     # until gone
     lock_dir = _gen_dir
-    # os.makedirs(lock_dir, exist_ok=True)
-    # th = threading.Thread(target=_delayed_unlock)
-    # th.start()
-    # util.await_lockfile(lock_dir)
-    # th.join()
-    # assert not osp.isdir(lock_dir)
-    # until appear
     util.safe_remove(lock_dir)
     th = threading.Thread(target=_delayed_lock)
     th.start()
@@ -643,6 +632,22 @@ def test_await_lockfile():
     th.join()
     assert osp.isdir(lock_dir)
     util.safe_remove(lock_dir)
+
+
+@pytest.mark.skipif(util.PLATFORM == 'Windows', reason='hangs during batch-testing on Windows, although passes in all other cases')
+def test_await_lockfile_until_gone():
+    def _delayed_unlock():
+        time.sleep(2)
+        util.safe_remove(lock_dir)
+
+    # until gone
+    lock_dir = _gen_dir
+    os.makedirs(lock_dir, exist_ok=True)
+    th = threading.Thread(target=_delayed_unlock)
+    th.start()
+    util.await_lockfile(lock_dir)
+    th.join()
+    assert not osp.isdir(lock_dir)
 
 
 def test_append_to_os_paths():

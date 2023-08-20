@@ -2102,8 +2102,6 @@ def safe_remove(path, logger=None):
     if not osp.exists(path):
         logger = logger or glogger
         logger.debug(f'Missing file/folder: {path}; skipped removing')
-        for hdl in logger.handlers:
-            hdl.close()
         return
     if osp.isdir(path):
         remove_tree(path, safe=True)
