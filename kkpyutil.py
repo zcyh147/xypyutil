@@ -1693,7 +1693,7 @@ def open_in_browser(path, window='tab', islocal=True, foreground=False):
     """
     import webbrowser as wb
     import urllib.parse
-    if no_ext := not osp.splitext(path)[1]:
+    if no_ext_on_windows := PLATFORM == 'Windows' and not osp.splitext(path)[1]:
         open_in_editor(path, foreground)
         return path
     url_path = urllib.parse.quote(normalize_path(path, mode='posix').lstrip('/')) if islocal else path
