@@ -690,6 +690,27 @@ def test_prepend_to_os_paths():
     # TODO: support windows after imp. low-level regedit wrapper
 
 
+def test_run_cmd():
+    """
+    only test rare code paths
+    """
+    # no exception
+    cmd = ['missing']
+    proc = util.run_cmd(cmd, useexception=False)
+    assert proc.returncode != 0
+    assert 'missing' in proc.stderr.decode(util.LOCALE_CODEC)
+    # child cmd exception
+    cmd = ['poetry', 'run', 'python', osp.join(_org_dir, 'my_cmd.py')]
+    with pytest.raises(subprocess.CalledProcessError):
+        util.run_cmd(cmd)
+    # generic exception
+    cmd = ['poetry', 'run', 'python', '-c', 'raise Exception("failed")']
+    cmd = ['missing']
+    with pytest.raises(Exception) as e:
+        util.run_cmd(cmd, useexception=True)
+        # assert 'failed' in e.value
+
+
 def test_get_ancestor_dirs():
     file = osp.join(_org_dir, 'exclusive.py')
     dirs = util.get_ancestor_dirs(file, depth=3)

@@ -916,6 +916,7 @@ def run_cmd(cmd, cwd=None, logger=None, check=True, shell=False, verbose=False, 
 cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
 """
     local_info(cmd_log)
+    proc = None
     try:
         proc = subprocess.run(cmd, check=check, shell=shell, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
         stdout_log = proc.stdout.decode(LOCALE_CODEC, errors='backslashreplace')
@@ -925,15 +926,19 @@ cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
         if stderr_log:
             local_error(f'stderr:\n{stderr_log}')
     except subprocess.CalledProcessError as e:
+        # generic error, grandchild_cmd error with noexception enabled
         stdout_log = f'stdout:\n{e.stdout.decode(LOCALE_CODEC, errors="backslashreplace")}'
         stderr_log = f'stderr:\n{e.stderr.decode(LOCALE_CODEC, errors="backslashreplace")}'
         local_info(stdout_log)
         local_error(stderr_log)
-        raise e
+        if useexception:
+            raise e
     except Exception as e:
-        # no need to have header, exception has it all
+        # cmd missing ...FileNotFound
+        # PermissionError, OSError, TimeoutExpired
         local_error(e)
-        raise e
+        if useexception:
+            raise e
     return proc
 
 
