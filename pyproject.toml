@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "kkpyutil"
 version = "0.153.0"
-description = "zero-dependency utility functions and classes"
+description = "zero-dependency Python utility collection with an emphasis on systems programming and DevOps"
 authors = ["Beinan Li <li.beinan@gmail.com>"]
 maintainers = ["Beinan Li <li.beinan@gmail.com>"]
 license = "MIT"

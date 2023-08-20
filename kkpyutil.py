@@ -603,11 +603,23 @@ def init_translator(localedir, domain='all', langs=None):
     """
     - select locale and set up translator based on system language
     - the leading language in langs, if any, is selected to override current locale
+    - locale code differs b/w Windows and macOS
+      - Windows: refer to: https://learn.microsoft.com/en-us/windows-hardware/manufacture/desktop/available-language-packs-for-windows?view=windows-11
+      - macOS: same as gettext
     """
+    def _get_locale_code(loc):
+        locale_code_map = {
+            'Chinese (Simplified)_China': 'zh_CN',
+            'Chinese (Traditional)_Taiwan': 'zh_TW',
+            'English (United States)': 'en_US',
+        }
+        return locale_code_map[loc]
     if langs:
         cur_langs = langs
     else:
         cur_locale, encoding = locale.getlocale()
+        if PLATFORM == 'Windows':
+            cur_locale = _get_locale_code(cur_locale)
         cur_langs = [cur_locale] if cur_locale else ['en']
     try:
         translator = gettext.translation(domain, localedir=localedir, languages=cur_langs)
@@ -617,6 +629,7 @@ def init_translator(localedir, domain='all', langs=None):
         # No translation files found for domain. 
         # Ignore this message if called for the first time.
         trans = str
+
     return trans
 
 
@@ -1672,13 +1685,17 @@ def split_platform_drive(path):
     return drive.lower(), relpath
 
 
-def open_in_browser(path, window='tab', islocal=True):
+def open_in_browser(path, window='tab', islocal=True, foreground=False):
     """
     - path must be absolute
     - widows path must be converted to posix
+    - on windows, file without extension prompts for associated program; so notepad is used to avoid blocking
     """
     import webbrowser as wb
     import urllib.parse
+    if no_ext := not osp.splitext(path)[1]:
+        open_in_editor(path, foreground)
+        return path
     url_path = urllib.parse.quote(normalize_path(path, mode='posix').lstrip('/')) if islocal else path
     if islocal:
         # fix drive-letter false-alarm: 'file://C%3A/
@@ -1693,9 +1710,9 @@ def open_in_browser(path, window='tab', islocal=True):
     return url
 
 
-def open_in_editor(path):
+def open_in_editor(path, foreground=True):
     cmds = {
-        'Windows': 'explorer',
+        'Windows': 'explorer' if osp.splitext(path)[1] else 'notepad',
         'Darwin': 'open',
         'Linux': 'xdg-open',  # ubuntu
     }
@@ -1703,8 +1720,10 @@ def open_in_editor(path):
     # start.exe supports / and \, but is not an app cmd but open a prompt
     path = normalize_paths([path])[0]
     cmd = [cmds[platform.system()], path]
-    check = platform.system() != 'Windows'
-    run_cmd(cmd, check=check)
+    if foreground:
+        run_cmd(cmd, check=PLATFORM != 'Windows')
+        return
+    run_daemon(cmd)
 
 
 def flatten_nested_lists(mylist):
@@ -2021,9 +2040,13 @@ def read_link(link_path):
     - Windows .lnk can be a command, thus can contain source-path and arguments
     """
     if platform.system() != 'Windows':
-        return os.readlink(link_path)
-    if osp.islink(link_path):
-        return os.readlink(link_path)
+        try:
+            return os.readlink(link_path)
+        except OSError as is_win_lnk:
+            # consistent with os.readlink(symlink) on Windows
+            return ''
+    # windows: no way to support symlink
+    # because results of osp.islink(), os.readlink() always mix up with .lnk
     # get_target implementation by hannes, https://gist.github.com/Winand/997ed38269e899eb561991a0c663fa49
     ps_command = \
         "$WSShell = New-Object -ComObject Wscript.Shell;" \
@@ -2037,21 +2060,23 @@ def read_link(link_path):
 
 def is_link(path):
     """
+    support .lnk and symlink:
     on windows
     - osp.islink(path) always returns False
+    - os.readlink(path.symlink) returns empty str ''
     - os.readlink(path) throws when link itself does not exist
     - osp.isdir(path) returns True only when linked source is an existing dir
     - os.readlink(file) raises OSError WinError 4390
     - os.readlink(file.lnk) raises OSError WinError 4390
     - osp.isfile(file.lnk) returns True
     on mac
-    - osp.islink(path) returns True when link exists
+    - osp.islink(path.lnk) returns false
+    - osp.islink(path) returns True when symlink exists
     - osp.isdir(path) / osp.exists(path) returns True only when linked source is an existing dir
     """
     if platform.system() != 'Windows':
         return osp.islink(path)
-    if osp.islink(path):  # posix symlink
-        return True
+    # windows
     src = read_link(path)
     return src and src != path
 
@@ -2077,6 +2102,8 @@ def safe_remove(path, logger=None):
     if not osp.exists(path):
         logger = logger or glogger
         logger.debug(f'Missing file/folder: {path}; skipped removing')
+        for hdl in logger.handlers:
+            hdl.close()
         return
     if osp.isdir(path):
         remove_tree(path, safe=True)
@@ -2196,6 +2223,7 @@ def mem_caching(maxsize=None):
 
 
 def _test():
+    read_link(r'D:\desktop\_dev\kkpyutil\test\_org\lines.txt.symlink')
     pass
 
 
