@@ -2197,7 +2197,7 @@ class Cache:
         self.cacheFile = osp.join(cache_dir, f'{uid}.{cache_type}.json')
         self.hashAlgo = algo
         # first comparison needs
-        self.prevSrcHash = load_json(self.cacheFile).get('cacheHash') if osp.isfile(self.cacheFile) else None
+        self.prevSrcHash = load_json(self.cacheFile).get('hash') if osp.isfile(self.cacheFile) else None
 
     def retrieve(self):
         if self._compare_hash():
