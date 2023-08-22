@@ -2202,7 +2202,7 @@ class Cache:
     def retrieve(self):
         if self._compare_hash():
             return self.update()
-        return load_json(self.cacheFile)
+        return load_json(self.cacheFile)['data']
 
     def update(self):
         """
@@ -2210,8 +2210,11 @@ class Cache:
         - useful when app needs to force update cache
         """
         data = self.retriever(self.srcURL)
-        data['cacheHash'] = self.prevSrcHash
-        save_json(self.cacheFile, data)
+        container = {
+            'data': data,
+            'hash': self.prevSrcHash,
+        }
+        save_json(self.cacheFile, container)
         return data
 
     def _compare_hash(self):
