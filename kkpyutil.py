@@ -267,8 +267,7 @@ def load_json(path, as_namespace=False, encoding=TXT_CODEC):
     """
     with open(path, 'r', encoding=encoding, errors='backslashreplace', newline=None) as f:
         text = f.read()
-    # Add object_pairs_hook=collections.OrderedDict hook for py3.5 and lower.
-    return json.loads(text, object_pairs_hook=collections.OrderedDict) if not as_namespace else json.loads(text, object_hook=lambda d: SimpleNamespace(**d))
+    return json.loads(text) if not as_namespace else json.loads(text, object_hook=lambda d: SimpleNamespace(**d))
 
 
 def save_json(path, config, encoding=TXT_CODEC):
@@ -2211,7 +2210,7 @@ class Cache:
         - useful when app needs to force update cache
         """
         data = self.retriever(self.srcURL)
-        data.update({'cacheHash': self.prevSrcHash})
+        data['cacheHash'] = self.prevSrcHash
         save_json(self.cacheFile, data)
         return data
 
