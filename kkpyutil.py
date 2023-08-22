@@ -613,9 +613,9 @@ def init_translator(localedir, domain='all', langs=None):
         locale_code_map = {
             'Chinese (Simplified)_China': 'zh_CN',
             'Chinese (Traditional)_Taiwan': 'zh_TW',
-            'English (United States)': 'en_US',
+            'English_United States': 'en_US',
         }
-        return locale_code_map[loc]
+        return locale_code_map.get(loc, 'en_US')
     if langs:
         cur_langs = langs
     else:
