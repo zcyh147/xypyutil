@@ -764,6 +764,8 @@ def test_open_in_editor():
             util.kill_process_by_name('notepad.exe')
         except Exception:
             pass
+    # folder
+    util.open_in_editor(_org_dir, foreground=True)
 
 
 def test_flatten_nested_lists():

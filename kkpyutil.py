@@ -1740,8 +1740,12 @@ def open_in_browser(path, window='tab', islocal=True, foreground=False):
 
 
 def open_in_editor(path, foreground=False):
+    """
+    - support both file and folder
+    """
+    is_extless_file = osp.isfile(path) and not osp.splitext(path)[1]
     cmds = {
-        'Windows': 'explorer' if osp.splitext(path)[1] else 'notepad',
+        'Windows': 'notepad' if is_extless_file else 'explorer',
         'Darwin': 'open',
         'Linux': 'xdg-open',  # ubuntu
     }
