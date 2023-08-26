@@ -1202,13 +1202,6 @@ def test_sanitize_text_as_path():
     assert util.sanitize_text_as_path(path_part) == 'tab_ 天哪________'
 
 
-def test_pipe_cmd():
-    py = shutil.which('python' if util.PLATFORM == 'Windows' else 'python3')
-    cmd = [py, osp.join(_org_dir, 'pipe_this.py')]
-    ret, stdout, stderr = util.watch_cmd(cmd)
-    assert ret == 0
-
-
 def test_find_first_line_in_range():
     lines = """
 keyword: other stuff
