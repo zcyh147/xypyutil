@@ -900,20 +900,19 @@ def save_winreg_record(full_key, var, value, value_type=winreg.REG_EXPAND_SZ if 
 
 def run_cmd(cmd, cwd=None, logger=None, check=True, shell=False, verbose=False, useexception=True):
     """
-    Use shell==True with autotools where new shell is needed to treat the entire command option sequence as a command,
+    - Use shell==True with autotools where new shell is needed to treat the entire command option sequence as a command,
     e.g., shell=True means running sh -c ./configure CFLAGS="..."
+    - we do not use check=False to supress exception because that'd leave app no way to tell if child-proc succeeded or not
+    - instead, we catch CallProcessError but avoid rethrow, and then return error code and other key diagnostics to app
     """
     logger = logger or glogger
     console_info = logger.info if logger and verbose else logger.debug
-    if return_error_proc := not useexception:
-        check, shell = False, True
     # show cmdline with or without exceptions
     cmd_log = f"""\
 {' '.join(cmd)}
 cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
 """
     logger.info(cmd_log)
-    proc = None
     try:
         proc = subprocess.run(cmd, check=check, shell=shell, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
         stdout_log = proc.stdout.decode(LOCALE_CODEC, errors='backslashreplace')
@@ -923,6 +922,7 @@ cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
         if stderr_log:
             logger.error(f'stderr:\n{stderr_log}')
     # subprocess started but failed halfway: check=True, proc returns non-zero
+    # won't trigger this exception when useexception=True
     except subprocess.CalledProcessError as e:
         # generic error, grandchild_cmd error with noexception enabled
         stdout_log = f'stdout:\n{e.stdout.decode(LOCALE_CODEC, errors="backslashreplace")}'
