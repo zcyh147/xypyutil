@@ -738,6 +738,21 @@ def test_get_ancestor_dirs():
     assert dirs == [_case_dir, _src_dir]
 
 
+def test_watch_cmd():
+    # Prepare logger if necessary (here we use Python's built-in logging)
+    import logging
+    logger = logging.getLogger("watch_cmd_test")
+    logging.basicConfig(level=logging.INFO)
+
+    # The command to run the test_output.py script
+    cmd = ['poetry', 'run', 'python', osp.join(_org_dir, 'child_proc_prints_overtime.py')]
+    # Run watch_cmd and observe the real-time output
+    proc = util.watch_cmd(cmd, cwd=osp.abspath(f'{_case_dir}/..'), logger=logger, verbose=True)
+    assert proc.returncode == 0
+    assert proc.stdout.decode(util.LOCALE_CODEC) == 'Starting...\nstdout: Count 1\nstdout: Count 2\nEnding...\n'
+    assert proc.stderr.decode(util.LOCALE_CODEC) == ''
+
+
 def test_get_child_dirs():
     if util.PLATFORM == 'Windows':
         root = r'c:\path\to\root'

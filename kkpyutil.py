@@ -909,7 +909,7 @@ def run_cmd(cmd, cwd=None, logger=None, check=True, shell=False, verbose=False, 
         check, shell = False, True
     # show cmdline with or without exceptions
     cmd_log = f"""\
-{' '.join(cmd) if isinstance(cmd, list) else cmd}
+{' '.join(cmd)}
 cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
 """
     logger.info(cmd_log)
@@ -922,6 +922,7 @@ cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
             console_info(f'stdout:\n{stdout_log}')
         if stderr_log:
             logger.error(f'stderr:\n{stderr_log}')
+    # subprocess started but failed halfway: check=True, proc returns non-zero
     except subprocess.CalledProcessError as e:
         # generic error, grandchild_cmd error with noexception enabled
         stdout_log = f'stdout:\n{e.stdout.decode(LOCALE_CODEC, errors="backslashreplace")}'
@@ -930,12 +931,15 @@ cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
         logger.error(stderr_log)
         if useexception:
             raise e
+        return types.SimpleNamespace(returncode=1, stdout=e.stdout, stderr=e.stderr)
+    # subprocess fails to start
     except Exception as e:
         # cmd missing ...FileNotFound
         # PermissionError, OSError, TimeoutExpired
         logger.error(e)
         if useexception:
             raise e
+        return types.SimpleNamespace(returncode=2, stdout='', stderr=str(e).encode(LOCALE_CODEC))
     return proc
 
 
@@ -949,17 +953,18 @@ def run_daemon(cmd, cwd=None, logger=None, shell=False, useexception=True):
 cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
 """)
     # fake the same proc interface
+    proc = None
     try:
         proc = subprocess.Popen(cmd, shell=shell, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
         # won't be able to retrieve log from background
-    # Popen does not raise subprocess.CallProcessError() which is raised by subprocess.run(shell=True) on a process that exits with non-zero
+    # subprocess fails to start
     except Exception as e:
         # cmd missing ...FileNotFound
         # PermissionError, OSError, TimeoutExpired
         logger.error(e)
         if useexception:
             raise e
-        return types.SimpleNamespace(returncode=2, stdout='', stderr=str(e).encode(TXT_CODEC))
+        return types.SimpleNamespace(returncode=2, stdout='', stderr=str(e).encode(LOCALE_CODEC))
     return proc
 
 
@@ -970,10 +975,8 @@ def watch_cmd(cmd, cwd=None, logger=None, shell=False, verbose=False, useexcepti
     def read_stream(stream, output_queue):
         for line in iter(stream.readline, b''):
             output_queue.put(line)
-    local_debug = logger.debug if logger else print
-    local_info = logger.info if logger else print
-    local_error = logger.error if logger else print
-    console_info = local_info if logger and verbose else local_debug
+    logger = logger or glogger
+    console_info = logger.info if logger and verbose else logger.debug
     if return_error_proc := not useexception:
         check, shell = False, True
     # show cmdline with or without exceptions
@@ -981,48 +984,61 @@ def watch_cmd(cmd, cwd=None, logger=None, shell=False, verbose=False, useexcepti
 {' '.join(cmd)}
 cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
 """
-    local_info(cmd_log)
+    logger.info(cmd_log)
+    proc = None
     try:
         # Start the subprocess with the slave ends as its stdout and stderr
-        process = subprocess.Popen(cmd, cwd=cwd, shell=shell, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        proc = subprocess.Popen(cmd, cwd=cwd, shell=shell, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout_queue, stderr_queue = queue.Queue(), queue.Queue()
         # Start separate threads to read from stdout and stderr
-        stdout_thread = threading.Thread(target=read_stream, args=(process.stdout, stdout_queue))
-        stderr_thread = threading.Thread(target=read_stream, args=(process.stderr, stderr_queue))
+        stdout_thread = threading.Thread(target=read_stream, args=(proc.stdout, stdout_queue))
+        stderr_thread = threading.Thread(target=read_stream, args=(proc.stderr, stderr_queue))
         stdout_thread.start()
         stderr_thread.start()
 
+        res_stdout = []
+        res_stderr = []
         # Read and print stdout and stderr in real-time
         while True:
             try:
-                stdout_line = stdout_queue.get_nowait().decode('utf-8')
+                stdout_line = stdout_queue.get_nowait().decode(LOCALE_CODEC)
+                res_stdout.append(stdout_line)
                 sys.stdout.write(stdout_line)
                 sys.stdout.flush()
             except queue.Empty:
                 pass
             try:
-                stderr_line = stderr_queue.get_nowait().decode('utf-8')
+                stderr_line = stderr_queue.get_nowait().decode(LOCALE_CODEC)
+                res_stderr.append(stderr_line)
                 sys.stderr.write(stderr_line)
                 sys.stderr.flush()
             except queue.Empty:
                 pass
-            if process.poll() is not None and stdout_queue.empty() and stderr_queue.empty():
+            if proc.poll() is not None and stdout_queue.empty() and stderr_queue.empty():
                 break
         # Wait for the threads to finish
         stdout_thread.join()
         stderr_thread.join()
-        stdout, stderr = process.communicate()
+        # both are empty at this point
+        stdout, stderr = proc.communicate()
+        proc.stdout, proc.stderr = ''.join(res_stdout).encode(LOCALE_CODEC), ''.join(res_stderr).encode(LOCALE_CODEC)
+        return proc
+    # subprocess started but failed halfway
     except subprocess.CalledProcessError as e:
         stdout_log = f'stdout:\n{e.stdout.decode(LOCALE_CODEC, errors="backslashreplace")}'
         stderr_log = f'stderr:\n{e.stderr.decode(LOCALE_CODEC, errors="backslashreplace")}'
-        local_info(stdout_log)
-        local_error(stderr_log)
-        raise e
+        logger.info(stdout_log)
+        logger.error(stderr_log)
+        if useexception:
+            raise e
+        return types.SimpleNamespace(returncode=1, stdout=e.stdout, stderr=e.stderr)
+    # subprocess fails to start
     except Exception as e:
         # no need to have header, exception has it all
-        local_error(e)
-        raise e
-    return process.returncode, stdout, stderr
+        logger.error(e)
+        if useexception:
+            raise e
+        return types.SimpleNamespace(returncode=2, stdout='', stderr=str(e).encode(LOCALE_CODEC))
 
 
 def extract_call_args(file, caller, callee):
@@ -2257,10 +2273,17 @@ def mem_caching(maxsize=None):
 
 
 def _test():
-    cmd = ['poetry', 'run', 'python', osp.join('/Users/kakyo/Desktop/_dev/kkpyutil/test/_org', 'my_cmd.py')]
-    cmd = ['missing']
-    proc = run_daemon(cmd, cwd='/Users/kakyo/Desktop/_dev/kkpyutil', useexception=False)
-    # proc.communicate()
+    # Prepare logger if necessary (here we use Python's built-in logging)
+    import logging
+    logger = logging.getLogger("watch_cmd_test")
+    logging.basicConfig(level=logging.INFO)
+
+    # The command to run the test_output.py script
+    cmd = ["python3", "/Users/kakyo/Desktop/_tmp/test_output.py"]
+
+    # Run watch_cmd and observe the real-time output
+    retcode, stdout, stderr = watch_cmd(cmd, logger=logger, verbose=True)
+    print(f"Return code: {retcode}")
     pass
 
 
