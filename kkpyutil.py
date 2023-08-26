@@ -976,9 +976,6 @@ def watch_cmd(cmd, cwd=None, logger=None, shell=False, verbose=False, useexcepti
         for line in iter(stream.readline, b''):
             output_queue.put(line)
     logger = logger or glogger
-    console_info = logger.info if logger and verbose else logger.debug
-    if return_error_proc := not useexception:
-        check, shell = False, True
     # show cmdline with or without exceptions
     cmd_log = f"""\
 {' '.join(cmd)}
