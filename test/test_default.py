@@ -700,7 +700,7 @@ def test_run_cmd():
     assert proc.returncode != 0
     assert 'missing' in proc.stderr.decode(util.LOCALE_CODEC)
     # child cmd exception
-    cmd = ['poetry', 'run', 'python', osp.join(_org_dir, 'my_cmd.py')]
+    cmd = ['poetry', 'run', 'python', osp.join(_org_dir, 'my_cmd.py'), 'suberr']
     with pytest.raises(subprocess.CalledProcessError):
         util.run_cmd(cmd)
     # generic exception
@@ -709,6 +709,24 @@ def test_run_cmd():
     with pytest.raises(Exception) as e:
         util.run_cmd(cmd, useexception=True)
         # assert 'failed' in e.value
+
+
+def test_run_daemon():
+    ls = 'dir' if util.PLATFORM == 'Windows' else 'ls'
+    proc = util.run_daemon([ls], useexception=False)
+    proc.communicate()
+    assert proc.returncode == 0
+    # no exception
+    cmd = ['missing']
+    proc = util.run_daemon(cmd, useexception=False)
+    assert proc.returncode == 2
+    assert 'missing' in proc.stderr.decode(util.TXT_CODEC)
+    # child cmd exception
+    # generic exception
+    cmd = ['poetry', 'run', 'python', '-c', 'raise Exception("failed")']
+    cmd = ['missing']
+    with pytest.raises(Exception) as e:
+        util.run_daemon(cmd, useexception=True)
 
 
 def test_get_ancestor_dirs():

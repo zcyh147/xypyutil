@@ -226,7 +226,7 @@ def build_default_logger(logdir, name=None, verbose=False):
     return logging.getLogger(name or 'default')
 
 
-glogger = build_default_logger(logdir=osp.join(get_platform_tmp_dir(), '_util'), name='util', verbose=False)
+glogger = build_default_logger(logdir=osp.join(get_platform_tmp_dir(), '_util'), name='util', verbose=True)
 glogger.setLevel(logging.DEBUG)
 
 
@@ -903,18 +903,16 @@ def run_cmd(cmd, cwd=None, logger=None, check=True, shell=False, verbose=False, 
     Use shell==True with autotools where new shell is needed to treat the entire command option sequence as a command,
     e.g., shell=True means running sh -c ./configure CFLAGS="..."
     """
-    local_debug = logger.debug if logger else print
-    local_info = logger.info if logger else print
-    local_error = logger.error if logger else print
-    console_info = local_info if logger and verbose else local_debug
+    logger = logger or glogger
+    console_info = logger.info if logger and verbose else logger.debug
     if return_error_proc := not useexception:
         check, shell = False, True
     # show cmdline with or without exceptions
     cmd_log = f"""\
-{' '.join(cmd)}
+{' '.join(cmd) if isinstance(cmd, list) else cmd}
 cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
 """
-    local_info(cmd_log)
+    logger.info(cmd_log)
     proc = None
     try:
         proc = subprocess.run(cmd, check=check, shell=shell, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
@@ -923,42 +921,45 @@ cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
         if stdout_log:
             console_info(f'stdout:\n{stdout_log}')
         if stderr_log:
-            local_error(f'stderr:\n{stderr_log}')
+            logger.error(f'stderr:\n{stderr_log}')
     except subprocess.CalledProcessError as e:
         # generic error, grandchild_cmd error with noexception enabled
         stdout_log = f'stdout:\n{e.stdout.decode(LOCALE_CODEC, errors="backslashreplace")}'
         stderr_log = f'stderr:\n{e.stderr.decode(LOCALE_CODEC, errors="backslashreplace")}'
-        local_info(stdout_log)
-        local_error(stderr_log)
+        logger.info(stdout_log)
+        logger.error(stderr_log)
         if useexception:
             raise e
     except Exception as e:
         # cmd missing ...FileNotFound
         # PermissionError, OSError, TimeoutExpired
-        local_error(e)
+        logger.error(e)
         if useexception:
             raise e
     return proc
 
 
-def run_daemon(cmd, cwd=None, logger=None, shell=False):
-    local_debug = logger.debug if logger else print
-    local_info = logger.info if logger else print
-    local_error = logger.error if logger else print
-    local_debug(f"""run in ground:
+def run_daemon(cmd, cwd=None, logger=None, shell=False, useexception=True):
+    """
+    - if returned proc is None, means
+    """
+    logger = logger or glogger
+    logger.debug(f"""run in background:
 {" ".join(cmd)}
 cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
 """)
+    # fake the same proc interface
     try:
         proc = subprocess.Popen(cmd, shell=shell, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
         # won't be able to retrieve log from background
-    except subprocess.CalledProcessError as e:
-        local_info(f'stdout: {e.stdout.decode(LOCALE_CODEC, errors="backslashreplace")}')
-        local_error(f'stderr: {e.stderr.decode(LOCALE_CODEC, errors="backslashreplace")}')
-        raise e
+    # Popen does not raise subprocess.CallProcessError() which is raised by subprocess.run(shell=True) on a process that exits with non-zero
     except Exception as e:
-        local_error(e)
-        raise e
+        # cmd missing ...FileNotFound
+        # PermissionError, OSError, TimeoutExpired
+        logger.error(e)
+        if useexception:
+            raise e
+        return types.SimpleNamespace(returncode=2, stdout='', stderr=str(e).encode(TXT_CODEC))
     return proc
 
 
@@ -2256,7 +2257,10 @@ def mem_caching(maxsize=None):
 
 
 def _test():
-    remove_from_os_paths('missing')
+    cmd = ['poetry', 'run', 'python', osp.join('/Users/kakyo/Desktop/_dev/kkpyutil/test/_org', 'my_cmd.py')]
+    cmd = ['missing']
+    proc = run_daemon(cmd, cwd='/Users/kakyo/Desktop/_dev/kkpyutil', useexception=False)
+    # proc.communicate()
     pass
 
 

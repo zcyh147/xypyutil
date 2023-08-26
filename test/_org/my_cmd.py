@@ -1,9 +1,16 @@
 import subprocess
+import sys
 
 
-def fail_in_child_cmd():
+def throw_calledprocesserror():
+    subprocess.run(['poetry', 'run', 'python', '-c', 'raise RuntimeError("failed")'], check=True)
+
+
+def throw_filenotfound():
     subprocess.run(['missing'])
 
 
 if __name__ == '__main__':
-    fail_in_child_cmd()
+    if sys.argv[1] == 'suberr':
+        throw_calledprocesserror()
+    throw_filenotfound()
