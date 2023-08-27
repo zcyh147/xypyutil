@@ -982,7 +982,6 @@ def watch_cmd(cmd, cwd=None, logger=None, shell=False, verbose=False, useexcepti
 cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
 """
     logger.info(cmd_log)
-    proc = None
     try:
         # Start the subprocess with the slave ends as its stdout and stderr
         proc = subprocess.Popen(cmd, cwd=cwd, shell=shell, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -992,7 +991,6 @@ cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
         stderr_thread = threading.Thread(target=read_stream, args=(proc.stderr, stderr_queue))
         stdout_thread.start()
         stderr_thread.start()
-
         res_stdout = []
         res_stderr = []
         # Read and print stdout and stderr in real-time
@@ -1020,15 +1018,6 @@ cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
         stdout, stderr = proc.communicate()
         proc.stdout, proc.stderr = ''.join(res_stdout).encode(LOCALE_CODEC), ''.join(res_stderr).encode(LOCALE_CODEC)
         return proc
-    # subprocess started but failed halfway
-    except subprocess.CalledProcessError as e:
-        stdout_log = f'stdout:\n{e.stdout.decode(LOCALE_CODEC, errors="backslashreplace")}'
-        stderr_log = f'stderr:\n{e.stderr.decode(LOCALE_CODEC, errors="backslashreplace")}'
-        logger.info(stdout_log)
-        logger.error(stderr_log)
-        if useexception:
-            raise e
-        return types.SimpleNamespace(returncode=1, stdout=e.stdout, stderr=e.stderr)
     # subprocess fails to start
     except Exception as e:
         # no need to have header, exception has it all
@@ -2270,17 +2259,6 @@ def mem_caching(maxsize=None):
 
 
 def _test():
-    # Prepare logger if necessary (here we use Python's built-in logging)
-    import logging
-    logger = logging.getLogger("watch_cmd_test")
-    logging.basicConfig(level=logging.INFO)
-
-    # The command to run the test_output.py script
-    cmd = ["python3", "/Users/kakyo/Desktop/_tmp/test_output.py"]
-
-    # Run watch_cmd and observe the real-time output
-    retcode, stdout, stderr = watch_cmd(cmd, logger=logger, verbose=True)
-    print(f"Return code: {retcode}")
     pass
 
 

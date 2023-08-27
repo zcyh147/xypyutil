@@ -729,6 +729,31 @@ def test_run_daemon():
         util.run_daemon(cmd, useexception=True)
 
 
+def test_watch_cmd():
+    # Prepare logger if necessary (here we use Python's built-in logging)
+    import logging
+    logger = logging.getLogger("watch_cmd_test")
+    logging.basicConfig(level=logging.INFO)
+    # The command to run the test_output.py script
+    py = 'python' if util.PLATFORM == 'Windows' else 'python3'
+    cmd = [py, osp.join(_org_dir, 'child_proc_prints.py'), 'default']
+    # Run watch_cmd and observe the real-time output
+    proc = util.watch_cmd(cmd, cwd=osp.abspath(f'{_case_dir}/..'), logger=logger, verbose=True)
+    assert proc.returncode == 0
+    assert proc.stdout.decode(util.LOCALE_CODEC) == 'Starting...\nstdout: Count 1\nstdout: Count 2\nEnding...\n'
+    assert proc.stderr.decode(util.LOCALE_CODEC) == ''
+    cmd = [py, osp.join(_org_dir, 'child_proc_prints.py'), 'suberr']
+    proc = util.watch_cmd(cmd, cwd=osp.abspath(f'{_case_dir}/..'), logger=logger, useexception=False)
+    assert proc.returncode == 1
+    assert 'CalledProcessError' in proc.stderr.decode(util.LOCALE_CODEC)
+    cmd = ['missing']
+    with pytest.raises(FileNotFoundError):
+        util.watch_cmd(cmd, useexception=True)
+    proc = util.watch_cmd(cmd, useexception=False)
+    assert proc.returncode == 2
+    assert 'missing' in proc.stderr.decode(util.TXT_CODEC)
+
+
 def test_get_ancestor_dirs():
     file = osp.join(_org_dir, 'exclusive.py')
     dirs = util.get_ancestor_dirs(file, depth=3)
@@ -736,21 +761,6 @@ def test_get_ancestor_dirs():
     folder = _org_dir
     dirs = util.get_ancestor_dirs(folder, depth=2)
     assert dirs == [_case_dir, _src_dir]
-
-
-def test_watch_cmd():
-    # Prepare logger if necessary (here we use Python's built-in logging)
-    import logging
-    logger = logging.getLogger("watch_cmd_test")
-    logging.basicConfig(level=logging.INFO)
-
-    # The command to run the test_output.py script
-    cmd = ['poetry', 'run', 'python', osp.join(_org_dir, 'child_proc_prints_overtime.py')]
-    # Run watch_cmd and observe the real-time output
-    proc = util.watch_cmd(cmd, cwd=osp.abspath(f'{_case_dir}/..'), logger=logger, verbose=True)
-    assert proc.returncode == 0
-    assert proc.stdout.decode(util.LOCALE_CODEC) == 'Starting...\nstdout: Count 1\nstdout: Count 2\nEnding...\n'
-    assert proc.stderr.decode(util.LOCALE_CODEC) == ''
 
 
 def test_get_child_dirs():
