@@ -1032,19 +1032,21 @@ def extract_call_args(file, caller, callee):
     - only support literal args
     - will throw if an arg value is a function call itself
     """
-
-    def _get_kwarg_value_by_type(kwarg):
-        if isinstance(kwarg.value, ast.Constant):
-            return kwarg.value.value
-        elif negative_num := isinstance(kwarg.value, ast.UnaryOp) and isinstance(kwarg.value.op, ast.USub):
-            return -kwarg.value.operand.value
-        elif isinstance(kwarg.value, ast.Name):
-            return kwarg.value.id
-        elif isinstance(kwarg.value, (ast.List, ast.Tuple)):
-            return [elem.value if isinstance(elem, ast.Constant) else None for elem in kwarg.value.elts]
-        elif use_type_map := isinstance(kwarg.value, ast.Attribute):
-            return kwarg.value.attr
-        print(f'Unsupported syntax node: {kwarg.value}. Will fallback to None.')
+    def _get_arg_value(argument):
+        """
+        kwarg.value is arg
+        """
+        if isinstance(argument, ast.Constant):
+            return argument.value
+        elif negative_num := isinstance(argument, ast.UnaryOp) and isinstance(argument.op, ast.USub):
+            return -argument.operand.value
+        elif isinstance(argument, ast.Name):
+            return argument.id
+        elif isinstance(argument, (ast.List, ast.Tuple)):
+            return [elem.value if isinstance(elem, ast.Constant) else None for elem in argument.elts]
+        elif use_type_map := isinstance(argument, ast.Attribute):
+            return argument.attr
+        print(f'Unsupported syntax node: {argument}. Will fallback to None.')
         return None
 
     def _extract_caller_def(cls, func):
@@ -1081,8 +1083,8 @@ def extract_call_args(file, caller, callee):
     for calltype, rc in raw_calls.items():
         for call in rc:
             record = {
-                'args': [arg.value for arg in call.value.args],
-                'kwargs': {kw.arg: _get_kwarg_value_by_type(kw) for kw in call.value.keywords},
+                'args': [_get_arg_value(arg) for arg in call.value.args],
+                'kwargs': {kw.arg: _get_arg_value(kw.value) for kw in call.value.keywords},
                 'lineno': call.lineno,
                 'end_lineno': call.end_lineno,
             }
