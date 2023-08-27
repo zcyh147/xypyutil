@@ -1040,13 +1040,13 @@ def extract_call_args(file, caller, callee):
             return argument.value
         elif negative_num := isinstance(argument, ast.UnaryOp) and isinstance(argument.op, ast.USub):
             return -argument.operand.value
-        elif isinstance(argument, ast.Name):
+        elif func_cls_name := isinstance(argument, ast.Name):
             return argument.id
         elif isinstance(argument, (ast.List, ast.Tuple)):
             return [elem.value if isinstance(elem, ast.Constant) else None for elem in argument.elts]
         elif use_type_map := isinstance(argument, ast.Attribute):
             return argument.attr
-        print(f'Unsupported syntax node: {argument}. Will fallback to None.')
+        glogger.error(f'Unsupported syntax node: {argument}. Will fallback to None.')
         return None
 
     def _extract_caller_def(cls, func):

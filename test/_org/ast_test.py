@@ -7,7 +7,7 @@ def main():
     """
     this is main docstring
     """
-    my_func(100, 0.5, s='bar')
+    my_func(100, 0.5, s='bar', cls=Caller, lst=[3, 4], attr=__file__.Caller, unsupported={'x': 100})
     obj = MyClass()
     obj.my_method(99, 0.99, s='BAR')
 
@@ -21,7 +21,7 @@ class Caller:
         obj.my_method(99, 0.99, s='BAR')
 
 
-def my_func(i, f, s='foo'):
+def my_func(i, f, s='foo', cls=Caller, lst=(1, 2), attr=None, unsupported=None):
     pass
 
 

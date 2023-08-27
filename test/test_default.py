@@ -756,6 +756,10 @@ def test_watch_cmd():
 
 def test_extract_call_args():
     src_file = osp.join(_org_dir, 'ast_test.py')
+    # missing caller
+    func_calls, method_calls = util.extract_call_args(src_file, 'missing', 'my_func')
+    assert not func_calls
+    assert not method_calls
     # missing callee
     func_calls, method_calls = util.extract_call_args(src_file, 'main', 'missing')
     assert not func_calls
@@ -763,7 +767,7 @@ def test_extract_call_args():
     # called by function
     func_calls, method_calls = util.extract_call_args(src_file, 'main', 'my_func')
     # breakpoint()
-    assert func_calls == [{'args': [100, 0.5], 'kwargs': {'s': 'bar'}, 'lineno': 10, 'end_lineno': 10}]
+    assert func_calls == [{'args': [100, 0.5], 'kwargs': {'attr': 'Caller', 'cls': 'Caller', 'lst': [3, 4], 's': 'bar', 'unsupported': None}, 'lineno': 10, 'end_lineno': 10}]
     assert not method_calls
     func_calls, method_calls = util.extract_call_args(src_file, 'main', 'my_method')
     assert not func_calls
@@ -775,6 +779,7 @@ def test_extract_call_args():
     func_calls, method_calls = util.extract_call_args(src_file, 'Caller.caller_method', 'my_method')
     assert not func_calls
     assert method_calls == [{'args': [99, 0.99], 'kwargs': {'s': 'BAR'}, 'lineno': 21, 'end_lineno': 21}]
+    # ast.Name
 
 
 def test_get_ancestor_dirs():
