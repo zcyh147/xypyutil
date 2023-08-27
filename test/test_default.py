@@ -803,6 +803,17 @@ def test_extract_class_attributes():
     assert not attrs
 
 
+def test_extract_local_var_assignments():
+    src_file = osp.join(_org_dir, 'ast_test.py')
+    assigns = util.extract_local_var_assignments(src_file, 'local_assign', 's')
+    assert assigns == [
+        {'end_lineno': 65, 'lineno': 65, 'name': 's', 'value': 'foo'},
+        {'end_lineno': 66, 'lineno': 66, 'name': 's', 'value': 'bar'},
+    ]
+    assert not util.extract_local_var_assignments(src_file, 'missing', 's')
+    assert not util.extract_local_var_assignments(src_file, 'local_assign', 'missing')
+
+
 def test_get_ancestor_dirs():
     file = osp.join(_org_dir, 'exclusive.py')
     dirs = util.get_ancestor_dirs(file, depth=3)

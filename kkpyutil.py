@@ -1172,7 +1172,7 @@ def extract_class_attributes(file, classname):
 
 def extract_local_var_assignments(file, caller, varname):
     """
-    - only support regular assignments (var_name = literal_value)
+    - only support literal assignments (var_name = literal_value)
     """
     import ast
     import inspect
@@ -1185,6 +1185,7 @@ def extract_local_var_assignments(file, caller, varname):
         return None
     single_literal_assigns = [node for node in ast.walk(caller_def) if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.value, ast.Constant)]
     assigns = [{
+        'name': varname,
         'lineno': node.lineno,
         'end_lineno': node.end_lineno,
         'value': node.value.value,

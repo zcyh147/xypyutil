@@ -61,5 +61,10 @@ class NoCtor:
     pass
 
 
+def local_assign():
+    s = 'foo'
+    s = 'bar'
+
+
 if __name__ == '__main__':
     main()
