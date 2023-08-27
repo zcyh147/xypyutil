@@ -1550,3 +1550,8 @@ def test_mem_caching():
     assert load(src1) == {'a': 1, 'b': 2}
     assert load(src2) == {'a': 100, 'b': 200}
     util.safe_remove(_gen_dir)
+
+
+def test_find_invalid_path_chars():
+    invalid = util.find_invalid_path_chars('hello \\*wor#ld@')
+    assert invalid == {'hello \\*wor#ld@': [(6, '\\'), (7, '*')]}

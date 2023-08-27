@@ -2259,6 +2259,30 @@ def mem_caching(maxsize=None):
     return decorator
 
 
+def find_invalid_path_chars(path, mode='native'):
+    """
+    - posix: / is not allowed
+    - windows: "\\/:*?"<>|" are not allowed
+    - consider all ascii control characters are invalid
+    - result: {path_comp1: [pos1, pos2, ...], ...}
+    """
+    sep_map = {
+        'native': os.sep,
+        'posix': '/',
+        'win': '\\',
+        'windows': '\\',
+    }
+    path_comps = [pc for pc in path.split(sep_map[mode]) if pc]
+    invalid_pattern = r'[\\\/:*?"<>|\x00-\x1F]'
+    invalid_registry = {}
+    for pc in path_comps:
+        invalid_matches = re.finditer(invalid_pattern, pc)
+        invalid_positions = [(match.start(), match.group()) for match in invalid_matches if match]
+        if invalid_positions:
+            invalid_registry[pc] = invalid_positions
+    return invalid_registry
+
+
 def _test():
     pass
 
