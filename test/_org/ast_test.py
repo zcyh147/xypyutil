@@ -13,6 +13,9 @@ def main():
 
 
 class Caller:
+    def __init__(self):
+        self.type = str
+
     def caller_method(self):
         my_func(-100,
                 0.5,
@@ -30,12 +33,32 @@ class MyClass:
     this is class docstring
     """
     def __init__(self):
-        self.i = 99
-        self.f = 0.90
+        # integer
+        self.i: int = 99
+        # float
+        self.f: float = 0.90
+        # string
+        # variable
         self.s = 'FOO'
+        self.caller: __file__.Caller = None
+        self.lstInt: list[int] = [0, 1]
+        self.lstFloat = (0.8, 0.9)
+        self.proxy: __file__.tStrProxy = 'proxy'
+        # None is not ast.Name
+        self.noneTyped: None = None
+        # without annotation or default
+        self.unsupported = var
 
     def my_method(self, i, f, s='foo'):
         pass
+
+
+tStrProxy = str
+var = 100
+
+
+class NoCtor:
+    pass
 
 
 if __name__ == '__main__':

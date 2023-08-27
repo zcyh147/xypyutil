@@ -774,12 +774,33 @@ def test_extract_call_args():
     assert method_calls == [{'args': [99, 0.99], 'kwargs': {'s': 'BAR'}, 'lineno': 12, 'end_lineno': 12}]
     # called by method
     func_calls, method_calls = util.extract_call_args(src_file, 'Caller.caller_method', 'my_func')
-    assert func_calls == [{'args': [-100, 0.5], 'kwargs': {'s': 'bar'}, 'lineno': 17, 'end_lineno': 19}]
+    assert func_calls == [{'args': [-100, 0.5], 'kwargs': {'s': 'bar'}, 'lineno': 20, 'end_lineno': 22}]
     assert not method_calls
     func_calls, method_calls = util.extract_call_args(src_file, 'Caller.caller_method', 'my_method')
     assert not func_calls
-    assert method_calls == [{'args': [99, 0.99], 'kwargs': {'s': 'BAR'}, 'lineno': 21, 'end_lineno': 21}]
+    assert method_calls == [{'args': [99, 0.99], 'kwargs': {'s': 'BAR'}, 'lineno': 24, 'end_lineno': 24}]
     # ast.Name
+
+
+def test_extract_class_attributes():
+    src_file = osp.join(_org_dir, 'ast_test.py')
+    attrs = util.extract_class_attributes(src_file, 'MyClass')
+    assert attrs == [
+        {'default': 99, 'end_lineno': 37, 'lineno': 37, 'name': 'i', 'type': 'int'},
+        {'default': 0.9, 'end_lineno': 39, 'lineno': 39, 'name': 'f', 'type': 'float'},
+        {'default': 'FOO', 'end_lineno': 42, 'lineno': 42, 'name': 's', 'type': 'str'},
+        {'default': None, 'end_lineno': 43, 'lineno': 43, 'name': 'caller', 'type': 'Caller'},
+        {'default': [0, 1], 'end_lineno': 44, 'lineno': 44, 'name': 'lstInt', 'type': 'list[int]'},
+        {'default': (0.8, 0.9), 'end_lineno': 45, 'lineno': 45, 'name': 'lstFloat', 'type': 'tuple[float]'},
+        {'default': 'proxy', 'end_lineno': 46, 'lineno': 46, 'name': 'proxy', 'type': 'tStrProxy'},
+        {'default': None, 'end_lineno': 48, 'lineno': 48, 'name': 'noneTyped', 'type': None},
+        {'default': None, 'end_lineno': 50, 'lineno': 50, 'name': 'unsupported', 'type': None},
+    ]
+    # class not found
+    attrs = util.extract_class_attributes(src_file, 'missing')
+    assert not attrs
+    attrs = util.extract_class_attributes(src_file, 'NoCtor')
+    assert not attrs
 
 
 def test_get_ancestor_dirs():

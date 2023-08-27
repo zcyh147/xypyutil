@@ -1120,14 +1120,12 @@ def extract_class_attributes(file, classname):
         elif is_type_annotated:
             if is_builtin_type := isinstance(node.annotation, ast.Name):
                 attr_type = node.annotation.id
-            elif is_proxy_type := isinstance(node.annotation, ast.Attribute):
-                # self.myAttr: TMyType().pyType
-                attr_type = node.annotation.value.func.attr
-            else:
+            else:  # NoneType
                 attr_type = None
         elif is_assigned_with_const:
+            # without type annotation, infer from default
             attr_type = type(node.value.value).__name__
-        else:
+        else:  # assigned with variable (non-constant)
             attr_type = None
         if not is_typed_coll and is_assigned_with_seq:
             attr_type = 'list' if isinstance(node.value, ast.List) else 'tuple'
