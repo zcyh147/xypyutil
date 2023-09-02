@@ -1,6 +1,11 @@
 """
 this is src-file docstring
 """
+import os
+import os.path as osp
+import sys
+from subprocess import Popen
+from subprocess import run as my_run
 
 
 def main():

@@ -767,18 +767,18 @@ def test_extract_call_args():
     # called by function
     func_calls, method_calls = util.extract_call_args(src_file, 'main', 'my_func')
     # breakpoint()
-    assert func_calls == [{'args': [100, 0.5], 'kwargs': {'attr': 'Caller', 'cls': 'Caller', 'lst': [3, 4], 's': 'bar', 'unsupported': None}, 'lineno': 10, 'end_lineno': 10}]
+    assert func_calls == [{'args': [100, 0.5], 'kwargs': {'attr': 'Caller', 'cls': 'Caller', 'lst': [3, 4], 's': 'bar', 'unsupported': None}, 'lineno': 15, 'end_lineno': 15}]
     assert not method_calls
     func_calls, method_calls = util.extract_call_args(src_file, 'main', 'my_method')
     assert not func_calls
-    assert method_calls == [{'args': [99, 0.99], 'kwargs': {'s': 'BAR'}, 'lineno': 12, 'end_lineno': 12}]
+    assert method_calls == [{'args': [99, 0.99], 'kwargs': {'s': 'BAR'}, 'lineno': 17, 'end_lineno': 17}]
     # called by method
     func_calls, method_calls = util.extract_call_args(src_file, 'Caller.caller_method', 'my_func')
-    assert func_calls == [{'args': [-100, 0.5], 'kwargs': {'s': 'bar'}, 'lineno': 20, 'end_lineno': 22}]
+    assert func_calls == [{'args': [-100, 0.5], 'kwargs': {'s': 'bar'}, 'lineno': 25, 'end_lineno': 27}]
     assert not method_calls
     func_calls, method_calls = util.extract_call_args(src_file, 'Caller.caller_method', 'my_method')
     assert not func_calls
-    assert method_calls == [{'args': [99, 0.99], 'kwargs': {'s': 'BAR'}, 'lineno': 24, 'end_lineno': 24}]
+    assert method_calls == [{'args': [99, 0.99], 'kwargs': {'s': 'BAR'}, 'lineno': 29, 'end_lineno': 29}]
     # ast.Name
 
 
@@ -786,15 +786,15 @@ def test_extract_class_attributes():
     src_file = osp.join(_org_dir, 'ast_test.py')
     attrs = util.extract_class_attributes(src_file, 'MyClass')
     assert attrs == [
-        {'default': 99, 'end_lineno': 37, 'lineno': 37, 'name': 'i', 'type': 'int'},
-        {'default': 0.9, 'end_lineno': 39, 'lineno': 39, 'name': 'f', 'type': 'float'},
-        {'default': 'FOO', 'end_lineno': 42, 'lineno': 42, 'name': 's', 'type': 'str'},
-        {'default': None, 'end_lineno': 43, 'lineno': 43, 'name': 'caller', 'type': 'Caller'},
-        {'default': [0, 1], 'end_lineno': 44, 'lineno': 44, 'name': 'lstInt', 'type': 'list[int]'},
-        {'default': (0.8, 0.9), 'end_lineno': 45, 'lineno': 45, 'name': 'lstFloat', 'type': 'tuple[float]'},
-        {'default': 'proxy', 'end_lineno': 46, 'lineno': 46, 'name': 'proxy', 'type': 'tStrProxy'},
-        {'default': None, 'end_lineno': 48, 'lineno': 48, 'name': 'noneTyped', 'type': None},
-        {'default': None, 'end_lineno': 50, 'lineno': 50, 'name': 'unsupported', 'type': None},
+        {'default': 99, 'end_lineno': 42, 'lineno': 42, 'name': 'i', 'type': 'int'},
+        {'default': 0.9, 'end_lineno': 44, 'lineno': 44, 'name': 'f', 'type': 'float'},
+        {'default': 'FOO', 'end_lineno': 47, 'lineno': 47, 'name': 's', 'type': 'str'},
+        {'default': None, 'end_lineno': 48, 'lineno': 48, 'name': 'caller', 'type': 'Caller'},
+        {'default': [0, 1], 'end_lineno': 49, 'lineno': 49, 'name': 'lstInt', 'type': 'list[int]'},
+        {'default': (0.8, 0.9), 'end_lineno': 50, 'lineno': 50, 'name': 'lstFloat', 'type': 'tuple[float]'},
+        {'default': 'proxy', 'end_lineno': 51, 'lineno': 51, 'name': 'proxy', 'type': 'tStrProxy'},
+        {'default': None, 'end_lineno': 53, 'lineno': 53, 'name': 'noneTyped', 'type': None},
+        {'default': None, 'end_lineno': 55, 'lineno': 55, 'name': 'unsupported', 'type': None},
     ]
     # class not found
     attrs = util.extract_class_attributes(src_file, 'missing')
@@ -807,11 +807,15 @@ def test_extract_local_var_assignments():
     src_file = osp.join(_org_dir, 'ast_test.py')
     assigns = util.extract_local_var_assignments(src_file, 'local_assign', 's')
     assert assigns == [
-        {'end_lineno': 65, 'lineno': 65, 'name': 's', 'value': 'foo'},
-        {'end_lineno': 66, 'lineno': 66, 'name': 's', 'value': 'bar'},
+        {'end_lineno': 70, 'lineno': 70, 'name': 's', 'value': 'foo'},
+        {'end_lineno': 71, 'lineno': 71, 'name': 's', 'value': 'bar'},
     ]
     assert not util.extract_local_var_assignments(src_file, 'missing', 's')
     assert not util.extract_local_var_assignments(src_file, 'local_assign', 'missing')
+
+
+def test_extract_imported_modules():
+    pass
 
 
 def test_get_ancestor_dirs():
@@ -1555,3 +1559,8 @@ def test_mem_caching():
 def test_find_invalid_path_chars():
     invalid = util.find_invalid_path_chars('hello \\*wor#ld@')
     assert invalid == {'hello \\*wor#ld@': [(6, '\\'), (7, '*')]}
+
+
+def test_extract_path_stem():
+    path = r'c:\path\to\file.ext' if util.PLATFORM == 'Windows' else r'/path/to/file.ext'
+    assert util.extract_path_stem(path) == 'file'

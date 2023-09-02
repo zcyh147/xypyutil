@@ -2283,6 +2283,10 @@ def find_invalid_path_chars(path, mode='native'):
     return invalid_registry
 
 
+def extract_path_stem(path):
+    return osp.splitext(osp.basename(path))[0]
+
+
 def _test():
     pass
 
