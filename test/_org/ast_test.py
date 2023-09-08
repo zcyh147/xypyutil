@@ -63,6 +63,7 @@ var = 100
 
 
 class NoCtor:
+    # comment
     pass
 
 
@@ -71,5 +72,8 @@ def local_assign():
     s = 'bar'
 
 
+# comment line 1
+# comment line 2
 if __name__ == '__main__':
-    main()
+    # comment line 3
+    main()  # inline comment

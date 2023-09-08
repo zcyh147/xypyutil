@@ -1230,7 +1230,6 @@ def extract_sourcecode_comments(file):
     """
     comments = {"(row, col)": "# ...."}
     """
-    comments = {}
     with open(file) as fp:
         comments = {str(start): tok for toktype, tok, start, end, line in tokenize.generate_tokens(fp.readline) if toktype == tokenize.COMMENT}
     return comments
@@ -1270,7 +1269,7 @@ def substitute_lines_between_cues(inserts, iolines, startcue, endcue, startlinen
         return startln, endln
     endln = next((ln for ln, line in enumerate(selected_lines[startln:]) if line.strip().startswith(endcue)), None)
     if endln is None:
-        return startlineno + startln, None
+        return startlineno + startln + 1, None
     if removecues:
         startln -= 1
         endln += 2

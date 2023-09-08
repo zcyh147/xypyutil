@@ -1,6 +1,7 @@
 """
 tests that don't need external data
 """
+import copy
 import getpass
 import platform
 import shutil
@@ -807,15 +808,38 @@ def test_extract_local_var_assignments():
     src_file = osp.join(_org_dir, 'ast_test.py')
     assigns = util.extract_local_var_assignments(src_file, 'local_assign', 's')
     assert assigns == [
-        {'end_lineno': 70, 'lineno': 70, 'name': 's', 'value': 'foo'},
-        {'end_lineno': 71, 'lineno': 71, 'name': 's', 'value': 'bar'},
+        {'end_lineno': 71, 'lineno': 71, 'name': 's', 'value': 'foo'},
+        {'end_lineno': 72, 'lineno': 72, 'name': 's', 'value': 'bar'},
     ]
     assert not util.extract_local_var_assignments(src_file, 'missing', 's')
     assert not util.extract_local_var_assignments(src_file, 'local_assign', 'missing')
 
 
 def test_extract_imported_modules():
-    pass
+    src_file = osp.join(_org_dir, 'ast_test.py')
+    assert util.extract_imported_modules(src_file) == [
+        'os',
+        'os.path',
+        'subprocess',
+        'sys',
+    ]
+
+
+def test_extract_sourcecode_comments():
+    src_file = osp.join(_org_dir, 'ast_test.py')
+    assert util.extract_sourcecode_comments(src_file) == {
+        '(41, 8)': '# integer',
+        '(43, 8)': '# float',
+        '(45, 8)': '# string',
+        '(46, 8)': '# variable',
+        '(52, 8)': '# None is not ast.Name',
+        '(54, 8)': '# without annotation or default',
+        '(66, 4)': '# comment',
+        '(75, 0)': '# comment line 1',
+        '(76, 0)': '# comment line 2',
+        '(78, 4)': '# comment line 3',
+        '(79, 12)': '# inline comment',
+    }
 
 
 def test_get_ancestor_dirs():
@@ -1349,6 +1373,42 @@ keyword: other stuff
 """
     with pytest.raises(TypeError):
         util.find_first_line_in_range(lines, 'keyword')
+
+
+def test_substitute_lines_between_cues():
+    org_lines = """\
+# some text below are wrapped in tags
+    <START
+    this will be replaced with:
+    - line 1
+    - line 2
+    END>
+<START
+    this will be replaced with:
+    - line 1
+    - line 2
+END>
+""".splitlines()
+    backup_lines = copy.deepcopy(org_lines)
+    inserts = """\
+- line 1
+- line 2
+""".splitlines()
+    # inserted line range is the result range, not original line range that got replaced
+    assert util.substitute_lines_between_cues(inserts, org_lines, '<START', 'END>', withindent=True) == [2, 3]
+    assert '\n'.join(org_lines) == """\
+# some text below are wrapped in tags
+    <START
+    - line 1
+    - line 2
+    END>
+<START
+    this will be replaced with:
+    - line 1
+    - line 2
+END>"""
+    assert util.substitute_lines_between_cues(inserts, org_lines, '<MISSING', 'END>', withindent=True) == (None, None)
+    assert util.substitute_lines_between_cues(inserts, org_lines, '<START', 'MISSING>', withindent=True) == (2, None)
 
 
 def test_pack_obj():
