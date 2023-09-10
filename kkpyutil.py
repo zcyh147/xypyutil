@@ -1257,43 +1257,47 @@ def substitute_lines_between_cues(inserts, iolines, startcue, endcue, startlinen
     - smart-indent lines according to tag indentation
     - optimize with search range slicing
     - do not add lineends, treat everything as generic strings
-    - returns indices of inserted in resulted lines
+    - returns start/end indices of inserted lines in resulted lines
     """
     inserts = [inserts] if isinstance(inserts, str) else inserts
-    selected_lines = iolines[startlineno:] if startlineno > 0 else iolines
+    focus_lines = iolines[startlineno:] if startlineno > 0 else iolines
     # find range
-    startln, endln = None, None
     # always use startswith, because when we leave a cue, we want it to appear first and foremost
-    startln = next((ln for ln, line in enumerate(selected_lines) if line.strip().startswith(startcue)), None)
-    if startln is None:
-        return startln, endln
-    endln = next((ln for ln, line in enumerate(selected_lines[startln:]) if line.strip().startswith(endcue)), None)
-    if endln is None:
-        return startlineno + startln + 1, None
-    if removecues:
-        startln -= 1
-        endln += 2
-    # back to all lines with offset applied
-    startln += startlineno
-    endln += startln
+    startcue_ln = next((ln for ln, line in enumerate(focus_lines) if line.strip().startswith(startcue)), None)
+    if startcue_ln is None:
+        return None, None
+    # relative to start cue
+    endcue_ln = next((ln for ln, line in enumerate(focus_lines[startcue_ln:]) if line.strip().startswith(endcue)), None)
+    ins_start_ln = startcue_ln + 1
+    if endcue_ln is None:
+        return startlineno + ins_start_ln, None
+    ins_end_ln = endcue_ln - 1
+    # shift by search-start as offset
+    startcue_ln += startlineno
+    endcue_ln += startlineno
+    ins_start_ln += startlineno
+    ins_end_ln += startlineno
     if withindent:
-        ref_startln = startln + 1 if removecues else startln
-        indent = iolines[ref_startln].find(startcue)
+        # cue indents by the same amount as the followup line
+        n_indent_chars = iolines[startcue_ln].find(startcue)
         indent_by_spaces = 0
-        for idt in range(indent):
-            indent_by_spaces += 4 if iolines[ref_startln][idt] == '\t' else 1
+        for ic in range(n_indent_chars):
+            indent_by_spaces += 4 if iolines[startcue_ln][ic] == '\t' else 1
         inserts = ['{}{}'.format(' ' * indent_by_spaces, line) for line in inserts]
     # append to current content between cues or not
-    lines_to_insert = iolines[startln + 1: endln] + inserts if useappend else inserts
+    lines_to_insert = iolines[ins_start_ln: endcue_ln] + inserts if useappend else inserts
     if skipdups:
         lines_to_insert = list(dict.fromkeys(lines_to_insert))
     # remove lines in b/w
-    has_lines_between_keywords = endln - startln > 1
-    if has_lines_between_keywords:
-        del iolines[startln + 1: endln]
-    iolines[startln + 1: startln + 1] = lines_to_insert
-    insert_start = startln + 1
-    rg_inserted = [insert_start, insert_start + len(lines_to_insert) - 1]
+    if has_lines_between_keywords := endcue_ln - startcue_ln > 1:
+        rm_start_ln = startcue_ln if removecues else ins_start_ln
+        rm_end_ln = endcue_ln + 1 if removecues else endcue_ln
+        del iolines[rm_start_ln: rm_end_ln]
+    if removecues:
+        ins_start_ln = startcue_ln
+    for il in reversed(lines_to_insert):
+        iolines.insert(ins_start_ln, il)
+    rg_inserted = [ins_start_ln, ins_start_ln + len(lines_to_insert) - 1]
     return rg_inserted
 
 
@@ -1860,15 +1864,15 @@ def deprecate(old, new):
     return msg
 
 
-def load_lines(path, rmlineend=False):
-    with open(path) as fp:
+def load_lines(path, rmlineend=False, encoding=TXT_CODEC):
+    with open(path, encoding=encoding) as fp:
         lines = fp.readlines()
         if rmlineend:
             lines = [line.rstrip('\n').rstrip('\r') for line in lines]
     return lines
 
 
-def save_lines(path, lines, toappend=False, addlineend=False, style='posix'):
+def save_lines(path, lines, toappend=False, addlineend=False, style='posix', encoding=TXT_CODEC):
     if isinstance(lines, str):
         lines = [lines]
     lines_to_write = copy.deepcopy(lines)
@@ -1878,7 +1882,7 @@ def save_lines(path, lines, toappend=False, addlineend=False, style='posix'):
         lines_to_write = [line + line_end for line in lines]
     par_dir = osp.split(path)[0]
     os.makedirs(par_dir, exist_ok=True)
-    with open(path, mode) as fp:
+    with open(path, mode, encoding=encoding) as fp:
         fp.writelines(lines_to_write)
     return lines_to_write
 

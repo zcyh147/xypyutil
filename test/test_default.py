@@ -1409,6 +1409,9 @@ END>
 END>"""
     assert util.substitute_lines_between_cues(inserts, org_lines, '<MISSING', 'END>', withindent=True) == (None, None)
     assert util.substitute_lines_between_cues(inserts, org_lines, '<START', 'MISSING>', withindent=True) == (2, None)
+    # remove cues
+    assert util.substitute_lines_between_cues(inserts, org_lines, '<START', 'START>', withindent=True, removecues=True) == (1, 2)
+
 
 
 def test_pack_obj():
