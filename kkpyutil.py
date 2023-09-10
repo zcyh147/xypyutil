@@ -2074,13 +2074,14 @@ def read_link(link_path):
     cross-platform symlink/shortcut resolver
     - Windows .lnk can be a command, thus can contain source-path and arguments
     """
-    if PLATFORM != 'Windows':
-        try:
-            return os.readlink(link_path)
-        except OSError as is_win_lnk:
-            # consistent with os.readlink(symlink) on Windows
-            return ''
-    # windows: no way to support symlink
+    try:
+        return os.readlink(link_path)
+    except OSError as is_win_lnk:
+        # consistent with os.readlink(symlink) on Windows
+        pass
+    if osp.isfile(link_path) or osp.isdir(link_path):
+        return link_path
+    # windows: not a symlink or
     # because results of osp.islink(), os.readlink() always mix up with .lnk
     # get_target implementation by hannes, https://gist.github.com/Winand/997ed38269e899eb561991a0c663fa49
     ps_command = \
@@ -2101,7 +2102,7 @@ def is_link(path):
     - os.readlink(path.symlink) returns empty str ''
     - os.readlink(path) throws when link itself does not exist
     - osp.isdir(path) returns True only when linked source is an existing dir
-    - os.readlink(file) raises OSError WinError 4390
+    - os.readlink(file_under_linked) raises OSError WinError 4390
     - os.readlink(file.lnk) raises OSError WinError 4390
     - osp.isfile(file.lnk) returns True
     on mac
@@ -2112,8 +2113,16 @@ def is_link(path):
     if PLATFORM != 'Windows':
         return osp.islink(path)
     # windows
+    # - check symlinks first, posix-based tool such as npm-link can create symlinks on windows
+    # - then with .lnk
+    try:
+        src = os.readlink(path)
+        return True
+    except OSError as e:
+        # not a symlink, or path does not exist, or is a file
+        pass
     src = read_link(path)
-    return src and src != path
+    return src != '' and src != path
 
 
 def raise_error(errcls, detail, advice):
