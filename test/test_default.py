@@ -1414,7 +1414,13 @@ END>"""
     # remove cues
     org_lines = copy.deepcopy(backup_lines)
     assert util.substitute_lines_between_cues(inserts, org_lines, '<START', 'END>', withindent=True, removecues=True) == [1, 2]
-
+    # skip dups in lines to insert
+    inserts = """\
+- line 1
+- line 1
+""".splitlines()
+    org_lines = copy.deepcopy(backup_lines)
+    assert util.substitute_lines_between_cues(inserts, org_lines, '<START', 'END>', withindent=True, removecues=False) == [2, 2]
 
 
 def test_pack_obj():
