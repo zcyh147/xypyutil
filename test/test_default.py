@@ -482,6 +482,8 @@ def test_kill_process_by_name_macos():
         return
     long_proc = osp.join(_org_dir, 'kill_this.sh')
     util.run_daemon([long_proc])
+    # let daemon start
+    time.sleep(0.1)
     ret = util.kill_process_by_name('sleep')
     assert ret == 0
     long_proc = osp.join(_org_dir, 'kill_this.sh')
@@ -1421,6 +1423,28 @@ END>"""
 """.splitlines()
     org_lines = copy.deepcopy(backup_lines)
     assert util.substitute_lines_between_cues(inserts, org_lines, '<START', 'END>', withindent=True, removecues=False, skipdups=True) == [2, 2]
+
+
+def test_substitute_lines_in_file():
+    org_file = osp.join(_org_dir, fn := 'subs_keywords.txt')
+    util.copy_file(org_file, _gen_dir, isdstdir=True)
+    dst_file = osp.join(_gen_dir, fn)
+    inserts = """\
+- line 1
+- line 2
+""".splitlines()
+    assert util.substitute_lines_in_file(inserts, dst_file, '<START', 'END>', withindent=True, removecues=False) == [2, 3]
+
+
+def test_wrap_lines_with_tags():
+    wrapped = util.wrap_lines_with_tags(['    wrap me'], '<START', 'END>', withindent=True)
+    # breakpoint()
+    assert wrapped == """\
+    <START
+    wrap me
+    END>
+""".splitlines()
+
 
 
 def test_pack_obj():

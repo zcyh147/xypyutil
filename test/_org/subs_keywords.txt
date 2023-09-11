@@ -1,0 +1,11 @@
+# some text below are wrapped in tags
+    <START
+    this will be replaced with:
+    - line 1
+    - line 2
+    END>
+<START
+    this will be replaced with:
+    - line 1
+    - line 2
+END>

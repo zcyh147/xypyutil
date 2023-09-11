@@ -1309,9 +1309,17 @@ def substitute_lines_in_file(inserts, file, startcue, endcue, startlineno=0, rem
     return rg_inserted
 
 
-def wrap_lines_with_tags(lines, starttag, endtag):
+def wrap_lines_with_tags(lines: list[str], starttag: str, endtag: str, withindent=False):
+    """
+    lines must be stripped before
+    """
     assert isinstance(lines, list)
-    return [starttag] + lines + [endtag]
+    head_line, tail_line = [starttag], [endtag]
+    if withindent:
+        n_indent_chars = len(lines[0]) - len(lines[0].lstrip())
+        head_line = [f'{" "*n_indent_chars}{starttag}']
+        tail_line = [f'{" "*n_indent_chars}{endtag}']
+    return head_line + lines + tail_line
 
 
 def convert_compound_cases(snake_text, style='pascal'):
@@ -1514,6 +1522,16 @@ def move_file(src, dst, isdstdir=False):
         shutil.move(src, dst)
     except shutil.SameFileError:
         glogger.warning(f'source and destination are identical. will SKIP: {osp.abspath(src)} -> {osp.abspath(dst)}.')
+    except FileExistsError as win_err:
+        glogger.debug(f'On Windows, use POSIX mv convention to overwrite existing file: {dst}')
+        copy_file(src, dst)
+        try:
+            os.remove(src)
+        except Exception as e:
+            glogger.error(f"""Failed to remove source: {src};
+- detail: {e}
+- advice: manually remove source
+- ignored""")
 
 
 def compare_dirs(dir1, dir2, ignoreddirpatterns=(), ignoredfilepatterns=(), showdiff=True):
