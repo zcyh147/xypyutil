@@ -1267,7 +1267,7 @@ def test_read_link():
         lnk = osp.join(_org_dir, 'lines.txt.symlink')
         assert util.read_link(lnk) == osp.join(_org_dir, 'lines.txt')
         lnk = osp.join(_org_dir, 'lines.txt.lnk')
-        assert util.read_link(lnk) == ''
+        assert util.read_link(lnk) == lnk
 
 
 def test_is_link():
@@ -1407,10 +1407,13 @@ END>
     - line 1
     - line 2
 END>"""
+    org_lines = copy.deepcopy(backup_lines)
     assert util.substitute_lines_between_cues(inserts, org_lines, '<MISSING', 'END>', withindent=True) == (None, None)
+    org_lines = copy.deepcopy(backup_lines)
     assert util.substitute_lines_between_cues(inserts, org_lines, '<START', 'MISSING>', withindent=True) == (2, None)
     # remove cues
-    assert util.substitute_lines_between_cues(inserts, org_lines, '<START', 'START>', withindent=True, removecues=True) == (1, 2)
+    org_lines = copy.deepcopy(backup_lines)
+    assert util.substitute_lines_between_cues(inserts, org_lines, '<START', 'END>', withindent=True, removecues=True) == [1, 2]
 
 
 

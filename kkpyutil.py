@@ -1274,7 +1274,7 @@ def substitute_lines_between_cues(inserts, iolines, startcue, endcue, startlinen
     ins_end_ln = endcue_ln - 1
     # shift by search-start as offset
     startcue_ln += startlineno
-    endcue_ln += startlineno
+    endcue_ln += startlineno + startcue_ln
     ins_start_ln += startlineno
     ins_end_ln += startlineno
     if withindent:
@@ -2073,16 +2073,19 @@ def lazy_load_filepaths(single_or_listfile: str, ext='.list', root=''):
     return [path if osp.isabs(path) else osp.abspath(f'{root}/{path}') for path in paths]
 
 
-def read_link(link_path):
+def read_link(link_path, encoding=TXT_CODEC):
     """
     cross-platform symlink/shortcut resolver
     - Windows .lnk can be a command, thus can contain source-path and arguments
     """
     try:
+        # all symlinks got resolved here
         return os.readlink(link_path)
     except OSError as is_win_lnk:
         # consistent with os.readlink(symlink) on Windows
         pass
+    # windows: .lnk does not resolve as a file/dir
+    # macos: .lnk resolves as a file; app detects .lnk by validation: link_path == read_link(link_path)?
     if osp.isfile(link_path) or osp.isdir(link_path):
         return link_path
     # windows: not a symlink or
@@ -2093,12 +2096,12 @@ def read_link(link_path):
         "$Shortcut = $WSShell.CreateShortcut(\"" + str(link_path) + "\"); " \
                                                                     "Write-Host $Shortcut.TargetPath ';' $shortcut.Arguments "
     output = subprocess.run(["powershell.exe", ps_command], capture_output=True)
-    raw = output.stdout.decode('utf-8')
+    raw = output.stdout.decode(encoding)
     src_path, args = [x.strip() for x in raw.split(';', 1)]
     return src_path
 
 
-def is_link(path):
+def is_link(path, encoding=TXT_CODEC):
     """
     support .lnk and symlink:
     on windows
@@ -2125,7 +2128,7 @@ def is_link(path):
     except OSError as e:
         # not a symlink, or path does not exist, or is a file
         pass
-    src = read_link(path)
+    src = read_link(path, encoding)
     return src != '' and src != path
 
 
