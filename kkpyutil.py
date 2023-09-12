@@ -1363,7 +1363,7 @@ def convert_compound_cases(text, style='pascal', instyle='snake'):
 
 
 def append_lineends_to_lines(lines, style='posix'):
-    lineend = '\r\n' if style == 'windows' else '\n'
+    lineend = '\r\n' if style in ('windows', 'win') else '\n'
     return [line + lineend for line in lines]
 
 

@@ -1470,6 +1470,29 @@ def test_convert_compound_cases():
     assert util.convert_compound_cases('Helloworld', style='pascal', instyle='snake') == 'Helloworld'
 
 
+def test_append_lineends_to_lines():
+    assert util.append_lineends_to_lines(
+        ['line 1', 'line 2'],
+        'windows',
+    ) == [
+        'line 1\r\n',
+        'line 2\r\n',
+    ]
+    assert util.append_lineends_to_lines(
+        ['line 1', 'line 2'],
+        'win',
+    ) == [
+       'line 1\r\n',
+       'line 2\r\n',
+    ]
+    assert util.append_lineends_to_lines(
+        ['line 1', 'line 2'],
+    ) == [
+       'line 1\n',
+       'line 2\n',
+   ]
+
+
 def test_pack_obj():
     # namespace
     obj = types.SimpleNamespace(n=1, s='hello', f=9.99, l=[1, 2, 3])
