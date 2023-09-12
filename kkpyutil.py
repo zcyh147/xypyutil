@@ -1323,7 +1323,26 @@ def wrap_lines_with_tags(lines: list[str], starttag: str, endtag: str, withinden
     return head_line + lines + tail_line
 
 
-def convert_compound_cases(snake_text, style='pascal'):
+def convert_compound_cases(text, style='pascal', instyle='snake'):
+    assert style in ('camel', 'kebab', 'oneword', 'ONEWORD', 'pascal', 'phrase', 'snake', 'SNAKE', 'title')
+    assert instyle in ('camel', 'kebab', 'pascal', 'phrase', 'snake', 'SNAKE', 'title')
+    if instyle == style:
+        return text
+    snake_text = text
+    if instyle in ('snake', 'SNAKE'):
+        snake_text = text if instyle == 'snake' else text.lower()
+    elif instyle == 'kebab':
+        snake_text = text.replace('-', '_')
+    elif instyle in ('camel', 'pascal'):
+        anchors = [c for c, char in enumerate(text) if char.isupper()]
+        # prefix _ before anchors
+        chars = list(text)
+        for c in reversed(anchors):
+            chars.insert(c, '_')
+        snake_text = ''.join(chars).lstrip('_').lower()
+    elif instyle in ('phrase', 'title'):
+        snake_text = text.replace(' ', '_').lower()
+    # convert to snake first
     if style == 'oneword':
         return snake_text.replace('_', '').lower()
     if style == 'ONEWORD':

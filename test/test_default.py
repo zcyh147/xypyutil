@@ -1446,6 +1446,26 @@ def test_wrap_lines_with_tags():
 """.splitlines()
 
 
+def test_convert_compound_cases():
+    with pytest.raises(AssertionError):
+        util.convert_compound_cases('hello_world', style='missing')
+    with pytest.raises(AssertionError):
+        util.convert_compound_cases('hello_world', instyle='oneword')
+    assert util.convert_compound_cases('hello_world', style='oneword') == 'helloworld'
+    assert util.convert_compound_cases('hello_world', style='ONEWORD') == 'HELLOWORLD'
+    assert util.convert_compound_cases('hello_world', style='SNAKE') == 'HELLO_WORLD'
+    assert util.convert_compound_cases('hello_world', style='kebab') == 'hello-world'
+    assert util.convert_compound_cases('hello_world', style='title') == 'Hello World'
+    assert util.convert_compound_cases('hello_world', style='phrase') == 'hello world'
+    assert util.convert_compound_cases('hello_world', style='camel') == 'helloWorld'
+    assert util.convert_compound_cases('hello_world', style='pascal') == 'HelloWorld'
+    assert util.convert_compound_cases('helloWorld', style='pascal', instyle='camel') == 'HelloWorld'
+    assert util.convert_compound_cases('HelloWorld', style='SNAKE', instyle='pascal') == 'HELLO_WORLD'
+    assert util.convert_compound_cases('Hello World', style='camel', instyle='title') == 'helloWorld'
+    assert util.convert_compound_cases('hello world', style='camel', instyle='phrase') == 'helloWorld'
+    assert util.convert_compound_cases('hello_world', style='camel', instyle='snake') == 'helloWorld'
+    assert util.convert_compound_cases('hello-world', style='camel', instyle='kebab') == 'helloWorld'
+
 
 def test_pack_obj():
     # namespace
