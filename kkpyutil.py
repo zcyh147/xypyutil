@@ -1311,7 +1311,8 @@ def substitute_lines_in_file(inserts, file, startcue, endcue, startlineno=0, rem
 
 def wrap_lines_with_tags(lines: list[str], starttag: str, endtag: str, withindent=False):
     """
-    lines must be stripped before
+    - caller must strip off line-ends beforehand
+    - and add back line-ends later when needed
     """
     assert isinstance(lines, list)
     head_line, tail_line = [starttag], [endtag]
