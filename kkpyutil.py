@@ -1356,30 +1356,10 @@ def convert_compound_cases(text, style='pascal', instyle='snake'):
         return ' '.join([part[0].title() + part[1:] if part else part.title() for part in split_strs])
     if style == 'phrase':
         return ' '.join(split_strs)
-    # if input is one-piece, then we preserve its middle chars' cases
-    # to avoid str.capitalize() turning a string into Titlecase
-    if len(split_strs) == 1:
-        out_text = split_strs
-        leading = out_text[0][0].lower() if style == 'camel' else out_text[0][0].upper()
-        out_text[0] = leading + out_text[0][1:]
-        return out_text[0]
     out_text = [s.capitalize() for s in split_strs]
     if style == 'camel':
         out_text[0] = out_text[0].lower()
     return ''.join(out_text)
-
-
-def combine_words(words, style='snake'):
-    out_text = '_'.join(words)
-    if style == 'snake':
-        return out_text
-    if style == 'sentence':
-        return ' '.join(words)
-    if style == 'Sentence':
-        return ' '.join(words).capitalize()
-    if style == 'title':
-        return ' '.join([word.capitalize() for word in words])
-    return convert_compound_cases(out_text, style)
 
 
 def append_lineends_to_lines(lines, style='posix'):

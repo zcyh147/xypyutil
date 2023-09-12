@@ -1465,6 +1465,9 @@ def test_convert_compound_cases():
     assert util.convert_compound_cases('hello world', style='camel', instyle='phrase') == 'helloWorld'
     assert util.convert_compound_cases('hello_world', style='camel', instyle='snake') == 'helloWorld'
     assert util.convert_compound_cases('hello-world', style='camel', instyle='kebab') == 'helloWorld'
+    assert util.convert_compound_cases('hello-world', style='kebab', instyle='kebab') == 'hello-world'
+    assert util.convert_compound_cases('helloworld', style='camel', instyle='snake') == 'helloworld'
+    assert util.convert_compound_cases('Helloworld', style='pascal', instyle='snake') == 'Helloworld'
 
 
 def test_pack_obj():
