@@ -1602,10 +1602,7 @@ def pack_obj(obj, topic=None, envelope=('<KK-ENV>', '</KK-ENV>'), classes=(), en
     if classes:
         class CustomJsonEncoder(json.JSONEncoder):
             def default(self, o):
-                if isinstance(o, classes):
-                    return o.__dict__
-                else:
-                    return json.JSONEncoder.encode(self, o)
+                return o.__dict__ if isinstance(o, classes) else json.JSONEncoder.encode(self, o)
 
         classes = tuple([SimpleNamespace] + list(classes))
         msg_str = json.dumps(msg, cls=CustomJsonEncoder, ensure_ascii=ensure_ascii)
