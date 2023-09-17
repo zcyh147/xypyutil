@@ -1536,38 +1536,58 @@ def move_file(src, dst, isdstdir=False):
 
 
 def compare_dirs(dir1, dir2, ignoreddirpatterns=(), ignoredfilepatterns=(), showdiff=True):
+    """
+    - filecmp.dircmp() supports explicit name ignores only
+    - this function supports glob-pattern ignores
+    """
     def _collect_folders_files(my_dir):
-        n_truncates = len(my_dir)
         my_dir_contents = {
             'dirs': [],
             'files': [],
         }
         for root, folders, files in os.walk(my_dir):
-            for folder in folders:
-                folder_matching_pattern = next((pat for pat in ignoreddirpatterns if pat in folder), None)
-                if folder_matching_pattern:
-                    continue
-                my_dir_contents['dirs'].append(osp.join(root, folder)[n_truncates + 1:])
-            for file in files:
-                file_matching_pattern = next((pat for pat in ignoredfilepatterns if fnmatch.fnmatch(file, pat)), None)
-                if file_matching_pattern:
-                    continue
-                my_dir_contents['files'].append(osp.join(root, file)[n_truncates + 1:])
+            # my_dir_contents['dirs'] = {osp.join(root, folder).removeprefix(my_dir+os.sep) for folder in folders}
+            # my_dir_contents['files'] = {osp.join(root, file).removeprefix(my_dir+os.sep) for file in files}
 
-        my_dir_contents['dirs'] = sorted(my_dir_contents['dirs'])
-        my_dir_contents['files'] = sorted(my_dir_contents['files'])
+            for folder in folders:
+                should_ignore_folder = next((pat for pat in ignoreddirpatterns if pat in folder), None)
+                if should_ignore_folder:
+                    continue
+                my_dir_contents['dirs'].append(osp.join(root, folder).removeprefix(my_dir+os.sep))
+            for file in files:
+                should_ignore_file = next((pat for pat in ignoredfilepatterns if fnmatch.fnmatch(file, pat)), None)
+                if should_ignore_file:
+                    continue
+                my_dir_contents['files'].append(osp.join(root, file).removeprefix(my_dir+os.sep))
         return my_dir_contents
 
+    def _get_formatted_coll(coll):
+        return pp.pformat(coll, indent=2)
     dir1_contents = _collect_folders_files(dir1)
     dir2_contents = _collect_folders_files(dir2)
-    if showdiff:
-        import filecmp
-        dc = filecmp.dircmp(dir1, dir2, ignore=list(ignoreddirpatterns))
-        dc.report_full_closure()
-        pp.pprint(f'dir1: {dir1_contents}')
-        pp.pprint(f'dir2: {dir2_contents}')
-    assert dir1_contents['dirs'] == dir2_contents['dirs'], 'folders different:\n{}\n\nvs.\n\n{}'.format(pp.pformat(dir1_contents['dirs'], indent=2), pp.pformat(dir2_contents['dirs'], indent=2))
-    assert dir1_contents['files'] == dir2_contents['files'], 'files different:\n{}\n\nvs.\n\n{}'.format(pp.pformat(dir1_contents['files'], indent=2), pp.pformat(dir2_contents['files'], indent=2))
+    dir_names_match = dir1_contents['dirs'] == dir2_contents['dirs']
+    file_names_match = dir1_contents['files'] == dir2_contents['files']
+    if showdiff and not dir_names_match:
+        print(f"""\
+==================
+folder comparison:
+==================
+in dir1 only:
+{_get_formatted_coll(set(dir1_contents['dirs']) - set(dir2_contents['dirs']))}
+vs.
+in dir2 only:
+{_get_formatted_coll(set(dir2_contents['dirs']) - set(dir1_contents['dirs']))}""")
+    if showdiff and not file_names_match:
+        print(f"""\
+==================
+file comparison:
+==================
+in dir1 only:
+{_get_formatted_coll(set(dir1_contents['files']) - set(dir2_contents['files']))}
+vs.
+in dir2 only:
+{_get_formatted_coll(set(dir2_contents['files']) - set(dir2_contents['files']))}""")
+    return dir_names_match and file_names_match
 
 
 def pack_obj(obj, topic=None, envelope=('<KK-ENV>', '</KK-ENV>'), classes=(), ensure_ascii=False):

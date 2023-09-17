@@ -1678,6 +1678,21 @@ def test_move_file():
     util.safe_remove(_gen_dir)
 
 
+def test_compare_dirs():
+    src_dir = osp.join(_org_dir, 'compare_these', 'dir1')
+    dst_dir = osp.join(_org_dir, 'compare_these', 'dir1_clone')
+    util.compare_dirs(src_dir, dst_dir)
+    dst_dir = osp.join(_org_dir, 'compare_these', 'dir2_dir_diff')
+    assert not util.compare_dirs(src_dir, dst_dir)
+    dst_dir = osp.join(_org_dir, 'compare_these', 'dir3_file_diff')
+    assert not util.compare_dirs(src_dir, dst_dir)
+    dst_dir = osp.join(_org_dir, 'compare_these', 'dir4_dir_fuzzy')
+    os.makedirs(osp.join(_org_dir, 'compare_these', 'dir4_dir_fuzzy', 'sub_suffix_ignored'), exist_ok=True)
+    assert util.compare_dirs(src_dir, dst_dir, ignoreddirpatterns=['sub'])
+    dst_dir = osp.join(_org_dir, 'compare_these', 'dir5_file_fuzzy')
+    assert util.compare_dirs(src_dir, dst_dir, ignoredfilepatterns=['*.fuzzy'])
+
+
 def test_safe_remove():
     file = osp.join(_gen_dir, 'to_remove.file')
     util.touch(file)
