@@ -1060,7 +1060,6 @@ def test_recover_file():
     assert util.recover_file(to_recover) is None
 
 
-
 def test_deprecate_log():
     msg = util.deprecate('old', 'new')
     assert msg == 'old is deprecated; use new instead'
@@ -1101,6 +1100,8 @@ def test_save_load_lines():
         'third line',
         'first linesecond linethird line',
     ]
+    util.save_lines(file, 'line 1', addlineend=True)
+    assert util.load_lines(file, rmlineend=True) == ['line 1']
     util.safe_remove(_gen_dir)
 
 
