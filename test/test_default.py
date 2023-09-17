@@ -843,34 +843,6 @@ def test_extract_sourcecode_comments():
     }
 
 
-def test_get_ancestor_dirs():
-    file = osp.join(_org_dir, 'exclusive.py')
-    dirs = util.get_ancestor_dirs(file, depth=3)
-    assert dirs == [_org_dir, _case_dir, _src_dir]
-    folder = _org_dir
-    dirs = util.get_ancestor_dirs(folder, depth=2)
-    assert dirs == [_case_dir, _src_dir]
-
-
-def test_get_child_dirs():
-    if util.PLATFORM == 'Windows':
-        root = r'c:\path\to\root'
-        subs = ('ci', 'src', 'test')
-        assert util.get_child_dirs(root, subs) == [
-            r'c:\path\to\root\ci',
-            r'c:\path\to\root\src',
-            r'c:\path\to\root\test',
-        ]
-    else:
-        root = '/path/to/root'
-        subs = ('ci', 'src', 'test')
-        assert util.get_child_dirs(root, subs) == [
-            '/path/to/root/ci',
-            '/path/to/root/src',
-            '/path/to/root/test',
-        ]
-
-
 def test_open_in_browser():
     if util.PLATFORM == 'Windows':
         path = 'C:\\Windows\\System32\\drivers\\etc\\hosts'
@@ -887,7 +859,7 @@ def test_open_in_browser():
         assert util.open_in_browser(path, islocal=True) == 'file:///path/to/filename%20with%20spaces'
 
 
-@pytest.mark.skipif(_skip_slow_tests, reason=_skip_reason)
+# @pytest.mark.skipif(_skip_slow_tests, reason=_skip_reason)
 def test_open_in_editor():
     path = 'C:\\Windows\\System32\\drivers\\etc\\hosts' if util.PLATFORM == 'Windows' else '/etc/hosts'
     util.open_in_editor(path, foreground=False)
@@ -898,6 +870,7 @@ def test_open_in_editor():
             pass
     # folder
     util.open_in_editor(_org_dir, foreground=True)
+
 
 
 def test_flatten_nested_lists():
@@ -1023,7 +996,7 @@ Advice:
 
 def test_init_repo():
     src_file = osp.join('repo', 'app', 'src', 'my.code')
-    app = util.init_repo(src_file, organization='kk', logname='mylogtitle')
+    app = util.init_repo(src_file, organization='kk', logname='mylogtitle', uselocale=True)
     assert app.ancestorDirs == [
         osp.abspath(osp.join('repo', 'app', 'src')),
         osp.abspath(osp.join('repo', 'app')),
@@ -1033,7 +1006,7 @@ def test_init_repo():
     assert app.srcDir == osp.abspath(osp.join('repo', 'app', 'src'))
     assert app.tmpDir == osp.abspath(osp.join('repo', 'app', 'temp'))
     assert app.testDir == osp.abspath(osp.join('repo', 'app', 'test'))
-    assert app.pubTmpDir == osp.join(util.get_platform_tmp_dir(), 'kk', osp.basename(app.ancestorDirs[1]))
+    assert app.pubTmpDir == osp.join(util.get_platform_tmp_dir(), 'kk', 'app')
     assert app.logger.name == 'mylogtitle'
     util.safe_remove(app.ancestorDirs[2])
 
@@ -1064,6 +1037,28 @@ def test_recover_file():
     assert osp.isfile(file)
     assert bak == osp.join(_gen_dir, 'my.file.bak')
     util.safe_remove(_gen_dir)
+    os.makedirs(_gen_dir, exist_ok=True)
+    assert util.recover_file(file, suffix='.bak') is None
+    util.safe_remove(_gen_dir)
+    # numerical suffix
+    src_baks = [osp.abspath(f'{_org_dir}/recover_from_these/{file}') for file in (
+        'my.file.1',
+        'my.file.2',
+    )]
+    os.makedirs(_gen_dir, exist_ok=True)
+    for src in src_baks:
+        util.copy_file(src, _gen_dir, isdstdir=True)
+    to_recover = osp.join(_gen_dir, 'my.file')
+    assert util.recover_file(to_recover) == osp.join(_gen_dir, 'my.file.2')
+    assert util.load_lines(to_recover, rmlineend=True) == ['my.file.2']
+    util.safe_remove(_gen_dir)
+    # numerical suffix: failed
+    os.makedirs(_gen_dir, exist_ok=True)
+    util.safe_remove(_gen_dir)
+    src_bak = osp.abspath(f'{_org_dir}/recover_from_these/my.file.unkownsuffix')
+    util.copy_file(src_bak, _gen_dir, isdstdir=True)
+    assert util.recover_file(to_recover) is None
+
 
 
 def test_deprecate_log():
@@ -1554,6 +1549,73 @@ def test_pack_obj():
     obj = MyClass()
     packed = util.pack_obj(obj, classes=(MyClass,))
     assert packed == '<KK-ENV>{"payload": {"n": 1, "s": "hello", "f": 9.99, "l": [1, 2, 3]}, "topic": "MyClass"}</KK-ENV>'
+
+
+def test_lazy_extend_sys_path():
+    # single path
+    util.lazy_extend_sys_path([_org_dir])
+    assert _org_dir in sys.path
+    # duplicate
+    util.lazy_extend_sys_path([_org_dir])
+    assert sys.path.count(_org_dir) == 1
+
+
+def test_lazy_prepend_sys_path():
+    # single path
+    util.lazy_prepend_sys_path([_org_dir])
+    assert _org_dir == sys.path[0]
+    # duplicate
+    util.lazy_prepend_sys_path([_org_dir])
+    assert sys.path.count(_org_dir) == 1
+
+
+def test_lazy_remove_from_sys_path():
+    # single path
+    util.lazy_extend_sys_path([_org_dir])
+    assert _org_dir in sys.path
+    util.lazy_remove_from_sys_path([_org_dir])
+    assert _org_dir not in sys.path
+    # missing
+    util.lazy_remove_from_sys_path(['missing'])
+    assert sys.path.count('missing') == 0
+
+
+def test_safe_import_module():
+    at = util.safe_import_module('ast_test', _org_dir, reload=True)
+    assert at is not None
+
+
+def test_get_parent_dirs():
+    assert util.get_parent_dirs(_org_dir, subs=['sub']) == (_case_dir, _src_dir, osp.join(_src_dir, 'sub'))
+
+
+def test_get_ancestor_dirs():
+    file = osp.join(_org_dir, 'exclusive.py')
+    dirs = util.get_ancestor_dirs(file, depth=3)
+    assert dirs == [_org_dir, _case_dir, _src_dir]
+    dirs = util.get_ancestor_dirs(_org_dir, depth=2)
+    assert dirs == [_case_dir, _src_dir]
+    dirs = util.get_ancestor_dirs(_org_dir, depth=1)
+    assert dirs == [_case_dir]
+
+
+def test_get_child_dirs():
+    if util.PLATFORM == 'Windows':
+        root = r'c:\path\to\root'
+        subs = ('ci', 'src', 'test')
+        assert util.get_child_dirs(root, subs) == [
+            r'c:\path\to\root\ci',
+            r'c:\path\to\root\src',
+            r'c:\path\to\root\test',
+        ]
+    else:
+        root = '/path/to/root'
+        subs = ('ci', 'src', 'test')
+        assert util.get_child_dirs(root, subs) == [
+            '/path/to/root/ci',
+            '/path/to/root/src',
+            '/path/to/root/test',
+        ]
 
 
 def test_get_drivewise_commondirs():

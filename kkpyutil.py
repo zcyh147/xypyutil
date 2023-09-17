@@ -1655,6 +1655,7 @@ def get_parent_dirs(file_or_dir, subs=(), depth=1):
     - but __file__ is n/a when running under embedded python
     - instead, give the file's folder, i.e., osp.dirname(file_or_dir), then append this dir to result on app side
     """
+    deprecate('get_parent_dirs()', 'get_ancestor_dirs()')
     script_dir = osp.abspath(osp.dirname(file_or_dir))
     par_seq = osp.normpath('../' * depth)
     root = osp.abspath(osp.join(script_dir, par_seq)) if depth > 0 else script_dir
@@ -1671,12 +1672,9 @@ def get_ancestor_dirs(file_or_dir, depth=1):
     """
     par_dir = osp.abspath(osp.dirname(file_or_dir))
     if depth < 2:
-        return par_dir
-    dirs = [par_dir]
-    # focus on pardir(i.e., depth 1), then backtrace 1 at a time from depth-1 to depth
-    for dp in range(depth - 1):
-        dirs.append(osp.abspath(osp.join(par_dir, osp.normpath('../' * (dp + 1)))))
-    return dirs
+        return [par_dir]
+    # From pardir(i.e., depth 1), single-step track back up
+    return [par_dir] + [osp.abspath(osp.join(par_dir, osp.normpath('../' * (dp + 1)))) for dp in range(depth - 1)]
 
 
 def get_child_dirs(root, subs=()):
@@ -1885,7 +1883,7 @@ def recover_file(file, bakdir=None, suffix=None, keepmeta=True):
         copy_file(bak, file, keepmeta=keepmeta)
         return bak
     cur_numeric_suffixes = [int(_sfx) for bkfile in glob.glob(osp.join(bak_dir, f'{bn}.*')) if (_sfx := osp.splitext(bkfile)[1][1:]).isnumeric()]
-    if not cur_numeric_suffixes:
+    if may_have_bak_but_not_numeric := not cur_numeric_suffixes:
         return None
     suffix = max(cur_numeric_suffixes)
     bak = osp.join(bak_dir, f'{bn}.{suffix}')
