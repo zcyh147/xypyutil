@@ -241,7 +241,6 @@ def test_logcall():
     assert key_lines.issubset(log)
 
 
-
 def map_worker(enum):
     e, elem = enum[0], enum[1]
     return elem * 2
@@ -1493,6 +1492,40 @@ def test_append_lineends_to_lines():
    ]
 
 
+def test_zip_unzip_dir():
+    src_dir = osp.join(_org_dir, target := 'zip_this')
+    util.safe_remove(_gen_dir)
+    os.makedirs(_gen_dir, exist_ok=True)
+    shutil.copytree(src_dir, dst_dir := osp.join(_gen_dir, target), dirs_exist_ok=True)
+    expected_zip = osp.join(_org_dir, f'{target}.zip')
+    assert util.zip_dir(src_dir) == expected_zip
+    util.safe_remove(_gen_dir)
+    assert util.unzip_dir(expected_zip, _gen_dir) == osp.join(_gen_dir, target)
+    same_level = osp.join(_org_dir, target)
+    assert util.unzip_dir(expected_zip) == same_level
+    util.safe_remove(_gen_dir)
+    util.safe_remove(expected_zip)
+
+
+def test_duplicate_dir():
+    src_dir = osp.join(_org_dir, target := 'duplicate_this')
+    dst_dir = osp.join(_gen_dir, target)
+    util.safe_remove(dst_dir)
+    os.makedirs(dst_dir, exist_ok=True)
+    util.touch(to_delete1 := osp.join(dst_dir, 'file1'))
+    os.makedirs(to_delete2 := osp.join(dst_dir, 'subdir'), exist_ok=True)
+    util.duplicate_dir(src_dir, dst_dir)
+    assert os.listdir(dst_dir) == os.listdir(src_dir)
+    assert not osp.isfile(to_delete1) and not osp.isdir(to_delete2)
+    util.safe_remove(_gen_dir)
+
+
+def test_compare_textfiles():
+    file1 = osp.join(_org_dir, 'compare_these', 'file1.txt')
+    file2 = osp.join(_org_dir, 'compare_these', 'file2.txt')
+    assert util.compare_textfiles(file1, file2, showdiff=True, ignoredlinenos=[1])
+
+
 def test_pack_obj():
     # namespace
     obj = types.SimpleNamespace(n=1, s='hello', f=9.99, l=[1, 2, 3])
@@ -1607,10 +1640,42 @@ def test_compare_dsv_lines():
     line2 = '  length,b,c   '
     assert util.compare_dsv_lines(line1, line2, delim=',', striptext=True)
     line1 = 'length 1.23458 e6a6dd92-5b96-4a09-9cc4-d44153b900a4'
-    # another line containing different float and uuid
     line2 = 'length 1.23459 e3016d69-cb30-4eb1-9f93-bb28621aba28'
-    assert not util.compare_dsv_lines(line1, line2)
+    assert not util.compare_dsv_lines(line1, line2), 'float mismatch, uuid mismatch'
     assert util.compare_dsv_lines(line1, line2, float_rel_tol=1e-5, float_abs_tol=1e-5, randomidok=True)
+    line1 = 'length 35 e6a6dd92-5b96-4a09-9cc4-d44153b900a4'
+    line2 = 'length 1.23459 e3016d69-cb30-4eb1-9f93-bb28621aba28'
+    assert not util.compare_dsv_lines(line1, line2), 'float type mismatch'
+    line1 = 'length 1.23458 10f64942-5500-11ee-8902-6298388980f0'
+    line2 = 'length 1.23458 89116a26-9e15-4bec-bc1e-74003277cf83'
+    assert not util.compare_dsv_lines(line1, line2), 'uuid type mismatch'
+    line1 = 'length 1.23458 89116a26-9e15-4bec-bc1e-74003277cf83'
+    line2 = 'length 1.23458 89116a26-9e15-4bec-bc1e-74003277cf83'
+    assert util.compare_dsv_lines(line1, line2), 'uuids match'
+    line1 = 'length 1.23458 10f64942-5500-11ee-8902-6298388980f0'
+    line2 = 'lengthy 1.23458 89116a26-9e15-4bec-bc1e-74003277cf83'
+    assert not util.compare_dsv_lines(line1, line2), 'string mismatch'
+
+
+def test_copy_file():
+    # bypass SameFileError
+    src_file = osp.join(_org_dir, 'lines.txt')
+    util.copy_file(src_file, src_file)
+
+
+def test_move_file():
+    util.safe_remove(_gen_dir)
+    src_file = util.touch(osp.join(_gen_dir, 'to_move.file'))
+    dst_dir = osp.join(_gen_dir, 'to_move')
+    util.move_file(src_file, dst_dir, isdstdir=True)
+    assert osp.isfile(osp.join(dst_dir, 'to_move.file'))
+    # no SameFileError
+    src_file = util.touch(osp.join(_gen_dir, 'to_move.file'))
+    util.move_file(src_file, src_file)
+    if util.PLATFORM == 'Windows':
+        with pytest.raises(FileExistsError):
+            util.move_file(src_file, osp.join(dst_dir, 'to_move.file'))
+    util.safe_remove(_gen_dir)
 
 
 def test_safe_remove():

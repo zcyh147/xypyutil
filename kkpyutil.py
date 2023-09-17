@@ -1375,31 +1375,34 @@ def zip_dir(srcdir, dstbasename=None):
     dstbn = dstbasename or src_name
     out_zip = osp.join(src_par, dstbn)
     shutil.make_archive(out_zip, format='zip', root_dir=src_par, base_dir=src_name)
-    return out_zip
+    return out_zip+'.zip'
 
 
 def unzip_dir(srcball, destpardir=None):
     """
-    assume srcball has a top-level folder "product".
-    unzip to destpardir/product.
+    - assume srcball has a top-level folder "product".
+    - unzip to destpardir/product.
+    - unsupported file extension will fall back to default behaviour of shutil.unpack_archive()
     """
     ext = osp.splitext(srcball)[1]
-    fmt = None
-    if ext == '.zip':
-        fmt = 'zip'
-    elif ext == '.tar':
-        fmt = 'tar'
-    elif ext in ('.xz', '.xzip', '.txz'):
-        fmt = 'xztar'
-    elif ext in ('.gz', '.gzip', '.tgz'):
-        fmt = 'gztar'
-    elif ext in ('.bz', '.bzip', '.tbz'):
-        fmt = 'bztar'
-    else:
-        raise ValueError(f'Only support zip, tar, gztar, bztar, xztar; got unknown file {ext}')
+    ext_fmt_map = {
+        '.zip': 'zip',
+        '.tar': 'tar',
+        '.xz': 'xztar',
+        '.xzip': 'xztar',
+        '.txz': 'xztar',
+        '.gz': 'gztar',
+        '.gzip': 'gztar',
+        '.tgz': 'gztar',
+        '.bz': 'bztar',
+        '.bzip': 'bztar',
+        '.tbz': 'bztar',
+    }
+    fmt = ext_fmt_map.get(ext)
     if destpardir is None:
         destpardir = osp.dirname(srcball)
     shutil.unpack_archive(srcball, extract_dir=destpardir, format=fmt)
+    return osp.join(destpardir, osp.splitext(osp.basename(srcball))[0])
 
 
 def duplicate_dir(srcdir, dstdir):
@@ -1420,14 +1423,21 @@ def duplicate_dir(srcdir, dstdir):
 
 
 def compare_textfiles(file1, file2, showdiff=False, contextonly=True, ignoredlinenos=None, logger=None):
+    """
+    - ignoredlinenos: 0-based
+    """
+    logger = logger or glogger
     with open(file1) as fp1, open(file2) as fp2:
         lines1 = fp1.readlines()
         lines2 = fp2.readlines()
         if showdiff:
             diff_func = difflib.context_diff if contextonly else difflib.Differ().compare
             diff = diff_func(lines1, lines2)
-            lazy_logging(f'***\n{file1} vs.\n{file2}\n***')
-            lazy_logging(''.join(diff), logger)
+            logger.info(f"""***
+{file1} vs.
+{file2}
+***""")
+            logger.info(''.join(diff), logger)
     if ignoredlinenos:
         lines1 = [line for ln, line in enumerate(lines1) if ln not in ignoredlinenos]
         lines2 = [line for ln, line in enumerate(lines2) if ln not in ignoredlinenos]
@@ -1495,13 +1505,6 @@ def compare_dsv_lines(line1, line2, delim=' ', float_rel_tol=1e-6, float_abs_tol
     return True
 
 
-def lazy_logging(msg, logger=None):
-    if logger:
-        logger.info(msg)
-    else:
-        print(msg)
-
-
 def copy_file(src, dst, isdstdir=False, keepmeta=False):
     par_dir = dst if isdstdir else osp.dirname(dst)
     os.makedirs(par_dir, exist_ok=True)
@@ -1513,15 +1516,13 @@ def copy_file(src, dst, isdstdir=False, keepmeta=False):
 
 
 def move_file(src, dst, isdstdir=False):
-    if isdstdir:
-        par_dir = dst
-    else:
-        par_dir = osp.split(dst)[0]
+    """
+    - no SameFileError will be raised from shutil
+    """
+    par_dir = dst if isdstdir else osp.dirname(dst)
     os.makedirs(par_dir, exist_ok=True)
     try:
         shutil.move(src, dst)
-    except shutil.SameFileError:
-        glogger.warning(f'source and destination are identical. will SKIP: {osp.abspath(src)} -> {osp.abspath(dst)}.')
     except FileExistsError as win_err:
         glogger.debug(f'On Windows, use POSIX mv convention to overwrite existing file: {dst}')
         copy_file(src, dst)
@@ -2031,6 +2032,7 @@ def touch(file, withmtime=True):
     with open(file, 'a'):
         if withmtime:
             os.utime(file, None)
+    return file
 
 
 def lazy_load_listfile(single_or_listfile: str, ext='.list'):
