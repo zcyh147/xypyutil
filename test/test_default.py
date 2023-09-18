@@ -710,19 +710,22 @@ def test_run_cmd():
     # no exception
     proc = util.run_cmd(cmd, useexception=False)
     assert proc.returncode == 2
-    assert 'missing' in proc.stderr.decode(util.LOCALE_CODEC)
+    err_log = proc.stderr.decode(util.LOCALE_CODEC)
+    assert 'missing' in err_log or '[WinError 2]' in err_log
 
 
 def test_run_daemon():
     ls = 'dir' if util.PLATFORM == 'Windows' else 'ls'
-    proc = util.run_daemon([ls], useexception=False)
+    use_shell = util.PLATFORM == 'Windows'
+    proc = util.run_daemon([ls], shell=use_shell, useexception=False)
     proc.communicate()
     assert proc.returncode == 0
     # no exception
     cmd = ['missing']
     proc = util.run_daemon(cmd, useexception=False)
     assert proc.returncode == 2
-    assert 'missing' in proc.stderr.decode(util.TXT_CODEC)
+    err_log = proc.stderr.decode(util.LOCALE_CODEC)
+    assert 'missing' in err_log or '[WinError 2]' in err_log
     # child cmd exception
     # generic exception
     cmd = ['poetry', 'run', 'python', '-c', 'raise Exception("failed")']
@@ -742,7 +745,7 @@ def test_watch_cmd():
     # Run watch_cmd and observe the real-time output
     proc = util.watch_cmd(cmd, cwd=osp.abspath(f'{_case_dir}/..'), logger=logger, verbose=True)
     assert proc.returncode == 0
-    assert proc.stdout.decode(util.LOCALE_CODEC) == 'Starting...\nstdout: Count 1\nstdout: Count 2\nEnding...\n'
+    assert proc.stdout.decode(util.LOCALE_CODEC) == f"Starting...{os.linesep}stdout: Count 1{os.linesep}stdout: Count 2{os.linesep}Ending...{os.linesep}"
     assert proc.stderr.decode(util.LOCALE_CODEC) == ''
     cmd = [py, osp.join(_org_dir, 'child_proc_prints.py'), 'suberr']
     proc = util.watch_cmd(cmd, cwd=osp.abspath(f'{_case_dir}/..'), logger=logger, useexception=False)
@@ -753,7 +756,8 @@ def test_watch_cmd():
         util.watch_cmd(cmd, useexception=True)
     proc = util.watch_cmd(cmd, useexception=False)
     assert proc.returncode == 2
-    assert 'missing' in proc.stderr.decode(util.TXT_CODEC)
+    err_log = proc.stderr.decode(util.LOCALE_CODEC)
+    assert 'missing' in err_log or '[WinError 2]' in err_log
 
 
 def test_extract_call_args():
