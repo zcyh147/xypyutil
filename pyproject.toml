@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "kkpyutil"
-version = "0.154.6"
+version = "1.0.0"
 description = "zero-dependency Python utility collection with an emphasis on systems programming and DevOps"
 authors = ["Beinan Li <li.beinan@gmail.com>"]
 maintainers = ["Beinan Li <li.beinan@gmail.com>"]
