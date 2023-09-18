@@ -1297,6 +1297,11 @@ def test_sanitize_text_as_path():
     assert util.sanitize_text_as_path(path_part) == 'tab_ 天哪________'
 
 
+def test_remove_file():
+    missing = osp.join(_gen_dir, 'missing.file')
+    util.remove_file(missing)
+
+
 def test_find_first_line_in_range():
     lines = """
 keyword: other stuff
@@ -1810,6 +1815,9 @@ def test_cache():
     cache = util.Cache(src_file, retriever)
     retrieved = cache.retrieve()
     assert retrieved['a'] == 1 and retrieved['b'] == 2
+    # cache hit
+    retrieved = cache.retrieve()
+    assert retrieved['a'] == 1 and retrieved['b'] == 2
     util.save_json(src_file, {'a': 1, 'b': 200})
     retrieved = cache.retrieve()
     assert retrieved['a'] == 1 and retrieved['b'] == 200
@@ -1823,6 +1831,7 @@ def test_cache():
     os.utime(src_file, (t, t))
     assert cache._compare_hash()
     util.safe_remove(_gen_dir)
+    assert cache._compute_hash_as_modified_time() is None
 
 
 def test_mem_caching():

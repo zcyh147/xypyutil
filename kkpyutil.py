@@ -2219,10 +2219,7 @@ def inspect_obj(obj):
         attrs = vars(obj)
     except TypeError:
         attrs = {}
-    try:
-        details = dir(obj)
-    except TypeError:
-        details = []
+    details = dir(obj)
     return {'type': type_name, 'attrs': attrs, 'repr': repr(obj), 'details': details}
 
 
