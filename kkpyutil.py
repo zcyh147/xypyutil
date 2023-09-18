@@ -2096,6 +2096,8 @@ def read_link(link_path, encoding=TXT_CODEC):
     cross-platform symlink/shortcut resolver
     - Windows .lnk can be a command, thus can contain source-path and arguments
     """
+    if link_path.endswith('.lnk') and PLATFORM != 'Windows':
+        return link_path
     try:
         # all symlinks got resolved here
         return os.readlink(link_path)
