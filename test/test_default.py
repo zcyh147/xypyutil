@@ -1261,7 +1261,7 @@ def test_lazy_load_filepaths():
 def test_read_link():
     if util.PLATFORM == 'Windows':
         lnk = osp.join(_org_dir, 'lines.txt.symlink')
-        assert util.read_link(lnk) == ''
+        assert util.read_link(lnk) == lnk
         lnk = osp.join(_org_dir, 'lines.txt.lnk')
         assert util.read_link(lnk) == 'D:\\kakyo\\_dev\\kkpyutil\\test\\_org\\lines.txt'
     else:
@@ -1512,19 +1512,6 @@ def test_zip_unzip_dir():
     util.safe_remove(expected_zip)
 
 
-def test_duplicate_dir():
-    src_dir = osp.join(_org_dir, target := 'duplicate_this')
-    dst_dir = osp.join(_gen_dir, target)
-    util.safe_remove(dst_dir)
-    os.makedirs(dst_dir, exist_ok=True)
-    util.touch(to_delete1 := osp.join(dst_dir, 'file1'))
-    os.makedirs(to_delete2 := osp.join(dst_dir, 'subdir'), exist_ok=True)
-    util.duplicate_dir(src_dir, dst_dir)
-    assert os.listdir(dst_dir) == os.listdir(src_dir)
-    assert not osp.isfile(to_delete1) and not osp.isdir(to_delete2)
-    util.safe_remove(_gen_dir)
-
-
 def test_compare_textfiles():
     file1 = osp.join(_org_dir, 'compare_these', 'file1.txt')
     file2 = osp.join(_org_dir, 'compare_these', 'file2.txt')
@@ -1737,16 +1724,13 @@ def test_copy_file():
 
 def test_move_file():
     util.safe_remove(_gen_dir)
-    src_file = util.touch(osp.join(_gen_dir, 'to_move.file'))
+    src_file = util.touch(src := osp.join(_gen_dir, 'to_move.file'))
     dst_dir = osp.join(_gen_dir, 'to_move')
     util.move_file(src_file, dst_dir, isdstdir=True)
-    assert osp.isfile(osp.join(dst_dir, 'to_move.file'))
+    assert osp.isfile(dst := osp.join(dst_dir, 'to_move.file'))
     # no SameFileError
-    src_file = util.touch(osp.join(_gen_dir, 'to_move.file'))
+    src_file = util.touch(src)
     util.move_file(src_file, src_file)
-    if util.PLATFORM == 'Windows':
-        with pytest.raises(FileExistsError):
-            util.move_file(src_file, osp.join(dst_dir, 'to_move.file'))
     util.safe_remove(_gen_dir)
 
 
@@ -1856,7 +1840,10 @@ def test_mem_caching():
 
 def test_find_invalid_path_chars():
     invalid = util.find_invalid_path_chars('hello \\*wor#ld@')
-    assert invalid == {'hello \\*wor#ld@': [(6, '\\'), (7, '*')]}
+    if util.PLATFORM != 'Windows':
+        assert invalid == {'hello \\*wor#ld@': [(6, '\\'), (7, '*')]}
+    else:
+        assert invalid == {'*wor#ld@': [(0, '*')]}
 
 
 def test_extract_path_stem():

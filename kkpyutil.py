@@ -1405,23 +1405,6 @@ def unzip_dir(srcball, destpardir=None):
     return osp.join(destpardir, osp.splitext(osp.basename(srcball))[0])
 
 
-def duplicate_dir(srcdir, dstdir):
-    def _dup_dir_posix(sdir, ddir):
-        if not sdir.endswith('/'):
-            sdir += '/'
-        cmd = ['rsync', '-a', '--delete', sdir, ddir.strip('/')]
-        run_cmd(cmd, '/')
-
-    def _dup_dir_windows(sdir, ddir):
-        cmd = ['xcopy', '/I', '/E', '/Q', '/Y', sdir, f'{ddir}\\']
-        run_cmd(cmd, sdir)
-
-    if PLATFORM == 'Windows':
-        _dup_dir_windows(srcdir, dstdir)
-        return
-    _dup_dir_posix(srcdir, dstdir)
-
-
 def compare_textfiles(file1, file2, showdiff=False, contextonly=True, ignoredlinenos=None, logger=None):
     """
     - ignoredlinenos: 0-based
@@ -2119,9 +2102,10 @@ def read_link(link_path, encoding=TXT_CODEC):
     except OSError as is_win_lnk:
         # consistent with os.readlink(symlink) on Windows
         pass
+    # symlink on window
     # windows: .lnk does not resolve as a file/dir
     # macos: .lnk resolves as a file; app detects .lnk by validation: link_path == read_link(link_path)?
-    if osp.isfile(link_path) or osp.isdir(link_path):
+    if not link_path.endswith('.lnk') and osp.isfile(link_path) or osp.isdir(link_path):
         return link_path
     # windows: not a symlink or
     # because results of osp.islink(), os.readlink() always mix up with .lnk
