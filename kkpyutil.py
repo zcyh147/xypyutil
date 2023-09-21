@@ -14,6 +14,7 @@ import cProfile as profile
 import collections
 import concurrent.futures
 import copy
+import csv
 import difflib
 import fnmatch
 import functools
@@ -2316,13 +2317,53 @@ def extract_path_stem(path):
     return osp.splitext(osp.basename(path))[0]
 
 
-def extract_docstring(src_file, module=None, encoding=TXT_CODEC):
+def extract_docstring(path, target=None, encoding=TXT_CODEC):
     """
+    - target: None means module-level docstring
     TODO:
-    - support module-level docstring
+    - support class/method/function-level docstrings
     """
-    code = load_text(src_file, encoding=encoding)
-    return ast.get_docstring(ast.parse(code))
+    code = load_text(path, encoding=encoding)
+    docstring = ast.get_docstring(node := ast.parse(code))
+    if docstring is None:
+        # possible cases
+        # - empty file
+        # - top module-level const is not a str, e.g, a number
+        return None, None, None
+    # The module-level docstring is stored in the `body` of the module AST as the first item,
+    # if it exists. Otherwise, it's None.
+    docstring_node = node.body[0] if (node.body and isinstance(node.body[0], (ast.Expr, ast.Constant))) else None
+    assert docstring_node
+    # found docstring candidate
+    # if isinstance(docstring_node, ast.Expr) and isinstance(docstring_node.value, (ast.Str, ast.Constant)):
+    start_lineno = docstring_node.lineno
+    # We'll approximate end_lineno by splitting the docstring by lines and adding the count
+    end_lineno = start_lineno + len(docstring.splitlines()) - 1
+    return docstring, start_lineno, end_lineno
+
+
+def load_dsv(path, delimiter=',', encoding=TXT_CODEC):
+    """
+    - strip of leading and trailing spaces for each row
+    TODO:
+    - support csv's dialect
+    """
+    with open(path, encoding=encoding) as file:
+        reader = csv.reader(file, delimiter=delimiter, skipinitialspace=True)
+        rows = [row for row in reader]
+    return rows
+
+
+def save_dsv(path, rows, delimiter=',', encoding=TXT_CODEC):
+    """
+    - strip of leading and trailing spaces for each row
+    """
+    avoid_extra_blankline_on_win = '' if PLATFORM == 'Windows' else None
+    os.makedirs(osp.dirname(path), exist_ok=True)
+    with open(path, 'w', newline=avoid_extra_blankline_on_win, encoding=encoding) as fp:
+        writer = csv.writer(fp, delimiter=delimiter)
+        for row in rows:
+            writer.writerow(row)
 
 
 def _test():

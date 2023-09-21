@@ -1853,10 +1853,41 @@ def test_extract_path_stem():
 
 def test_extract_docstring():
     src_file = osp.join(_org_dir, 'with_docstring.py')
-    assert util.extract_docstring(src_file) == """\
+    assert util.extract_docstring(src_file) == ("""\
 source-level docstring
 - line 1
 - line 2
-- line 3"""
+- line 3""", 1, 4)
     src_file = osp.join(_org_dir, 'without_docstring.py')
-    assert util.extract_docstring(src_file) is None
+    assert util.extract_docstring(src_file) == (None, None, None)
+    src_file = osp.join(_org_dir, 'without_docstring2.py')
+    assert util.extract_docstring(src_file) == (None, None, None)
+    src_file = osp.join(_org_dir, 'without_docstring3.py')
+    assert util.extract_docstring(src_file) == (None, None, None)
+    src_file = osp.join(_org_dir, 'without_docstring4.py')
+    assert util.extract_docstring(src_file) == (None, None, None)
+
+
+def test_save_load_csv():
+    dsv = osp.join(_org_dir, 'dsv_comma.txt')
+    assert util.load_dsv(dsv) == [
+        ['header1', 'header2', 'header3'],
+        ['co11', 'co12', 'co13'],
+        ['co21', 'co22', 'co23'],
+    ]
+    dsv = osp.join(_org_dir, 'dsv_whitespace.txt')
+    assert util.load_dsv(dsv, delimiter=' ') == [
+        ['header1', 'header with space2', 'header3'],
+        ['co11', 'co12', 'co13 with space'],
+        ['co21', 'co22', 'co23'],
+    ]
+    util.safe_remove(_gen_dir)
+    dst = osp.join(_gen_dir, )
+    rows = [
+        ['header1', 'header2', 'header3'],
+        ['co11', 'co12', 'co13'],
+        ['co21', 'co22', 'co23'],
+    ]
+    util.save_dsv(dst, rows)
+    assert util.load_dsv(dst) == rows
+    util.safe_remove(_gen_dir)
