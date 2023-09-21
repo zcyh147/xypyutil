@@ -8,7 +8,7 @@ Covering areas:
     - Config save/load;
     - Decoupled parameter server-client arch;
 """
-
+import ast
 import cProfile as profile
 # Import std-modules.
 import collections
@@ -1055,7 +1055,6 @@ def extract_call_args(file, caller, callee):
         class_def = next((node for node in parsed.body if isinstance(node, ast.ClassDef) and node.name == cls), None)
         return next((node for node in class_def.body if isinstance(node, ast.FunctionDef) and node.name == func), None)
 
-    import ast
     import inspect
     mod_name = osp.splitext(osp.basename(file))[0]
     mod = safe_import_module(mod_name, osp.dirname(file))
@@ -1142,7 +1141,6 @@ def extract_class_attributes(file, classname):
             attr_type = f'{attr_type}[{elem_type}]'
         return attr_type, attr_value
 
-    import ast
     import inspect
     mod_name = osp.splitext(osp.basename(file))[0]
     mod = safe_import_module(mod_name, osp.dirname(file))
@@ -1174,7 +1172,6 @@ def extract_local_var_assignments(file, caller, varname):
     """
     - only support literal assignments (var_name = literal_value)
     """
-    import ast
     import inspect
     mod_name = osp.splitext(osp.basename(file))[0]
     mod = safe_import_module(mod_name, osp.dirname(file))
@@ -1205,7 +1202,6 @@ def extract_imported_modules(file):
         return modnode.module
 
     imported = []
-    import ast
     import inspect
     mod_name = osp.splitext(osp.basename(file))[0]
     mod = safe_import_module(mod_name, osp.dirname(file))
@@ -1904,17 +1900,17 @@ def save_lines(path, lines, toappend=False, addlineend=False, style='posix', enc
     return lines_to_write
 
 
-def load_text(path):
-    with open(path) as fp:
+def load_text(path, encoding=TXT_CODEC):
+    with open(path, encoding=encoding) as fp:
         text = fp.read()
     return text
 
 
-def save_text(path, text: str, toappend=False):
+def save_text(path, text: str, toappend=False, encoding=TXT_CODEC):
     mode = 'a' if toappend else 'w'
     par_dir = osp.split(path)[0]
     os.makedirs(par_dir, exist_ok=True)
-    with open(path, mode) as fp:
+    with open(path, mode, encoding=encoding) as fp:
         fp.write(text)
 
 
@@ -2318,6 +2314,15 @@ def find_invalid_path_chars(path, mode='native'):
 
 def extract_path_stem(path):
     return osp.splitext(osp.basename(path))[0]
+
+
+def extract_docstring(src_file, module=None, encoding=TXT_CODEC):
+    """
+    TODO:
+    - support module-level docstring
+    """
+    code = load_text(src_file, encoding=encoding)
+    return ast.get_docstring(ast.parse(code))
 
 
 def _test():

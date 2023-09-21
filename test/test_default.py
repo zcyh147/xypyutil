@@ -1849,3 +1849,14 @@ def test_find_invalid_path_chars():
 def test_extract_path_stem():
     path = r'c:\path\to\file.ext' if util.PLATFORM == 'Windows' else r'/path/to/file.ext'
     assert util.extract_path_stem(path) == 'file'
+
+
+def test_extract_docstring():
+    src_file = osp.join(_org_dir, 'with_docstring.py')
+    assert util.extract_docstring(src_file) == """\
+source-level docstring
+- line 1
+- line 2
+- line 3"""
+    src_file = osp.join(_org_dir, 'without_docstring.py')
+    assert util.extract_docstring(src_file) is None
