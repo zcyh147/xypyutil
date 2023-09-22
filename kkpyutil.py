@@ -1621,8 +1621,9 @@ def safe_import_module(modname, path=None, prepend=True, reload=False):
     if reload:
         try:
             del sys.modules[modname]
+            glogger.debug(f'reloading: {modname}')
         except KeyError as e:
-            glogger.debug(f'reload module failed: {e}')
+            pass
     mod = importlib.import_module(modname)
     if path:
         lazy_remove_from_sys_path([path])
