@@ -1891,3 +1891,10 @@ def test_save_load_csv():
     util.save_dsv(dst, rows)
     assert util.load_dsv(dst) == rows
     util.safe_remove(_gen_dir)
+
+
+def test_say():
+    os.makedirs(_gen_dir, exist_ok=True)
+    out = osp.join(_gen_dir, 'hello.wav')
+    assert osp.isfile(util.say('hello', outfile=out))
+    util.safe_remove(_gen_dir)

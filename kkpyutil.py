@@ -2367,8 +2367,29 @@ def save_dsv(path, rows, delimiter=',', encoding=TXT_CODEC):
             writer.writerow(row)
 
 
+def say(text, voice='Samantha', outfile=None):
+    """
+    - voice:
+      - zhs: Tingting
+      - zht: Meijia
+      - zhc: Sinji
+      - jp: Kyoko
+      - kr: Yuna
+      - fr_CA: Amélie
+      - fr_FR: Thomas
+    """
+    if PLATFORM not in ['Darwin', 'Windows']:
+        raise NotImplementedError(f'Unsupported platform: {PLATFORM}')
+    out_file = outfile or osp.join(get_platform_tmp_dir(), '_util', 'say.wav')
+    speak_cmd = ["powershell", "-File", osp.join(_script_dir, 'kkttsspeak.ps1'), "-text", text] if PLATFORM == 'Windows' else ['say', '-v', voice, text]
+    save_cmd = ["powershell", "-File", osp.join(_script_dir, 'kkttssave.ps1'), "-text", text, "-out", out_file] if PLATFORM == 'Windows' else ['say', '-v', voice, '-o', out_file, '--data-format', 'LEI16@48000', text]
+    run_cmd(speak_cmd)
+    run_cmd(save_cmd)
+    return out_file
+
+
 def _test():
-    pass
+    print(say('hello'))
 
 
 if __name__ == '__main__':
