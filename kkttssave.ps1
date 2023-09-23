@@ -1,19 +1,19 @@
-param([string]$text, [string]$filepath)
-Add-Type -TypeDefinition @'
-    using System.Runtime.InteropServices;
-    [Guid("96749377-3391-11D2-9EE3-00C04F797396"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    interface ISpObjectToken { }
-    [Guid("5B559F40-E952-11D2-BB91-00C04F8EE6C0"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    interface ISpVoice { }
-    [Guid("5B559F41-E952-11D2-BB91-00C04F8EE6C0"), ClassInterface(ClassInterfaceType.None), ComImport]
-    class SpVoiceClass { }
-    [Guid("947812B3-2AE1-11D2-BF5F-00C04F797396"), ClassInterface(ClassInterfaceType.None), ComImport]
-    class SpFileStreamClass { }
-'@
-$voice = New-Object ISpVoice -ComObject SAPI.SpVoice
-$fileStream = New-Object -ComObject SAPI.SpFileStream
-$formatType = 38 #SAFT48kHz16BitMono
-$fileStream.Open($filepath, $formatType, $False)
-$voice.AudioOutputStream = $fileStream
-$voice.Speak($text)
-$fileStream.Close()
+param (
+	[string]$text,
+    [string]$filepath
+)
+
+# Add the System.Speech assembly
+Add-Type -AssemblyName System.speech
+
+# Create a SpeechSynthesizer object
+$speak = New-Object System.Speech.Synthesis.SpeechSynthesizer
+
+# Set the output to the specified .wav file
+$speak.SetOutputToWaveFile($filepath)
+
+# Speak the text and save it to the .wav file
+$speak.Speak($text)
+
+# Dispose the SpeechSynthesizer object to release resources
+$speak.Dispose()
