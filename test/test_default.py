@@ -3,6 +3,7 @@ tests that don't need external data
 """
 import copy
 import getpass
+import json
 import platform
 import shutil
 import signal
@@ -19,7 +20,6 @@ import uuid
 
 # 3rd party
 import pytest
-
 
 # project
 _script_dir = osp.abspath(osp.dirname(__file__))
@@ -231,6 +231,7 @@ def test_logcall():
     def myfunc(n, s, f=1.0):
         x = f'hello, {n}, {s}, {f}'
         return x
+
     key_lines = {
         "Enter: 'myfunc' <= args=(100, 'hello'), kwargs={'f': 0.99}: trace",
         "Exit: 'myfunc' => hello, 100, hello, 0.99",
@@ -522,6 +523,7 @@ def test_match_files_except_lines():
 def test_rerunlock_class(monkeypatch):
     def _mock_os_remove(*args, **kwargs):
         raise Exception("Mocked exception")
+
     lock_file = osp.join(util.get_platform_tmp_dir(), '_util', 'lock_test.json')
     util.safe_remove(lock_file)
     run_lock = util.RerunLock(name='test')
@@ -563,6 +565,7 @@ def test_rerun_lock(monkeypatch):
     @util.rerun_lock('test', _gen_dir)
     def _mock_misc_exception():
         raise Exception
+
     init = osp.join(_org_dir, 'exclusive.py')
     reenter = osp.join(_org_dir, 'reenter.py')
     lockfile = osp.join(util.get_platform_tmp_dir(), '_util', f'lock_test_rerun_lock.json')
@@ -618,6 +621,7 @@ def test_await_while():
 
         def update(self):
             self.timerMs += 10
+
     cond = Condition()
     assert not cond.met()
     assert util.await_while(cond, 3100, 10)
@@ -628,6 +632,7 @@ def test_await_lockfile_until_appear():
     def _delayed_lock():
         time.sleep(2)
         os.makedirs(lock_dir, exist_ok=True)
+
     # until gone
     lock_dir = _gen_dir
     util.safe_remove(lock_dir)
@@ -671,7 +676,7 @@ def test_append_to_os_paths():
         assert lines[-2].endswith(f'{os.pathsep}{bin_dir}"')
         util.remove_from_os_paths(bin_dir)
         return
-    #TODO: support windows after imp. low-level regedit wrapper
+    # TODO: support windows after imp. low-level regedit wrapper
 
 
 def test_prepend_to_os_paths():
@@ -874,7 +879,6 @@ def test_open_in_editor():
             pass
     # folder
     util.open_in_editor(_org_dir, foreground=True)
-
 
 
 def test_flatten_nested_lists():
@@ -1479,22 +1483,22 @@ def test_append_lineends_to_lines():
         ['line 1', 'line 2'],
         'windows',
     ) == [
-        'line 1\r\n',
-        'line 2\r\n',
-    ]
+               'line 1\r\n',
+               'line 2\r\n',
+           ]
     assert util.append_lineends_to_lines(
         ['line 1', 'line 2'],
         'win',
     ) == [
-       'line 1\r\n',
-       'line 2\r\n',
-    ]
+               'line 1\r\n',
+               'line 2\r\n',
+           ]
     assert util.append_lineends_to_lines(
         ['line 1', 'line 2'],
     ) == [
-       'line 1\n',
-       'line 2\n',
-   ]
+               'line 1\n',
+               'line 2\n',
+           ]
 
 
 def test_zip_unzip_dir():
@@ -1827,6 +1831,7 @@ def test_mem_caching():
     def load(src):
         time.sleep(1)
         return util.load_json(src)
+
     src1 = src_file = osp.join(_gen_dir, 'data1.json')
     src2 = src_file = osp.join(_gen_dir, 'data2.json')
     util.save_json(src1, {'a': 1, 'b': 2})
@@ -1898,3 +1903,68 @@ def test_say():
     out = osp.join(_gen_dir, 'hello.wav')
     assert osp.isfile(util.say('hello', outfile=out))
     util.safe_remove(_gen_dir)
+
+
+def test_http_get(monkeypatch):
+    # Define the URL and the mock response content
+    url = "http://example.com"
+    mock_content = "Hello, World!"
+
+    # Create a mock response object with a read method
+    class MockResponse:
+        def read(self):
+            return mock_content.encode()
+
+        # Add __enter__ and __exit__ methods to allow use as a context manager
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            pass
+
+    # Use monkeypatch to replace urllib.request.urlopen with a lambda function
+    # that returns an instance of our MockResponse
+    monkeypatch.setattr('urllib.request.urlopen', lambda _: MockResponse())
+
+    # Call the http_get function and check the returned value
+    result = util.http_get(url)
+    assert result == mock_content
+
+
+def test_http_post(monkeypatch):
+    # Define the URL, the input data, and the mock response content
+    in_url = "http://example.com"
+    input_data = {'key': 'value'}
+    mock_content = "Response content"
+    mock_status = 200
+
+    # Create a mock response object with read method, status, and url attributes
+    class MockResponse:
+        def read(self):
+            return mock_content.encode()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            pass
+
+        status = mock_status
+        url = in_url  # Changed variable name to avoid shadowing
+
+    # Use monkeypatch to replace urllib.request.urlopen
+    def mock_urlopen(request, data):
+        # Check that the headers are set correctly
+        assert request.headers['Content-type'] == 'application/json'
+        # Check that the data is correctly encoded
+        assert json.loads(data.decode()) == input_data
+        # Return the mock response object
+        return MockResponse()
+
+    monkeypatch.setattr('urllib.request.urlopen', mock_urlopen)
+
+    # Call the http_post function and check the returned value
+    resp = util.http_post(in_url, input_data)
+    assert resp.status_code == mock_status
+    assert resp.url == in_url  # The expected URL is the one defined at the beginning
+    assert resp.content.decode() == mock_content
