@@ -49,6 +49,8 @@ import time
 import tokenize
 import traceback
 import types
+import urllib.parse
+import urllib.request
 import uuid
 import warnings
 from types import SimpleNamespace
@@ -2386,6 +2388,24 @@ def say(text, voice='Samantha', outfile=None):
     run_cmd(speak_cmd)
     run_cmd(save_cmd)
     return out_file
+
+
+def http_get(url, encoding=TXT_CODEC):
+    with urllib.request.urlopen(url) as response:
+        html = response.read()
+    return html.decode(encoding)
+
+
+def http_post(url, data: dict, encoding=TXT_CODEC):
+    encoded = json.dumps(data).encode(encoding)
+    req = urllib.request.Request(url, headers={'Content-Type': 'application/json'})
+    with urllib.request.urlopen(req, encoded) as response:
+        resp = types.SimpleNamespace(
+            status_code=response.status,
+            url=response.url,
+            content=response.read()
+        )
+    return resp
 
 
 def _test():
