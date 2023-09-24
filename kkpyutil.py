@@ -1268,12 +1268,11 @@ def substitute_lines_between_cues(inserts, iolines, startcue, endcue, startlinen
         return None, None
     # relative to start cue
     endcue_ln = next((ln for ln, line in enumerate(focus_lines[startcue_ln:]) if line.strip().startswith(endcue)), None)
-    ins_start_ln = startcue_ln + 1
-    if endcue_ln is None:
-        return startlineno + ins_start_ln, None
     # shift by search-start as offset
     startcue_ln += startlineno
-    ins_start_ln += startlineno
+    ins_start_ln = startcue_ln + 1
+    if endcue_ln is None:
+        return ins_start_ln, None
     endcue_ln += startcue_ln
     if withindent:
         # cue indents by the same amount as the followup line
