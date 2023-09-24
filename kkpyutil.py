@@ -1259,6 +1259,7 @@ def substitute_lines_between_cues(inserts, iolines, startcue, endcue, startlinen
     - returns start/end indices of inserted lines in resulted lines
     """
     inserts = [inserts] if isinstance(inserts, str) else inserts
+    # slice: from offset to tail
     focus_lines = iolines[startlineno:] if startlineno > 0 else iolines
     # find range
     # always use startswith, because when we leave a cue, we want it to appear first and foremost
@@ -1270,12 +1271,10 @@ def substitute_lines_between_cues(inserts, iolines, startcue, endcue, startlinen
     ins_start_ln = startcue_ln + 1
     if endcue_ln is None:
         return startlineno + ins_start_ln, None
-    ins_end_ln = endcue_ln - 1
     # shift by search-start as offset
     startcue_ln += startlineno
-    endcue_ln += startlineno + startcue_ln
     ins_start_ln += startlineno
-    ins_end_ln += startlineno
+    endcue_ln += startcue_ln
     if withindent:
         # cue indents by the same amount as the followup line
         n_indent_chars = iolines[startcue_ln].find(startcue)
@@ -1291,6 +1290,8 @@ def substitute_lines_between_cues(inserts, iolines, startcue, endcue, startlinen
     if has_lines_between_keywords := endcue_ln - startcue_ln > 1:
         rm_start_ln = startcue_ln if removecues else ins_start_ln
         rm_end_ln = endcue_ln + 1 if removecues else endcue_ln
+        # CAUTION:
+        # - iolines changes in-place
         del iolines[rm_start_ln: rm_end_ln]
     if removecues:
         ins_start_ln = startcue_ln

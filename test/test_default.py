@@ -1393,11 +1393,11 @@ def test_substitute_lines_between_cues():
     - line 1
     - line 2
     END>
-<START
+<START2
     this will be replaced with:
     - line 1
     - line 2
-END>
+END2>
 """.splitlines()
     backup_lines = copy.deepcopy(org_lines)
     inserts = """\
@@ -1405,18 +1405,31 @@ END>
 - line 2
 """.splitlines()
     # inserted line range is the result range, not original line range that got replaced
-    assert util.substitute_lines_between_cues(inserts, org_lines, '<START', 'END>', withindent=True) == [2, 3]
+    line_range = util.substitute_lines_between_cues(inserts, org_lines, '<START', 'END>', withindent=True)
+    assert line_range == [2, 3]
     assert '\n'.join(org_lines) == """\
 # some text below are wrapped in tags
     <START
     - line 1
     - line 2
     END>
-<START
+<START2
     this will be replaced with:
     - line 1
     - line 2
-END>"""
+END2>"""
+    line_range = util.substitute_lines_between_cues(inserts, org_lines, '<START2', 'END2>', startlineno=line_range[1], withindent=True)
+    assert line_range == [6, 7]
+    assert '\n'.join(org_lines) == """\
+# some text below are wrapped in tags
+    <START
+    - line 1
+    - line 2
+    END>
+<START2
+- line 1
+- line 2
+END2>"""
     org_lines = copy.deepcopy(backup_lines)
     assert util.substitute_lines_between_cues(inserts, org_lines, '<MISSING', 'END>', withindent=True) == (None, None)
     org_lines = copy.deepcopy(backup_lines)
