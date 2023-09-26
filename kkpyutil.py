@@ -901,7 +901,7 @@ def save_winreg_record(full_key, var, value, value_type=winreg.REG_EXPAND_SZ if 
             winreg.SetValueEx(key, var, 0, value_type, value)
 
 
-def run_cmd(cmd, cwd=None, logger=None, check=True, shell=False, verbose=False, useexception=True):
+def run_cmd(cmd, cwd=None, logger=None, check=True, shell=False, verbose=False, useexception=True, env=None):
     """
     - Use shell==True with autotools where new shell is needed to treat the entire command option sequence as a command,
     e.g., shell=True means running sh -c ./configure CFLAGS="..."
@@ -917,7 +917,7 @@ cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
 """
     logger.info(cmd_log)
     try:
-        proc = subprocess.run(cmd, check=check, shell=shell, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
+        proc = subprocess.run(cmd, check=check, shell=shell, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd, env=env)
         stdout_log = proc.stdout.decode(LOCALE_CODEC, errors='backslashreplace')
         stderr_log = proc.stderr.decode(LOCALE_CODEC, errors='backslashreplace')
         if stdout_log:
@@ -946,7 +946,7 @@ cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
     return proc
 
 
-def run_daemon(cmd, cwd=None, logger=None, shell=False, useexception=True):
+def run_daemon(cmd, cwd=None, logger=None, shell=False, useexception=True, env=None):
     """
     - if returned proc is None, means
     """
@@ -958,7 +958,7 @@ cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
     # fake the same proc interface
     proc = None
     try:
-        proc = subprocess.Popen(cmd, shell=shell, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
+        proc = subprocess.Popen(cmd, shell=shell, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd, env=env)
         # won't be able to retrieve log from background
     # subprocess fails to start
     except Exception as e:
@@ -971,7 +971,7 @@ cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
     return proc
 
 
-def watch_cmd(cmd, cwd=None, logger=None, shell=False, verbose=False, useexception=True, prompt=None, timeout=None):
+def watch_cmd(cmd, cwd=None, logger=None, shell=False, verbose=False, useexception=True, prompt=None, timeout=None, env=None):
     """
     realtime output
     """
@@ -987,7 +987,7 @@ cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
     logger.info(cmd_log)
     try:
         # Start the subprocess with the slave ends as its stdout and stderr
-        proc = subprocess.Popen(cmd, cwd=cwd, shell=shell, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        proc = subprocess.Popen(cmd, cwd=cwd, shell=shell, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
         stdout_queue, stderr_queue = queue.Queue(), queue.Queue()
         # Start separate threads to read from stdout and stderr
         stdout_thread = threading.Thread(target=read_stream, args=(proc.stdout, stdout_queue))
