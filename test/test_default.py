@@ -1981,3 +1981,7 @@ def test_http_post(monkeypatch):
     assert resp.status_code == mock_status
     assert resp.url == in_url  # The expected URL is the one defined at the beginning
     assert resp.content.decode() == mock_content
+
+
+def test_get_environment():
+    assert {'os', 'pyExe', 'pyVersion', 'pyPath', 'osPath'} == set(util.get_environment().keys())

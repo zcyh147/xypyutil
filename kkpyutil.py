@@ -2409,6 +2409,16 @@ def http_post(url, data: dict, encoding=TXT_CODEC):
     return resp
 
 
+def get_environment():
+    return {
+        'os': platform.platform(),
+        'pyExe': sys.executable,
+        'pyVersion': platform.python_version(),
+        'pyPath': sys.path,
+        'osPath': os.environ['Path'] if PLATFORM == 'Windows' else os.environ['PATH'],
+    }
+
+
 def _test():
     print(say('hello'))
 
