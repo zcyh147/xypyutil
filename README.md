@@ -1,7 +1,7 @@
 # kkpyutil
-Small utility frequently used by myself for daily Python work.
-- No dependency on third-party Python modules, so it alwyas run
-- Some functions use system builtin executable or essential programs, so runs will fail if those are not installed separately
+Main design goals:
+- A thin wrapper layer over Python stdlibs, system builtin programs, and well-known 3rd-party standalone programs
+- No dependency on third-party Python packages
 
 ## INSTALL
 
