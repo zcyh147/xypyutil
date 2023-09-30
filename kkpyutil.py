@@ -384,6 +384,7 @@ def logcall(msg='trace', logger=glogger):
     - only shows enter/exit
     - can be interrupted by exceptions
     """
+
     def wrap(function):
         @functools.wraps(function)
         def wrapper(*args, **kwargs):
@@ -391,7 +392,9 @@ def logcall(msg='trace', logger=glogger):
             ret = function(*args, **kwargs)
             logger.debug(f"Exit: '{function.__name__}' => {ret}")
             return ret
+
         return wrapper
+
     return wrap
 
 
@@ -407,7 +410,7 @@ def concur_map(worker, coll, worker_count=None, iobound=True, logger=None):
     """
     if not iobound:
         assert is_toplevel_function(worker), 'must use top-level function as multiprocessing worker'
-    max_workers = 10 if iobound else multiprocessing.cpu_count()-1
+    max_workers = 10 if iobound else multiprocessing.cpu_count() - 1
     n_workers = worker_count or max_workers
     executor_class = concurrent.futures.ThreadPoolExecutor if iobound else concurrent.futures.ProcessPoolExecutor
     if logger:
@@ -611,6 +614,7 @@ def init_translator(localedir, domain='all', langs=None):
       - Windows: refer to: https://learn.microsoft.com/en-us/windows-hardware/manufacture/desktop/available-language-packs-for-windows?view=windows-11
       - macOS: same as gettext
     """
+
     def _get_locale_code(loc):
         locale_code_map = {
             'Chinese (Simplified)_China': 'zh_CN',
@@ -618,6 +622,7 @@ def init_translator(localedir, domain='all', langs=None):
             'English_United States': 'en_US',
         }
         return locale_code_map.get(loc, 'en_US')
+
     if langs:
         cur_langs = langs
     else:
@@ -724,6 +729,7 @@ class RerunLock:
 
 def rerun_lock(name, folder=None, logger=glogger):
     """Decorator for reentrance locking on functions"""
+
     def decorator(f):
         @functools.wraps(f)
         def wrapper(*args, **kwargs):
@@ -768,6 +774,7 @@ def await_lockfile(lockpath, until_gone=True, timeout_ms=float('inf'), step_ms=1
     """
     - while lockfile exists, we wait
     """
+
     class UntilLockGoneCondition:
         def __init__(self, path):
             self.path = path
@@ -787,6 +794,7 @@ def await_lockfile(lockpath, until_gone=True, timeout_ms=float('inf'), step_ms=1
 
         def update(self):
             pass
+
     condition_cls = UntilLockGoneCondition if until_gone else UntilLockAppearCondition
     return await_while(condition_cls(lockpath), timeout_ms, step_ms)
 
@@ -801,7 +809,7 @@ def append_to_os_paths(bindir, usesyspath=True, inmemonly=False):
         return os.environ[path_var]
     if PLATFORM == 'Windows':
         root_key = 'HKEY_LOCAL_MACHINE' if usesyspath else 'HKEY_CURRENT_USER'
-        full_key=f'{root_key}\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment'
+        full_key = f'{root_key}\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment'
         env_paths = load_winreg_record(full_key, path_var)
         # SoC: here bindir must be a newcomer
         if env_paths[-1] != os.pathsep:
@@ -975,9 +983,11 @@ def watch_cmd(cmd, cwd=None, logger=None, shell=False, verbose=False, useexcepti
     """
     realtime output
     """
+
     def read_stream(stream, output_queue):
         for line in iter(stream.readline, b''):
             output_queue.put(line)
+
     logger = logger or glogger
     # show cmdline with or without exceptions
     cmd_log = f"""\
@@ -1035,6 +1045,7 @@ def extract_call_args(file, caller, callee):
     - only support literal args
     - will throw if an arg value is a function call itself
     """
+
     def _get_arg_value(argument):
         """
         kwarg.value is arg
@@ -1317,8 +1328,8 @@ def wrap_lines_with_tags(lines: list[str], starttag: str, endtag: str, withinden
     head_line, tail_line = [starttag], [endtag]
     if withindent:
         n_indent_chars = len(lines[0]) - len(lines[0].lstrip())
-        head_line = [f'{" "*n_indent_chars}{starttag}']
-        tail_line = [f'{" "*n_indent_chars}{endtag}']
+        head_line = [f'{" " * n_indent_chars}{starttag}']
+        tail_line = [f'{" " * n_indent_chars}{endtag}']
     return head_line + lines + tail_line
 
 
@@ -1374,7 +1385,7 @@ def zip_dir(srcdir, dstbasename=None):
     dstbn = dstbasename or src_name
     out_zip = osp.join(src_par, dstbn)
     shutil.make_archive(out_zip, format='zip', root_dir=src_par, base_dir=src_name)
-    return out_zip+'.zip'
+    return out_zip + '.zip'
 
 
 def unzip_dir(srcball, destpardir=None):
@@ -1522,6 +1533,7 @@ def compare_dirs(dir1, dir2, ignoreddirpatterns=(), ignoredfilepatterns=(), show
     - filecmp.dircmp() supports explicit name ignores only
     - this function supports glob-pattern ignores
     """
+
     def _collect_folders_files(my_dir):
         my_dir_contents = {
             'dirs': [],
@@ -1535,16 +1547,17 @@ def compare_dirs(dir1, dir2, ignoreddirpatterns=(), ignoredfilepatterns=(), show
                 should_ignore_folder = next((pat for pat in ignoreddirpatterns if pat in folder), None)
                 if should_ignore_folder:
                     continue
-                my_dir_contents['dirs'].append(osp.join(root, folder).removeprefix(my_dir+os.sep))
+                my_dir_contents['dirs'].append(osp.join(root, folder).removeprefix(my_dir + os.sep))
             for file in files:
                 should_ignore_file = next((pat for pat in ignoredfilepatterns if fnmatch.fnmatch(file, pat)), None)
                 if should_ignore_file:
                     continue
-                my_dir_contents['files'].append(osp.join(root, file).removeprefix(my_dir+os.sep))
+                my_dir_contents['files'].append(osp.join(root, file).removeprefix(my_dir + os.sep))
         return my_dir_contents
 
     def _get_formatted_coll(coll):
         return pp.pformat(coll, indent=2)
+
     dir1_contents = _collect_folders_files(dir1)
     dir2_contents = _collect_folders_files(dir2)
     dir_names_match = dir1_contents['dirs'] == dir2_contents['dirs']
@@ -2224,6 +2237,7 @@ class Cache:
       - # ... later
       - cached_tree_data = tree_cache.retrieve()
     """
+
     def __init__(self, data_source, data_retriever, cache_dir=get_platform_tmp_dir(), cache_type='cache', algo='checksum', source_seed='6ba7b810-9dad-11d1-80b4-00c04fd430c8'):
         assert algo in ['checksum', 'mtime']
         self.srcURL = data_source
@@ -2282,13 +2296,16 @@ def mem_caching(maxsize=None):
     - per-process lru caching for multiple data sources
     - cache is outdated when process exits
     """
+
     def decorator(func):
         cache = functools.lru_cache(maxsize=maxsize)(func)
 
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             return cache(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
@@ -2380,10 +2397,55 @@ def say(text, voice='Samantha', outfile=None):
       - fr_CA: Amélie
       - fr_FR: Thomas
     """
+
+    def _save_as_powershell_script(ps1_name, code):
+        ps1_file = osp.join(_script_dir, ps1_name)
+        os.makedirs(osp.dirname(ps1_file), exist_ok=True)
+        with open(ps1_file, 'w') as fp:
+            fp.write(code)
+        return ps1_file
+
     if PLATFORM not in ['Darwin', 'Windows']:
         raise NotImplementedError(f'Unsupported platform: {PLATFORM}')
     out_file = outfile or osp.join(get_platform_tmp_dir(), '_util', 'say.wav')
     os.makedirs(osp.dirname(out_file), exist_ok=True)
+    kkttsspeak_code = """\
+# kkttsspeak.ps1 'Hello there'
+# kkttsspeak.ps1 -message 'Hello there'
+[cmdletbinding()]
+param(
+    [Parameter(Position = 1, Mandatory = $true)]
+    [String]
+    $message
+)
+Add-Type -AssemblyName System.Speech
+$synth = New-Object -TypeName System.Speech.Synthesis.SpeechSynthesizer
+$synth.Speak($message)
+
+"""
+    kkttssave_code = """\
+param (
+    [string]$text,
+    [string]$filepath
+)
+
+# Add the System.Speech assembly
+Add-Type -AssemblyName System.speech
+
+# Create a SpeechSynthesizer object
+$speak = New-Object System.Speech.Synthesis.SpeechSynthesizer
+
+# Set the output to the specified .wav file
+$speak.SetOutputToWaveFile($filepath)
+
+# Speak the text and save it to the .wav file
+$speak.Speak($text)
+
+# Dispose the SpeechSynthesizer object to release resources
+$speak.Dispose()
+"""
+    _save_as_powershell_script('kkttsspeak.ps1', kkttsspeak_code)
+    _save_as_powershell_script('kkttssave.ps1', kkttssave_code)
     speak_cmd = ["powershell", "-File", osp.join(_script_dir, 'kkttsspeak.ps1'), text] if PLATFORM == 'Windows' else ['say', '-v', voice, text]
     save_cmd = ["powershell", "-File", osp.join(_script_dir, 'kkttssave.ps1'), "-text", text, "-filepath", out_file] if PLATFORM == 'Windows' else ['say', '-v', voice, '-o', out_file, '--data-format', 'LEI16@48000', text]
     run_cmd(speak_cmd)
