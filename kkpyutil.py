@@ -795,7 +795,7 @@ def append_to_os_paths(bindir, usesyspath=True, inmemonly=False):
     """
     On macOS, PATH update will only take effect after calling `source ~/.bash_profile` directly in shell. It won't work 
     """
-    path_var = 'Path' if PLATFORM == 'Windows' else 'PATH'
+    path_var = 'PATH'
     os.environ[path_var] += os.pathsep + bindir
     if inmemonly:
         return os.environ[path_var]
@@ -820,7 +820,7 @@ def append_to_os_paths(bindir, usesyspath=True, inmemonly=False):
 
 
 def prepend_to_os_paths(bindir, usesyspath=True, inmemonly=False):
-    path_var = 'Path' if PLATFORM == 'Windows' else 'PATH'
+    path_var = 'PATH'
     os.environ[path_var] = bindir + os.pathsep + os.environ[path_var]
     if inmemonly:
         return os.environ[path_var]
@@ -847,7 +847,7 @@ def remove_from_os_paths(bindir, usesyspath=True, inmemonly=False):
     - on windows, bindir is missing from PATH before restarting explorer if freshly added
     - so we don't lazy remove to avoid miss
     """
-    path_var = 'Path' if PLATFORM == 'Windows' else 'PATH'
+    path_var = 'PATH'
     os.environ[path_var] = os.environ[path_var].replace(bindir, '')
     if inmemonly:
         return os.environ[path_var]
