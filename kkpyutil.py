@@ -2398,12 +2398,14 @@ def say(text, voice='Samantha', outfile=None):
       - fr_FR: Thomas
     """
 
-    def _save_as_powershell_script(ps1_name, code):
-        ps1_file = osp.join(_script_dir, ps1_name)
-        os.makedirs(osp.dirname(ps1_file), exist_ok=True)
-        with open(ps1_file, 'w') as fp:
+    def _lazy_export_powershell_script(ps1_name, code):
+        ps1_scpt = osp.join(_script_dir, ps1_name)
+        if osp.isfile(ps1_scpt):
+            return ps1_scpt
+        os.makedirs(osp.dirname(ps1_scpt), exist_ok=True)
+        with open(ps1_scpt, 'w') as fp:
             fp.write(code)
-        return ps1_file
+        return ps1_scpt
 
     if PLATFORM not in ['Darwin', 'Windows']:
         raise NotImplementedError(f'Unsupported platform: {PLATFORM}')
@@ -2444,10 +2446,10 @@ $speak.Speak($text)
 # Dispose the SpeechSynthesizer object to release resources
 $speak.Dispose()
 """
-    _save_as_powershell_script('kkttsspeak.ps1', kkttsspeak_code)
-    _save_as_powershell_script('kkttssave.ps1', kkttssave_code)
-    speak_cmd = ["powershell", "-File", osp.join(_script_dir, 'kkttsspeak.ps1'), text] if PLATFORM == 'Windows' else ['say', '-v', voice, text]
-    save_cmd = ["powershell", "-File", osp.join(_script_dir, 'kkttssave.ps1'), "-text", text, "-filepath", out_file] if PLATFORM == 'Windows' else ['say', '-v', voice, '-o', out_file, '--data-format', 'LEI16@48000', text]
+    ps1 = _lazy_export_powershell_script('kkttsspeak.ps1', kkttsspeak_code)
+    speak_cmd = ["powershell", "-File", ps1, text] if PLATFORM == 'Windows' else ['say', '-v', voice, text]
+    ps1 = _lazy_export_powershell_script('kkttssave.ps1', kkttssave_code)
+    save_cmd = ["powershell", "-File", ps1, "-text", text, "-filepath", out_file] if PLATFORM == 'Windows' else ['say', '-v', voice, '-o', out_file, '--data-format', 'LEI16@48000', text]
     run_cmd(speak_cmd)
     run_cmd(save_cmd)
     return out_file
