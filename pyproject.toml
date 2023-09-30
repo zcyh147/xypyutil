@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "kkpyutil"
-version = "1.5.5"
+version = "1.5.6"
 description = "Building blocks for sysadmin and DevOps"
 authors = ["Beinan Li <li.beinan@gmail.com>"]
 maintainers = ["Beinan Li <li.beinan@gmail.com>"]
@@ -16,7 +16,7 @@ keywords = [
 ]
 
 include = [
-    { path = "windows", format = ["sdist", "wheel"] },
+    { path = "kkpyutil", format = ["sdist", "wheel"] },
 ]
 
 [tool.poetry.dependencies]

@@ -2401,8 +2401,8 @@ def say(text, voice='Samantha', outfile=None):
         raise NotImplementedError(f'Unsupported platform: {PLATFORM}')
     out_file = outfile or osp.join(get_platform_tmp_dir(), '_util', 'say.wav')
     os.makedirs(osp.dirname(out_file), exist_ok=True)
-    speak_cmd = ["powershell", "-File", osp.abspath(f'{_script_dir}/windows/kkttsspeak.ps1'), text] if PLATFORM == 'Windows' else ['say', '-v', voice, text]
-    save_cmd = ["powershell", "-File", osp.abspath(f'{_script_dir}/windows/kkttssave.ps1'), "-text", text, "-filepath", out_file] if PLATFORM == 'Windows' else ['say', '-v', voice, '-o', out_file, '--data-format', 'LEI16@48000', text]
+    speak_cmd = ["powershell", "-File", osp.abspath(f'{_script_dir}/kkpyutil/windows/kkttsspeak.ps1'), text] if PLATFORM == 'Windows' else ['say', '-v', voice, text]
+    save_cmd = ["powershell", "-File", osp.abspath(f'{_script_dir}/kkpyutil/windows/kkttssave.ps1'), "-text", text, "-filepath", out_file] if PLATFORM == 'Windows' else ['say', '-v', voice, '-o', out_file, '--data-format', 'LEI16@48000', text]
     run_cmd(speak_cmd)
     run_cmd(save_cmd)
     return out_file
