@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "kkpyutil"
-version = "1.5.1"
+version = "1.5.4"
 description = "zero-dependency Python utility collection with an emphasis on systems programming and DevOps"
 authors = ["Beinan Li <li.beinan@gmail.com>"]
 maintainers = ["Beinan Li <li.beinan@gmail.com>"]
@@ -13,6 +13,10 @@ keywords = [
     "utility",
     "logging",
     "systems",
+]
+
+include = [
+    { path = "*.ps1", format = ["sdist", "wheel"] },
 ]
 
 [tool.poetry.dependencies]
