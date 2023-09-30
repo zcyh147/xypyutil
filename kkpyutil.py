@@ -2397,59 +2397,12 @@ def say(text, voice='Samantha', outfile=None):
       - fr_CA: Amélie
       - fr_FR: Thomas
     """
-
-    def _lazy_export_powershell_script(ps1_name, code):
-        ps1_scpt = osp.join(_script_dir, ps1_name)
-        if osp.isfile(ps1_scpt):
-            return ps1_scpt
-        os.makedirs(osp.dirname(ps1_scpt), exist_ok=True)
-        with open(ps1_scpt, 'w') as fp:
-            fp.write(code)
-        return ps1_scpt
-
     if PLATFORM not in ['Darwin', 'Windows']:
         raise NotImplementedError(f'Unsupported platform: {PLATFORM}')
     out_file = outfile or osp.join(get_platform_tmp_dir(), '_util', 'say.wav')
     os.makedirs(osp.dirname(out_file), exist_ok=True)
-    kkttsspeak_code = """\
-# kkttsspeak.ps1 'Hello there'
-# kkttsspeak.ps1 -message 'Hello there'
-[cmdletbinding()]
-param(
-    [Parameter(Position = 1, Mandatory = $true)]
-    [String]
-    $message
-)
-Add-Type -AssemblyName System.Speech
-$synth = New-Object -TypeName System.Speech.Synthesis.SpeechSynthesizer
-$synth.Speak($message)
-
-"""
-    kkttssave_code = """\
-param (
-    [string]$text,
-    [string]$filepath
-)
-
-# Add the System.Speech assembly
-Add-Type -AssemblyName System.speech
-
-# Create a SpeechSynthesizer object
-$speak = New-Object System.Speech.Synthesis.SpeechSynthesizer
-
-# Set the output to the specified .wav file
-$speak.SetOutputToWaveFile($filepath)
-
-# Speak the text and save it to the .wav file
-$speak.Speak($text)
-
-# Dispose the SpeechSynthesizer object to release resources
-$speak.Dispose()
-"""
-    ps1 = _lazy_export_powershell_script('kkttsspeak.ps1', kkttsspeak_code)
-    speak_cmd = ["powershell", "-File", ps1, text] if PLATFORM == 'Windows' else ['say', '-v', voice, text]
-    ps1 = _lazy_export_powershell_script('kkttssave.ps1', kkttssave_code)
-    save_cmd = ["powershell", "-File", ps1, "-text", text, "-filepath", out_file] if PLATFORM == 'Windows' else ['say', '-v', voice, '-o', out_file, '--data-format', 'LEI16@48000', text]
+    speak_cmd = ["powershell", "-File", osp.abspath(f'{_script_dir}/windows/kkttsspeak.ps1'), text] if PLATFORM == 'Windows' else ['say', '-v', voice, text]
+    save_cmd = ["powershell", "-File", osp.abspath(f'{_script_dir}/windows/kkttssave.ps1'), "-text", text, "-filepath", out_file] if PLATFORM == 'Windows' else ['say', '-v', voice, '-o', out_file, '--data-format', 'LEI16@48000', text]
     run_cmd(speak_cmd)
     run_cmd(save_cmd)
     return out_file
