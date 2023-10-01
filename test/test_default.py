@@ -1884,6 +1884,13 @@ source-level docstring
     assert util.extract_docstring(src_file) == (None, None, None)
     src_file = osp.join(_org_dir, 'without_docstring4.py')
     assert util.extract_docstring(src_file) == (None, None, None)
+    src_file = osp.join(_org_dir, 'with_docstring.lua')
+    assert util.extract_docstring(src_file, envelope='---') == ("""\
+--line 1
+--line 2""", 1, 2)
+    with pytest.raises(SyntaxError):
+        util.extract_docstring(src_file)
+    assert util.extract_docstring(src_file, envelope='"""') == (None, None, None)
 
 
 def test_save_load_csv():

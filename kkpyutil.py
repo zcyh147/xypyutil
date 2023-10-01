@@ -2337,14 +2337,30 @@ def extract_path_stem(path):
     return osp.splitext(osp.basename(path))[0]
 
 
-def extract_docstring(path, target=None, encoding=TXT_CODEC):
+def extract_docstring(path, target=None, encoding=TXT_CODEC, envelope=None):
     """
+    - returns docstring as a single string
     - target: None means module-level docstring
+    - envelope: None means .py file, otherwise, it's a non-python file that has a python-like docstring using its own comment syntax
     TODO:
     - support class/method/function-level docstrings
     """
+    def _extract_nonpy_docstring(code, target, envelope):
+        lines = code.splitlines()
+        start_ln = find_first_line_in_range(lines, envelope)
+        if start_ln is None:
+            return None, None, None
+        end_ln = find_first_line_in_range(lines, envelope, linerange=(start_ln+1,))
+        if end_ln is None:
+            return None, None, None
+        return '\n'.join(code.splitlines()[start_ln+1:end_ln]), start_ln+1, end_ln-1
     code = load_text(path, encoding=encoding)
-    docstring = ast.get_docstring(node := ast.parse(code))
+    try:
+        docstring = ast.get_docstring(node := ast.parse(code))
+    except SyntaxError as not_py_err:
+        if not envelope:
+            raise not_py_err
+        return _extract_nonpy_docstring(code, target, envelope)
     if docstring is None:
         # possible cases
         # - empty file
