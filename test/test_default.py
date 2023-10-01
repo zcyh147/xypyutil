@@ -1893,6 +1893,25 @@ source-level docstring
     assert util.extract_docstring(src_file, envelope='"""') == (None, None, None)
 
 
+def test_inject_docstring():
+    src_file = osp.join(_org_dir, 'without_docstring.py')
+    dst_file = osp.join(_gen_dir, 'without_docstring.py')
+    util.copy_file(src_file, dst_file)
+    assert util.inject_docstring(dst_file, 'hello doc') == util.append_lineends_to_lines("""\
+\"\"\"
+hello doc
+\"\"\"
+# just comments without docstring
+
+if __name__ == '__main__':
+    \"\"\"
+    at the module source level
+    \"\"\"
+    pass
+""".splitlines())
+    util.safe_remove(_gen_dir)
+
+
 def test_save_load_csv():
     dsv = osp.join(_org_dir, 'dsv_comma.txt')
     assert util.load_dsv(dsv) == [

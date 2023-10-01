@@ -1372,7 +1372,13 @@ def convert_compound_cases(text, style='pascal', instyle='snake'):
     return ''.join(out_text)
 
 
-def append_lineends_to_lines(lines, style='posix'):
+def append_lineends_to_lines(lines: list[str], style='posix'):
+    """
+    - because append lineend is a strong decision
+    - often followed by saving-to-file action
+    - the lines are not reused afterward
+    - so for efficiency we allow for modifying in-lines
+    """
     lineend = '\r\n' if style in ('windows', 'win') else '\n'
     return [line + lineend for line in lines]
 
@@ -1903,13 +1909,13 @@ def load_lines(path, rmlineend=False, encoding=TXT_CODEC):
 
 
 def save_lines(path, lines, toappend=False, addlineend=False, style='posix', encoding=TXT_CODEC):
-    if isinstance(lines, str):
-        lines = [lines]
     lines_to_write = copy.deepcopy(lines)
+    if isinstance(lines, str):
+        lines_to_write = [lines_to_write]
     mode = 'a' if toappend else 'w'
     if addlineend:
         line_end = '\n' if style == 'posix' else '\r\n'
-        lines_to_write = [line + line_end for line in lines]
+        lines_to_write = [line + line_end for line in lines_to_write]
     par_dir = osp.split(path)[0]
     os.makedirs(par_dir, exist_ok=True)
     with open(path, mode, encoding=encoding) as fp:
@@ -2376,6 +2382,23 @@ def extract_docstring(path, target=None, encoding=TXT_CODEC, envelope=None):
     # We'll approximate end_lineno by splitting the docstring by lines and adding the count
     end_lineno = start_lineno + len(docstring.splitlines()) - 1
     return docstring, start_lineno, end_lineno
+
+
+def inject_docstring(path, lines_no_lineends, target=None, encoding=TXT_CODEC, envelope=None, style='posix'):
+    """
+    - add docstring to top if no target is given
+    TODO:
+    - support class/method/function-level docstrings
+    """
+
+    if isinstance(lines_no_lineends, str):
+        lines_no_lineends = [lines_no_lineends]
+    doc_lines = copy.deepcopy(lines_no_lineends)
+    envelope = envelope or '"""'
+    doc_lines = [envelope] + doc_lines + [envelope]
+    code_lines = load_lines(path, encoding=encoding, rmlineend=True)
+    code_with_docstring = doc_lines + code_lines
+    return save_lines(path, code_with_docstring, encoding=encoding, addlineend=True)
 
 
 def load_dsv(path, delimiter=',', encoding=TXT_CODEC):
