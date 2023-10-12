@@ -597,7 +597,7 @@ def kill_process_by_name(name, forcekill=False):
     # Windows: wmic cmd can kill admin-level process
     cmd = cmd_map[plat]['hardKill'] if forcekill else cmd_map[plat]['softKill']
     proc = run_cmd(cmd, check=False)
-    if 'not found' in (err_log := proc.stderr.decode(LOCALE_CODEC).lower()) or 'no instance' in proc.stdout.decode(LOCALE_CODEC).lower():
+    if 'not found' in (err_log := proc.stderr.decode(LOCALE_CODEC, errors='backslashreplace').lower()) or 'no instance' in proc.stdout.decode(LOCALE_CODEC, errors='backslashreplace').lower():
         return return_codes['procNotFound']
     if 'denied' in err_log:
         return return_codes['permissionDenied']
@@ -2407,8 +2407,9 @@ def load_dsv(path, delimiter=',', encoding=TXT_CODEC):
     TODO:
     - support csv's dialect
     """
-    with open(path, encoding=encoding) as file:
-        reader = csv.reader(file, delimiter=delimiter, skipinitialspace=True)
+    avoid_extra_blankline_on_win = '' if PLATFORM == 'Windows' else None
+    with open(path, newline=avoid_extra_blankline_on_win, encoding=encoding) as fp:
+        reader = csv.reader(fp, delimiter=delimiter, skipinitialspace=True)
         rows = [row for row in reader]
     return rows
 
