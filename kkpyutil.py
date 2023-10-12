@@ -589,7 +589,7 @@ def kill_process_by_name(name, forcekill=False):
         if proc.returncode != 0:
             return return_codes['procNotFound']
         proc = run_cmd(cmd, check=False)
-        if 'not permitted' in (err_log := proc.stderr.decode(LOCALE_CODEC).lower()):
+        if 'not permitted' in (err_log := safe_decode_bytes(proc.stderr).lower()):
             return return_codes['permissionDenied']
         if err_log:
             return return_codes['unknownError']
@@ -597,7 +597,7 @@ def kill_process_by_name(name, forcekill=False):
     # Windows: wmic cmd can kill admin-level process
     cmd = cmd_map[plat]['hardKill'] if forcekill else cmd_map[plat]['softKill']
     proc = run_cmd(cmd, check=False)
-    if 'not found' in (err_log := proc.stderr.decode(LOCALE_CODEC, errors='backslashreplace').lower()) or 'no instance' in proc.stdout.decode(LOCALE_CODEC, errors='backslashreplace').lower():
+    if 'not found' in (err_log := safe_decode_bytes(proc.stderr).lower()) or 'no instance' in safe_decode_bytes(proc.stdout).lower():
         return return_codes['procNotFound']
     if 'denied' in err_log:
         return return_codes['permissionDenied']
@@ -926,8 +926,8 @@ cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
     logger.info(cmd_log)
     try:
         proc = subprocess.run(cmd, check=check, shell=shell, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd, env=env)
-        stdout_log = proc.stdout.decode(LOCALE_CODEC, errors='backslashreplace')
-        stderr_log = proc.stderr.decode(LOCALE_CODEC, errors='backslashreplace')
+        stdout_log = safe_decode_bytes(proc.stdout)
+        stderr_log = safe_decode_bytes(proc.stderr)
         if stdout_log:
             console_info(f'stdout:\n{stdout_log}')
         if stderr_log:
@@ -936,8 +936,8 @@ cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
     # won't trigger this exception when useexception=True
     except subprocess.CalledProcessError as e:
         # generic error, grandchild_cmd error with noexception enabled
-        stdout_log = f'stdout:\n{e.stdout.decode(LOCALE_CODEC, errors="backslashreplace")}'
-        stderr_log = f'stderr:\n{e.stderr.decode(LOCALE_CODEC, errors="backslashreplace")}'
+        stdout_log = f'stdout:\n{safe_decode_bytes(e.stdout)}'
+        stderr_log = f'stderr:\n{safe_decode_bytes(e.stderr)}'
         logger.info(stdout_log)
         logger.error(stderr_log)
         if useexception:
@@ -950,7 +950,7 @@ cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
         logger.error(e)
         if useexception:
             raise e
-        return types.SimpleNamespace(returncode=2, stdout='', stderr=str(e).encode(LOCALE_CODEC))
+        return types.SimpleNamespace(returncode=2, stdout='', stderr=safe_encode_text(str(e), encoding=LOCALE_CODEC))
     return proc
 
 
@@ -975,7 +975,7 @@ cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
         logger.error(e)
         if useexception:
             raise e
-        return types.SimpleNamespace(returncode=2, stdout='', stderr=str(e).encode(LOCALE_CODEC))
+        return types.SimpleNamespace(returncode=2, stdout='', stderr=safe_encode_text(str(e), encoding=LOCALE_CODEC))
     return proc
 
 
@@ -1009,14 +1009,14 @@ cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
         # Read and print stdout and stderr in real-time
         while True:
             try:
-                stdout_line = stdout_queue.get_nowait().decode(LOCALE_CODEC)
+                stdout_line = safe_decode_bytes(stdout_queue.get_nowait())
                 res_stdout.append(stdout_line)
                 sys.stdout.write(stdout_line)
                 sys.stdout.flush()
             except queue.Empty:
                 pass
             try:
-                stderr_line = stderr_queue.get_nowait().decode(LOCALE_CODEC)
+                stderr_line = safe_decode_bytes(stderr_queue.get_nowait())
                 res_stderr.append(stderr_line)
                 sys.stderr.write(stderr_line)
                 sys.stderr.flush()
@@ -1029,7 +1029,7 @@ cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
         stderr_thread.join()
         # both are empty at this point
         stdout, stderr = proc.communicate()
-        proc.stdout, proc.stderr = ''.join(res_stdout).encode(LOCALE_CODEC), ''.join(res_stderr).encode(LOCALE_CODEC)
+        proc.stdout, proc.stderr = safe_encode_text(''.join(res_stdout), encoding=LOCALE_CODEC), safe_encode_text(''.join(res_stderr), encoding=LOCALE_CODEC)
         return proc
     # subprocess fails to start
     except Exception as e:
@@ -1037,7 +1037,7 @@ cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
         logger.error(e)
         if useexception:
             raise e
-        return types.SimpleNamespace(returncode=2, stdout='', stderr=str(e).encode(LOCALE_CODEC))
+        return types.SimpleNamespace(returncode=2, stdout='', stderr=safe_encode_text(str(e), encoding=LOCALE_CODEC))
 
 
 def extract_call_args(file, caller, callee):
@@ -2136,7 +2136,7 @@ def read_link(link_path, encoding=TXT_CODEC):
         "$Shortcut = $WSShell.CreateShortcut(\"" + str(link_path) + "\"); " \
                                                                     "Write-Host $Shortcut.TargetPath ';' $shortcut.Arguments "
     output = subprocess.run(["powershell.exe", ps_command], capture_output=True)
-    raw = output.stdout.decode(encoding)
+    raw = safe_decode_bytes(output.stdout)
     src_path, args = [x.strip() for x in raw.split(';', 1)]
     return src_path
 
@@ -2451,7 +2451,7 @@ def say(text, voice='Samantha', outfile=None):
 def http_get(url, encoding=TXT_CODEC):
     with urllib.request.urlopen(url) as response:
         html = response.read()
-    return html.decode(encoding)
+    return safe_decode_bytes(html, encoding=encoding)
 
 
 def http_post(url, data: dict, encoding=TXT_CODEC):
@@ -2474,6 +2474,14 @@ def get_environment():
         'pyPath': sys.path,
         'osPath': os.environ['Path'] if PLATFORM == 'Windows' else os.environ['PATH'],
     }
+
+
+def safe_decode_bytes(byte_obj, encoding=LOCALE_CODEC, errors="backslashreplace"):
+    return byte_obj.decode(encoding, errors=errors)
+
+
+def safe_encode_text(text, encoding=TXT_CODEC, errors="backslashreplace"):
+    return text.encode(encoding, errors=errors)
 
 
 def _test():

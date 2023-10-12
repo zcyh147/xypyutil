@@ -2011,3 +2011,6 @@ def test_http_post(monkeypatch):
 
 def test_get_environment():
     assert {'os', 'pyExe', 'pyVersion', 'pyPath', 'osPath'} == set(util.get_environment().keys())
+
+
+def test_safe_decode_bytes():
