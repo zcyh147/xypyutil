@@ -2013,4 +2013,10 @@ def test_get_environment():
     assert {'os', 'pyExe', 'pyVersion', 'pyPath', 'osPath'} == set(util.get_environment().keys())
 
 
-def test_safe_decode_bytes():
+def test_safe_decode_bytes_encode_text():
+    text = 'hello'
+    encoded = util.safe_encode_text(text, encoding=util.TXT_CODEC)
+    assert util.safe_decode_bytes(encoded, encoding=util.TXT_CODEC) == text
+    text = '你好'
+    encoded = util.safe_encode_text(text, encoding='gbk')
+    assert util.safe_decode_bytes(encoded, encoding='gbk') == text
