@@ -2485,12 +2485,17 @@ def safe_encode_text(text, encoding=TXT_CODEC, errors="backslashreplace"):
     return text.encode(encoding, errors=errors)
 
 
-def report_duration(start, end):
+def report_duration(start, end, fmt='compact'):
     duration = end - start
     days, seconds = duration.days, duration.seconds
     hours, rem = divmod(seconds, 3600)
     minutes, secs = divmod(rem, 60)
-    return f"{days} days, {hours} hours, {minutes} minutes, {secs} seconds, and {duration.microseconds//1000} milliseconds"
+    if fmt == 'compact':
+        return f"{days}.{hours}:{minutes}:{secs}.{duration.microseconds // 1000}"
+    if fmt == 'human':
+        return f"{days} days, {hours} hours, {minutes} minutes, {secs} seconds, and {duration.microseconds//1000} milliseconds"
+    return duration
+
 
 
 def _test():

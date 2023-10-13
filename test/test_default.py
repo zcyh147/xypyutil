@@ -2027,4 +2027,4 @@ def test_report_duration():
     assert util.report_duration(
         start=datetime.datetime(2023, 10, 10, 0, 0, 0, 0),
         end=datetime.datetime(2023, 10, 13, 1, 10, 10, 10*1000),
-    ) == f"3 days, 1 hours, 10 minutes, 10 seconds, and 10 milliseconds"
+    ) == f"3.1:10:10.10"
