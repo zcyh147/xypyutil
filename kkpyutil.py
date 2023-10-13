@@ -15,6 +15,7 @@ import collections
 import concurrent.futures
 import copy
 import csv
+import datetime
 import difflib
 import fnmatch
 import functools
@@ -2482,6 +2483,14 @@ def safe_decode_bytes(byte_obj, encoding=LOCALE_CODEC, errors="backslashreplace"
 
 def safe_encode_text(text, encoding=TXT_CODEC, errors="backslashreplace"):
     return text.encode(encoding, errors=errors)
+
+
+def report_duration(start, end):
+    duration = end - start
+    days, seconds = duration.days, duration.seconds
+    hours, rem = divmod(seconds, 3600)
+    minutes, secs = divmod(rem, 60)
+    return f"{days} days, {hours} hours, {minutes} minutes, {secs} seconds, and {duration.microseconds//1000} milliseconds"
 
 
 def _test():
