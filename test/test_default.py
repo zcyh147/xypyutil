@@ -2028,3 +2028,10 @@ def test_report_duration():
         start=datetime.datetime(2023, 10, 10, 0, 0, 0, 0),
         end=datetime.datetime(2023, 10, 13, 1, 10, 10, 10*1000),
     ) == f"3.1:10:10.10"
+
+
+def test_safe_get_element():
+    coll = [1, 2, 3, 4, 5]
+    assert util.safe_get_element(coll, 0) == 1
+    assert util.safe_get_element(coll, 100) is None
+    assert util.safe_get_element(coll, 100, 'hello') == 'hello'

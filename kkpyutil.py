@@ -2497,6 +2497,12 @@ def report_duration(start, end, fmt='compact'):
     return duration
 
 
+def safe_get_element(mylist, idx, default=None):
+    try:
+        return mylist[idx]
+    except IndexError:
+        return default
+
 
 def _test():
     print(say('hello'))
