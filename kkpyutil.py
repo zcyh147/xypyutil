@@ -2504,6 +2504,13 @@ def safe_get_element(mylist, idx, default=None):
         return default
 
 
+def safe_index(mylist, item, default=None):
+    try:
+        return mylist.index(item)
+    except ValueError:
+        return default
+
+
 def _test():
     print(say('hello'))
 

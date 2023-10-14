@@ -2035,3 +2035,10 @@ def test_safe_get_element():
     assert util.safe_get_element(coll, 0) == 1
     assert util.safe_get_element(coll, 100) is None
     assert util.safe_get_element(coll, 100, 'hello') == 'hello'
+
+
+def test_safe_index():
+    coll = [1, 2, 3, 4, 5]
+    assert util.safe_index(coll, 1) == 0
+    assert util.safe_index(coll, 100) is None
+    assert util.safe_index(coll, 100, 'hello') == 'hello'
