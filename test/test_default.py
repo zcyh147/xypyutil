@@ -2089,3 +2089,8 @@ def test_safe_index():
     assert util.safe_index(coll, 1) == 0
     assert util.safe_index(coll, 100) is None
     assert util.safe_index(coll, 100, 'hello') == 'hello'
+
+
+def test_load_ini():
+    config = util.load_ini(osp.join(_org_dir, 'simple.ini'))
+    assert config.get('bug_tracker', 'url') == 'http://localhost:8080/bugs/'

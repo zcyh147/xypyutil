@@ -13,6 +13,7 @@ import cProfile as profile
 # Import std-modules.
 import collections
 import concurrent.futures
+import configparser
 import copy
 import csv
 import datetime
@@ -2573,6 +2574,12 @@ def safe_index(mylist, item, default=None):
 
 def format_now(dt=datetime.datetime.now(), fmt='%Y_%m_%d-%H_%M_%S'):
     return dt.strftime(fmt)
+
+
+def load_ini(path, *args, **kwargs):
+    config = configparser.ConfigParser(*args, **kwargs)
+    config.read(path)
+    return config
 
 
 def _test():
