@@ -2571,6 +2571,10 @@ def safe_index(mylist, item, default=None):
         return default
 
 
+def format_now(dt=datetime.datetime.now(), fmt='%Y-%m-%d_%H:%M:%S'):
+    return dt.strftime(fmt)
+
+
 def _test():
     print(say('hello'))
 
