@@ -143,24 +143,39 @@ def test_format_error_message():
         expected=100,
         got=-100,
         advice='did you forget to take its absolute value?',
-        reaction='aborted',
+        resolution='aborted',
     )
     expected = """\
 task result is wrong:
 - Expected: 100
 - Got: -100
 - Advice: did you forget to take its absolute value?
-- Reaction: aborted"""
+- Resolution: aborted"""
     assert got == expected
 
 
-def test_is_multiline_text():
-    text = 'single line'
-    assert not util.is_multiline_text(text)
-    text = """line 1
-line 2
-line 3"""
-    assert util.is_multiline_text(text)
+def test_format_brief():
+    got = util.format_brief(
+        title='title',
+        bullets=['item 1', 'item 2'],
+    )
+    expected = """\
+title:
+- item 1
+- item 2"""
+    assert got == expected
+    got = util.format_brief(
+        bullets=['item 1', 'item 2'],
+    )
+    expected = """\
+- item 1
+- item 2"""
+    assert got == expected
+    got = util.format_brief(
+        title='title',
+    )
+    expected = 'title'
+    assert got == expected
 
 
 def test_is_python3():

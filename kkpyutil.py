@@ -245,17 +245,27 @@ def catch_unknown_exception(exc_type, exc_value, exc_traceback):
 sys.excepthook = catch_unknown_exception
 
 
-def format_error_message(situation, expected, got, advice, reaction):
+def format_error_message(situation, expected, got, advice, resolution):
     return f"""\
 {situation}:
 - Expected: {expected}
 - Got: {got}
 - Advice: {advice}
-- Reaction: {reaction}"""
+- Resolution: {resolution}"""
 
 
-def is_multiline_text(text, lineend='\n'):
-    return len(text.strip().split(lineend)) > 1
+def format_brief(title='', bullets=()):
+    """
+    create readable brief:
+      title:
+      - bullet 1
+      - bullet 2
+    """
+    if not bullets:
+        return title
+    bullet_list = '\n'.join([f'- {p}' for p in bullets])
+    return f"""{title}:
+{bullet_list}""" if title else bullet_list
 
 
 def is_python3():
