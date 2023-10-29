@@ -245,27 +245,71 @@ def catch_unknown_exception(exc_type, exc_value, exc_traceback):
 sys.excepthook = catch_unknown_exception
 
 
-def format_error_message(situation, expected, got, advice, resolution):
-    return f"""\
-{situation}:
-- Expected: {expected}
-- Got: {got}
-- Advice: {advice}
-- Resolution: {resolution}"""
-
-
 def format_brief(title='', bullets=()):
     """
-    create readable brief:
+    - create readable brief:
       title:
       - bullet 1
       - bullet 2
+    - indent: 1 indent = 2 spaces
+    - if brief is nested, we don't add bullet to title for simplicity
     """
+    ttl = title if title else ''
     if not bullets:
-        return title
-    bullet_list = '\n'.join([f'- {p}' for p in bullets])
-    return f"""{title}:
-{bullet_list}""" if title else bullet_list
+        return ttl
+    lst = '\n'.join([f'- {p}' for p in bullets])
+    return f"""{ttl}:
+{lst}""" if ttl else lst
+
+
+def indent_lines(lines, indent=1):
+    """
+    - indent: 1 indent = 2 spaces
+    """
+    return [f'{"  " * indent}{line}' for line in lines]
+
+
+def format_log(situation, detail=None, advice=None, reso=None):
+    """
+    generic log message for all error levels
+    - situation: one sentence about what happened (e.g. 'file not found', 'op completed'), useful for info level if used alone
+    - detail: usually a list of facts, can be list or brief
+    - advice: how to fix the problem, useful for warning/error levels
+    - reso: what program ends up doing to resolve a problem, useful for error level
+    """
+    def _lazy_create_list(atitle, content):
+        # if content is a list, we first format_brief it, then indent it
+        if isinstance(content, list):
+            return format_brief(atitle, content)
+        # if content is a string, we indent it as lines
+        le = '\n'
+        return f"""\
+{atitle}:
+{le.join(indent_lines(content.splitlines() if isinstance(content, str) else content))}"""
+    title = situation
+    body = ''
+    if detail is not None:
+        body += f"{_lazy_create_list('Detail', detail)}\n"
+    if advice is not None:
+        body += f"{_lazy_create_list('Advice', advice)}\n"
+    if reso is not None:
+        body += f"{_lazy_create_list('Done-for-you', reso)}\n"
+    if body:
+        title += ':'
+    return f"""\
+{title}
+{body}"""
+
+
+def format_error(expected, got):
+    """
+    - indent by 1 level because titled-diagnostics usually appear below a parent title as part of a detail listing
+    """
+    log_expected = format_brief('Expected', expected if isinstance(expected, list) else [expected])
+    log_got = format_brief('Got', got if isinstance(got, list) else [got])
+    return f"""\
+{log_expected}
+{log_got}"""
 
 
 def is_python3():

@@ -137,23 +137,6 @@ def test_catch_unknown_exception():
     util.catch_unknown_exception(RuntimeError, 'exception info', None)
 
 
-def test_format_error_message():
-    got = util.format_error_message(
-        situation='task result is wrong',
-        expected=100,
-        got=-100,
-        advice='did you forget to take its absolute value?',
-        resolution='aborted',
-    )
-    expected = """\
-task result is wrong:
-- Expected: 100
-- Got: -100
-- Advice: did you forget to take its absolute value?
-- Resolution: aborted"""
-    assert got == expected
-
-
 def test_format_brief():
     got = util.format_brief(
         title='title',
@@ -175,6 +158,49 @@ title:
         title='title',
     )
     expected = 'title'
+    assert got == expected
+
+
+def test_format_log():
+    expected = """\
+situation:
+Detail:
+- fact 1
+- fact 2
+Advice:
+- advice 1
+- advice 2
+Done-for-you:
+- done 1
+"""
+    got = util.format_log(
+        situation='situation',
+        detail=['fact 1', 'fact 2'],
+        advice=['advice 1', 'advice 2'],
+        reso=['done 1'],
+    )
+    assert got == expected
+    expected = """\
+situation:
+Detail:
+  Expected:
+  - expected 1
+  - expected 2
+  Got:
+  - got 1
+  - got 2
+Advice:
+- advice 1
+- advice 2
+Done-for-you:
+- done 1
+"""
+    got = util.format_log(
+        situation='situation',
+        detail=util.format_error(['expected 1', 'expected 2'], ['got 1', 'got 2']),
+        advice=['advice 1', 'advice 2'],
+        reso=['done 1'],
+    )
     assert got == expected
 
 
