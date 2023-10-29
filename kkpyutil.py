@@ -312,6 +312,12 @@ def format_error(expected, got):
 {log_got}"""
 
 
+def throw(err_cls, detail, advice):
+    raise err_cls(f"""
+{format_brief('Detail', detail if isinstance(detail, list) else [detail])}
+{format_brief('Advice', advice if isinstance(advice, list) else [advice])}""")
+
+
 def is_python3():
     return sys.version_info[0] > 2
 

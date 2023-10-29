@@ -204,6 +204,12 @@ Done-for-you:
     assert got == expected
 
 
+def test_throw():
+    with pytest.raises(ValueError) as excinfo:
+        util.throw(ValueError, 'hello', 'world')
+        assert excinfo.value.args == ('hello', 'world')
+
+
 def test_is_python3():
     assert util.is_python3()
 
