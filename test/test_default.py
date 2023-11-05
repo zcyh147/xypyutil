@@ -2094,3 +2094,8 @@ def test_safe_index():
 def test_load_ini():
     config = util.load_ini(osp.join(_org_dir, 'simple.ini'))
     assert config.get('bug_tracker', 'url') == 'http://localhost:8080/bugs/'
+
+
+def test_indent():
+    assert util.indent('hello', 2) == '  hello'
+    assert util.indent(['hello', 'world']) == ['    hello', '    world']

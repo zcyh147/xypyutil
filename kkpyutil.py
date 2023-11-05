@@ -2582,6 +2582,12 @@ def load_ini(path, *args, **kwargs):
     return config
 
 
+def indent(code_or_lines, spaces_per_indent=4):
+    lines = code_or_lines.splitlines() if isinstance(code_or_lines, str) else code_or_lines
+    indented = [f'{" " * spaces_per_indent}{line}' for line in lines]
+    return '\n'.join(indented) if isinstance(code_or_lines, str) else indented
+
+
 def _test():
     print(say('hello'))
 
