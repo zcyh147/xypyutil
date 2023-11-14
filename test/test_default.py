@@ -1793,10 +1793,15 @@ def test_move_file():
     dst_dir = osp.join(_gen_dir, 'to_move')
     util.move_file(src_file, dst_dir, isdstdir=True)
     assert osp.isfile(dst := osp.join(dst_dir, 'to_move.file'))
+    # dst exists
+    src_file = util.touch(src)
+    util.move_file(src_file, dst)
     # no SameFileError
     src_file = util.touch(src)
     util.move_file(src_file, src_file)
     util.safe_remove(_gen_dir)
+
+
 
 
 def test_compare_dirs():
