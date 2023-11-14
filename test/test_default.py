@@ -1318,7 +1318,7 @@ def test_read_link():
         assert util.read_link(lnk) == 'D:\\kakyo\\_dev\\kkpyutil\\test\\_org\\lines.txt'
     else:
         lnk = osp.join(_org_dir, 'lines.txt.symlink')
-        assert util.read_link(lnk) == osp.join(_org_dir, 'lines.txt')
+        assert util.read_link(lnk) == '/Users/kakyo/Desktop/_dev/kkpyutil/test/_org/lines.txt'
         lnk = osp.join(_org_dir, 'lines.txt.lnk')
         assert util.read_link(lnk) == lnk
 
@@ -1800,8 +1800,6 @@ def test_move_file():
     src_file = util.touch(src)
     util.move_file(src_file, src_file)
     util.safe_remove(_gen_dir)
-
-
 
 
 def test_compare_dirs():
