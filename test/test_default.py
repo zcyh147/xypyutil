@@ -1796,6 +1796,8 @@ def test_move_file():
     # dst exists
     src_file = util.touch(src)
     util.move_file(src_file, dst)
+    src_file = util.touch(src)
+    util.move_file(src_file, osp.dirname(dst), isdstdir=True)
     # no SameFileError
     src_file = util.touch(src)
     util.move_file(src_file, src_file)

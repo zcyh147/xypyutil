@@ -1584,9 +1584,9 @@ def move_file(src, dst, isdstdir=False):
     os.makedirs(par_dir, exist_ok=True)
     try:
         shutil.move(src, dst)
-    except FileExistsError as win_err:
+    except (FileExistsError, shutil.Error) as win_err:
         glogger.debug(f'On Windows, use POSIX mv convention to overwrite existing file: {dst}')
-        copy_file(src, dst)
+        copy_file(src, dst, isdstdir)
         try:
             os.remove(src)
         except Exception as e:
