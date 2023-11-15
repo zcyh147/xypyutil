@@ -594,6 +594,23 @@ def alert(content, title='Debug', action='Close'):
     return subprocess.run(cmd)
 
 
+def confirm(situation, question='Do you want to proceed?', title='Question'):
+    if PLATFORM == 'Windows':
+        cmd = f'mshta vbscript:Execute("CreateObject(""Scripting.FileSystemObject"").GetStandardStream(1).Write(msgbox(\"{situation}\n\n{question}\",4,\"{title}\")) Close")'
+        result = subprocess.check_output(cmd, shell=True).strip()
+        return result == b'6'  # Returns True if 'Yes' was clicked
+    elif PLATFORM == 'Darwin':
+        try:
+            cmd = f'osascript -e \'tell app "System Events" to display dialog "{situation}\n\n{question}" with title "{title}" buttons {{"No", "Yes"}} default button "Yes"\''
+            result = subprocess.check_output(cmd, shell=True).decode().strip()
+            return 'Yes' in result  # Returns True if 'Yes' was clicked
+        except subprocess.CalledProcessError:
+            return False  # Handle case where dialog is closed without making a selection
+    else:
+        # Other OS implementation (if needed)
+        pass
+
+
 def convert_to_wine_path(path, drive=None):
     """
     - path is a macOS-style POSIX full path, e.g.
