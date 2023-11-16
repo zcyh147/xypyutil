@@ -597,13 +597,14 @@ def alert(content, title='Debug', action='Close'):
 def confirm(situation, question='Do you want to proceed?', title='Question'):
     if PLATFORM == 'Windows':
         # Escaping double quotes within the VBScript
+        escaped_sit = situation.replace('"', '""')
         escaped_question = question.replace('"', '""')
         escaped_title = title.replace('"', '""')
 
         # PowerShell command to execute VBScript code in-memory
         ps_command = (
             f"$wshell = New-Object -ComObject WScript.Shell; "
-            f"$result = $wshell.Popup(\"{escaped_question}\", 0, \"{escaped_title}\", 4); "
+            f"$result = $wshell.Popup(\"{escaped_sit}\n\n{escaped_question}\", 0, \"{escaped_title}\", 4); "
             f"exit $result"
         )
 
