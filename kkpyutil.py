@@ -596,9 +596,25 @@ def alert(content, title='Debug', action='Close'):
 
 def confirm(situation, question='Do you want to proceed?', title='Question'):
     if PLATFORM == 'Windows':
-        cmd = f'mshta vbscript:Execute("CreateObject(""Scripting.FileSystemObject"").GetStandardStream(1).Write(msgbox(\"{situation}\n\n{question}\",4,\"{title}\")) Close")'
-        result = subprocess.check_output(cmd, shell=True).strip()
-        return result == b'6'  # Returns True if 'Yes' was clicked
+        # Escaping double quotes within the VBScript
+        escaped_question = question.replace('"', '""')
+        escaped_title = title.replace('"', '""')
+
+        # PowerShell command to execute VBScript code in-memory
+        ps_command = (
+            f"$wshell = New-Object -ComObject WScript.Shell; "
+            f"$result = $wshell.Popup(\"{escaped_question}\", 0, \"{escaped_title}\", 4); "
+            f"exit $result"
+        )
+
+        # Running the PowerShell command
+        try:
+            result = subprocess.run(["powershell", "-Command", ps_command], capture_output=True, text=True)
+
+            # VBScript Popup returns 6 for "Yes" and 7 for "No"
+            return result.returncode == 6
+        except subprocess.CalledProcessError:
+            return False
     elif PLATFORM == 'Darwin':
         try:
             cmd = f'osascript -e \'tell app "System Events" to display dialog "{situation}\n\n{question}" with title "{title}" buttons {{"No", "Yes"}} default button "Yes"\''
