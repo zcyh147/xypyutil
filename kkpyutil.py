@@ -2622,8 +2622,29 @@ def indent(code_or_lines, spaces_per_indent=4):
     return '\n'.join(indented) if isinstance(code_or_lines, str) else indented
 
 
+def is_number_text(text):
+    """
+    - Check if the string `s` is a number, including
+      - Negative numbers (e.g., '-123')
+      - Floats with a trailing dot (e.g., '123.')
+      - Regular integers and floats
+    """
+    # Remove leading/trailing whitespace
+    text = text.strip()
+
+    # Check for negative numbers
+    if text.startswith('-'):
+        text = text[1:]
+
+    # Check for integers or floats (with a possible trailing dot)
+    if text.isdigit() or (text.count('.') == 1 and text.replace('.', '', 1).isdigit()):
+        return True
+    return False
+
+
 def _test():
-    print(say('hello'))
+    # print(say('hello'))
+    print(is_number_text('-'))
 
 
 if __name__ == '__main__':

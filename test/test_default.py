@@ -2104,3 +2104,10 @@ def test_load_ini():
 def test_indent():
     assert util.indent('hello', 2) == '  hello'
     assert util.indent(['hello', 'world']) == ['    hello', '    world']
+
+
+def test_is_number():
+    test_strings = ["123", "-123", "6.", "123.45", "abc", "12.12.12", "-", "-6.", "-6.5"]
+    expected = [True, True, True, True, False, False, False, True, True]
+    for s, ts in enumerate(test_strings):
+        assert util.is_number_text(ts) == expected[s]
