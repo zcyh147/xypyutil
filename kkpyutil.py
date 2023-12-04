@@ -2654,6 +2654,10 @@ def find_log_path(logger):
     return next(filter(lambda h: isinstance(h, logging.FileHandler), logger.handlers), None)
 
 
+def collect_file_tree(root):
+    return [file for file in glob.glob(osp.join(root, '**'), recursive=True) if osp.isfile(file)]
+
+
 def _test():
     print(say('hello'))
 

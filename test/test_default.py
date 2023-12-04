@@ -2115,3 +2115,11 @@ def test_is_number():
 
 def test_find_log_path():
     assert util.find_log_path(util.glogger) == osp.abspath(f'{util.get_platform_tmp_dir()}/_util/util.log')
+
+
+def test_collect_file_tree():
+    root = osp.join(_org_dir, 'duplicate_this')
+    assert [osp.relpath(path, root) for path in util.collect_file_tree(root)] == [osp.normpath(path) for path in [
+        'sub/my.file',
+        'my.file'
+    ]]
