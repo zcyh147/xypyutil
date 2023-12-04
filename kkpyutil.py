@@ -2642,6 +2642,18 @@ def indent(code_or_lines, spaces_per_indent=4):
     return '\n'.join(indented) if isinstance(code_or_lines, str) else indented
 
 
+def find_log_path(logger):
+    """
+    - logger must be a python logger
+    """
+    for handler in logger.handlers:
+        if isinstance(handler, logging.FileHandler):
+            return handler.baseFilename
+    # use next() to get the first handler
+    # if not found, raise StopIteration
+    return next(filter(lambda h: isinstance(h, logging.FileHandler), logger.handlers), None)
+
+
 def _test():
     print(say('hello'))
 

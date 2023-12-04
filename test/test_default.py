@@ -2111,3 +2111,7 @@ def test_is_number():
     expected = [True, True, True, True, False, False, False, True, True]
     for s, ts in enumerate(test_strings):
         assert util.is_number_text(ts) == expected[s]
+
+
+def test_find_log_path():
+    assert util.find_log_path(util.glogger) == osp.abspath(f'{util.get_platform_tmp_dir()}/_util/util.log')
