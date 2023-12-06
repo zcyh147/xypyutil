@@ -1566,6 +1566,17 @@ def test_convert_compound_cases():
     assert util.convert_compound_cases('helloworld', style='camel', instyle='snake') == 'helloworld'
     assert util.convert_compound_cases('Helloworld', style='pascal', instyle='snake') == 'Helloworld'
 
+    # ambiguity in detection and fallbacks
+    assert util.convert_compound_cases('page1', style='snake') == 'page1', 'taken as camel'
+    assert util.convert_compound_cases('page1', style='SNAKE') == 'PAGE1', 'taken as camel'
+    assert util.convert_compound_cases('page1', style='camel') == 'page1', 'taken as camel'
+    assert util.convert_compound_cases('page1', style='kebab') == 'page1', 'taken as camel'
+    assert util.convert_compound_cases('page1', style='phrase') == 'page1', 'taken as camel'
+    assert util.convert_compound_cases('page1', style='oneword') == 'page1', 'taken as camel'
+    assert util.convert_compound_cases('page1', style='ONEWORD') == 'PAGE1', 'taken as camel'
+    assert util.convert_compound_cases('page1', style='pascal') == 'Page1', 'taken as camel'
+    assert util.convert_compound_cases('page1', style='title') == 'Page1', 'taken as camel'
+
 
 def test_append_lineends_to_lines():
     assert util.append_lineends_to_lines(

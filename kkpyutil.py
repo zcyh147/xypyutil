@@ -1430,6 +1430,13 @@ def wrap_lines_with_tags(lines: list[str], starttag: str, endtag: str, withinden
 
 
 def convert_compound_cases(text, style='pascal', instyle='auto'):
+    def _assert_alphanumeric_hyphen_underscore(input_string):
+        # Pattern to match alphanumeric characters, hyphens, and underscores
+        pattern = r'^[a-zA-Z0-9-_]+$'
+
+        # Assert that the input_string matches the pattern
+        assert re.match(pattern, input_string), f'Unsupported string: {input_string}; expected alphanumeric, hyphen, and underscore characters only.'
+
     def _detect_casing(txt):
         case_patterns = {
             'snake': r'^[a-z]+(_[a-z0-9]+)*$',
@@ -1443,8 +1450,8 @@ def convert_compound_cases(text, style='pascal', instyle='auto'):
         for case_style, pattern in case_patterns.items():
             if re.match(pattern, txt):
                 return case_style
-        breakpoint()
-        raise KeyError(f'Unknown case: {txt}, expected: {case_patterns.keys()}')
+        glogger.warning(f'Unsupported casing: {txt}, expected: {case_patterns.keys()}; will treat as camelCase')
+        return 'camel'
 
     assert style in ('camel', 'kebab', 'oneword', 'ONEWORD', 'pascal', 'phrase', 'snake', 'SNAKE', 'title')
     in_style = _detect_casing(text) if instyle == 'auto' else instyle
@@ -1466,6 +1473,8 @@ def convert_compound_cases(text, style='pascal', instyle='auto'):
         snake_text = text.replace(' ', '_').lower()
     else:
         raise KeyError(f'Unknown input casing style: {instyle}, expected: camel, kebab, pascal, phrase, snake, SNAKE, title')
+    if style == 'snake':
+        return snake_text
     # convert to snake first
     if style == 'oneword':
         return snake_text.replace('_', '').lower()
@@ -2678,7 +2687,9 @@ def collect_file_tree(root):
 
 def _test():
     # print(say('hello'))
-    assert convert_compound_cases('Hello1World1', style='SNAKE') == 'HELLO1_WORLD1'
+    res = convert_compound_cases('page1', style='snake')
+    assert res == 'page1', f'got {res}'
+
 
 if __name__ == '__main__':
     _test()
