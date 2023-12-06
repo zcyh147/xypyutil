@@ -1429,25 +1429,43 @@ def wrap_lines_with_tags(lines: list[str], starttag: str, endtag: str, withinden
     return head_line + lines + tail_line
 
 
-def convert_compound_cases(text, style='pascal', instyle='snake'):
+def convert_compound_cases(text, style='pascal', instyle='auto'):
+    def _detect_casing(txt):
+        case_patterns = {
+            'snake': r'^[a-z]+(_[a-z0-9]+)*$',
+            'SNAKE': r'^[A-Z]+(_[A-Z0-9]+)*$',
+            'camel': r'^[a-z]+([A-Z][a-z0-9]*)*$',
+            'kebab': r'^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)+$',
+            'pascal': r'^[A-Z][a-z0-9]+([A-Z][a-z0-9]*)*$',
+            'phrase': r'^[a-z]+( [a-z]+)*$',
+            'title': r'^[A-Z][a-z]*([ ][A-Z][a-z]*)*$',
+        }
+        for case_style, pattern in case_patterns.items():
+            if re.match(pattern, txt):
+                return case_style
+        breakpoint()
+        raise KeyError(f'Unknown case: {txt}, expected: {case_patterns.keys()}')
+
     assert style in ('camel', 'kebab', 'oneword', 'ONEWORD', 'pascal', 'phrase', 'snake', 'SNAKE', 'title')
-    assert instyle in ('camel', 'kebab', 'pascal', 'phrase', 'snake', 'SNAKE', 'title')
-    if instyle == style:
+    in_style = _detect_casing(text) if instyle == 'auto' else instyle
+    if in_style == style:
         return text
     snake_text = text
-    if instyle in ('snake', 'SNAKE'):
-        snake_text = text if instyle == 'snake' else text.lower()
-    elif instyle == 'kebab':
+    if in_style in ('snake', 'SNAKE'):
+        snake_text = text if in_style == 'snake' else text.lower()
+    elif in_style == 'kebab':
         snake_text = text.replace('-', '_')
-    elif instyle in ('camel', 'pascal'):
+    elif in_style in ('camel', 'pascal'):
         anchors = [c for c, char in enumerate(text) if char.isupper()]
         # prefix _ before anchors
         chars = list(text)
         for c in reversed(anchors):
             chars.insert(c, '_')
         snake_text = ''.join(chars).lstrip('_').lower()
-    elif instyle in ('phrase', 'title'):
+    elif in_style in ('phrase', 'title'):
         snake_text = text.replace(' ', '_').lower()
+    else:
+        raise KeyError(f'Unknown input casing style: {instyle}, expected: camel, kebab, pascal, phrase, snake, SNAKE, title')
     # convert to snake first
     if style == 'oneword':
         return snake_text.replace('_', '').lower()
@@ -1461,7 +1479,7 @@ def convert_compound_cases(text, style='pascal', instyle='snake'):
     if style == 'title':  # en_US => en US, this_is_title => This is Title
         return ' '.join([part[0].title() + part[1:] if part else part.title() for part in split_strs])
     if style == 'phrase':
-        return ' '.join(split_strs)
+        return ' '.join(split_strs).lower()
     out_text = [s.capitalize() for s in split_strs]
     if style == 'camel':
         out_text[0] = out_text[0].lower()
@@ -2659,8 +2677,8 @@ def collect_file_tree(root):
 
 
 def _test():
-    print(say('hello'))
-
+    # print(say('hello'))
+    assert convert_compound_cases('Hello1World1', style='SNAKE') == 'HELLO1_WORLD1'
 
 if __name__ == '__main__':
     _test()

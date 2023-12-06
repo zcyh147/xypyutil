@@ -1518,8 +1518,8 @@ def test_wrap_lines_with_tags():
 def test_convert_compound_cases():
     with pytest.raises(AssertionError):
         util.convert_compound_cases('hello_world', style='missing')
-    with pytest.raises(AssertionError):
-        util.convert_compound_cases('hello_world', instyle='oneword')
+    with pytest.raises(KeyError):
+        util.convert_compound_cases('hello_world', instyle=',,,')
     assert util.convert_compound_cases('hello_world', style='oneword') == 'helloworld'
     assert util.convert_compound_cases('hello_world', style='ONEWORD') == 'HELLOWORLD'
     assert util.convert_compound_cases('hello_world', style='SNAKE') == 'HELLO_WORLD'
@@ -1528,6 +1528,34 @@ def test_convert_compound_cases():
     assert util.convert_compound_cases('hello_world', style='phrase') == 'hello world'
     assert util.convert_compound_cases('hello_world', style='camel') == 'helloWorld'
     assert util.convert_compound_cases('hello_world', style='pascal') == 'HelloWorld'
+
+    assert util.convert_compound_cases('helloWorld1', style='oneword') == 'helloworld1'
+    assert util.convert_compound_cases('helloWorld1', style='ONEWORD') == 'HELLOWORLD1'
+    assert util.convert_compound_cases('helloWorld1', style='SNAKE') == 'HELLO_WORLD1'
+    assert util.convert_compound_cases('helloWorld1', style='kebab') == 'hello-world1'
+    assert util.convert_compound_cases('helloWorld1', style='title') == 'Hello World1'
+    assert util.convert_compound_cases('helloWorld1', style='phrase') == 'hello world1'
+    assert util.convert_compound_cases('helloWorld1', style='camel') == 'helloWorld1'
+    assert util.convert_compound_cases('helloWorld1', style='pascal') == 'HelloWorld1'
+
+    assert util.convert_compound_cases('Hello1World1', style='oneword') == 'hello1world1'
+    assert util.convert_compound_cases('Hello1World1', style='ONEWORD') == 'HELLO1WORLD1'
+    assert util.convert_compound_cases('Hello1World1', style='SNAKE') == 'HELLO1_WORLD1'
+    assert util.convert_compound_cases('Hello1World1', style='kebab') == 'hello1-world1'
+    assert util.convert_compound_cases('Hello1World1', style='title') == 'Hello1 World1'
+    assert util.convert_compound_cases('Hello1World1', style='phrase') == 'hello1 world1'
+    assert util.convert_compound_cases('Hello1World1', style='camel') == 'hello1World1'
+    assert util.convert_compound_cases('Hello1World1', style='pascal') == 'Hello1World1'
+
+    assert util.convert_compound_cases('Hello1-World1', style='oneword') == 'hello1world1'
+    assert util.convert_compound_cases('Hello1-World1', style='ONEWORD') == 'HELLO1WORLD1'
+    assert util.convert_compound_cases('Hello1-World1', style='SNAKE') == 'HELLO1_WORLD1'
+    assert util.convert_compound_cases('Hello1-World1', style='kebab') == 'Hello1-World1'
+    assert util.convert_compound_cases('Hello1-World1', style='title') == 'Hello1 World1'
+    assert util.convert_compound_cases('Hello1-World1', style='phrase') == 'hello1 world1'
+    assert util.convert_compound_cases('Hello1-World1', style='camel') == 'hello1World1'
+    assert util.convert_compound_cases('Hello1-World1', style='pascal') == 'Hello1World1'
+
     assert util.convert_compound_cases('helloWorld', style='pascal', instyle='camel') == 'HelloWorld'
     assert util.convert_compound_cases('HelloWorld', style='SNAKE', instyle='pascal') == 'HELLO_WORLD'
     assert util.convert_compound_cases('Hello World', style='camel', instyle='title') == 'helloWorld'
