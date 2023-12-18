@@ -51,6 +51,7 @@ import time
 import tokenize
 import traceback
 import types
+import typing
 import urllib.parse
 import urllib.request
 import uuid
@@ -1439,7 +1440,7 @@ def convert_compound_cases(text, style='pascal', instyle='auto'):
 
     def _detect_casing(txt):
         case_patterns = {
-            'snake': r'^[a-z]+(_[a-z0-9]+)*$',
+            'snake': r'^[a-z]+(_[a-zA_Z0-9]+)*$',
             'SNAKE': r'^[A-Z]+(_[A-Z0-9]+)*$',
             'camel': r'^[a-z]+([A-Z][a-z0-9]*)*$',
             'kebab': r'^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)+$',
@@ -2685,10 +2686,19 @@ def collect_file_tree(root):
     return [file for file in glob.glob(osp.join(root, '**'), recursive=True) if osp.isfile(file)]
 
 
+def merge_namespace(to_ns: types.SimpleNamespace, from_ns: types.SimpleNamespace):
+    """
+    - merge from_ns into to_ns
+    - to_ns must be a namespace
+    - from_ns can be a dict or a namespace
+    """
+    for k, v in vars(from_ns).items():
+        setattr(to_ns, k, v)
+    return to_ns
+
+
 def _test():
-    # print(say('hello'))
-    res = convert_compound_cases('page1', style='snake')
-    assert res == 'page1', f'got {res}'
+    print(say('hello'))
 
 
 if __name__ == '__main__':
