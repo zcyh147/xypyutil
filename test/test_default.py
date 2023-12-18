@@ -2164,7 +2164,7 @@ def test_collect_file_tree():
     ]]
 
 
-def test_merge_namespace():
+def test_merge_namespaces():
     to_ns = types.SimpleNamespace(
         mine=100,
         overwritten=[1, 2, 3],
@@ -2173,7 +2173,7 @@ def test_merge_namespace():
         theirs='hello world',
         overwritten=[100, 200, 300],
     )
-    assert util.merge_namespace(to_ns, from_ns) == types.SimpleNamespace(
+    assert util.merge_namespaces(to_ns, from_ns) == types.SimpleNamespace(
         mine=100,
         theirs='hello world',
         overwritten=[100, 200, 300],

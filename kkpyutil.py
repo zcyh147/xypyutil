@@ -2686,7 +2686,7 @@ def collect_file_tree(root):
     return [file for file in glob.glob(osp.join(root, '**'), recursive=True) if osp.isfile(file)]
 
 
-def merge_namespace(to_ns: types.SimpleNamespace, from_ns: types.SimpleNamespace):
+def merge_namespaces(to_ns: types.SimpleNamespace, from_ns: types.SimpleNamespace):
     """
     - merge from_ns into to_ns
     - to_ns must be a namespace
