@@ -752,12 +752,19 @@ def match_files_except_lines(file1, file2, excluded=None):
 
 
 class RerunLock:
-    """Lock process from reentering when seeing lock file on disk."""
+    """
+    - Lock process from reentering when seeing lock file on disk
+    - use semaphore-like behaviour with an instance limit
+    - Because lockfile is created by pyutil, we also save the occupier pid and .py path (name) in it
+    - if name is a path, e.g., __file__, then lockfile will be named after its basename
+    """
 
-    def __init__(self, name, folder=None, logger=None):
+    def __init__(self, name, folder=None, logger=None, max_instances=1):
         folder = folder or osp.join(get_platform_tmp_dir(), '_util')
-        filename = f'lock_{name}.json' if name else f'lock_{next(tempfile._get_candidate_names())}.json'
+        filename = f'lock_{osp.basename(name)}.{os.getpid()}.lock.json'
+        self.name = name
         self.lockFile = osp.join(folder, filename)
+        self.nMaxInstances = max_instances
         self.logger = logger or glogger
         # CAUTION:
         # - windows grpc server crashes with signals:
@@ -795,10 +802,19 @@ class RerunLock:
                 signal.signal(sig, self.handle_signal)
 
     def lock(self):
-        if self.is_locked():
-            self.logger.warning('Locked by process: {}. Will block new instances until that process ends.'.format(os.getpid()))
+        """
+        -
+        """
+        locks = glob.glob(osp.join(osp.dirname(self.lockFile), f'lock_{osp.basename(self.name)}.*.lock.json'))
+        is_locked = len(locks) >= self.nMaxInstances
+        if is_locked:
+            locker_pids = [lock.split(".")[1] for lock in locks]
+            self.logger.warning(f'{self.name} is locked by processes: {locker_pids}. Will block new instances until unlocked.')
             return False
-        save_json(self.lockFile, {'pid': os.getpid()})
+        save_json(self.lockFile, {
+            'pid': os.getpid(),
+            'name': self.name,
+        })
         # CAUTION: race condition: saving needs a sec, it's up to application to await lockfile
         return True
 
@@ -806,12 +822,24 @@ class RerunLock:
         try:
             os.remove(self.lockFile)
         except FileNotFoundError:
-            self.logger.warning('Already unlocked. Aborted.')
+            self.logger.warning(f'{self.name} already unlocked. Safely ignored.')
             return False
         except Exception:
             failure = traceback.format_exc()
-            self.logger.error('{}\nFailed to unlock. Must delete the lock by hand: {}.'.format(failure, self.lockFile))
+            self.logger.error(f""""\
+Failed to unlock {self.name}:
+Details:
+{failure}
+
+Advice: 
+- Delete the lock by hand: {self.lockFile}""")
             return False
+        return True
+
+    def unlock_all(self):
+        locks = glob.glob(osp.join(osp.dirname(self.lockFile), f'lock_{osp.basename(self.name)}.*.lock.json'))
+        for lock in locks:
+            os.remove(lock)
         return True
 
     def is_locked(self):
@@ -824,7 +852,7 @@ class RerunLock:
         raise RuntimeError(msg)
 
 
-def rerun_lock(name, folder=None, logger=glogger):
+def rerun_lock(name, folder=None, logger=glogger, max_instances=1):
     """Decorator for reentrance locking on functions"""
 
     def decorator(f):
@@ -832,7 +860,7 @@ def rerun_lock(name, folder=None, logger=glogger):
         def wrapper(*args, **kwargs):
             my_lock = None
             try:
-                my_lock = RerunLock(name, folder, logger)
+                my_lock = RerunLock(name, folder, logger, max_instances)
                 if not my_lock.lock():
                     return 1
                 try:
