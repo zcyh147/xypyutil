@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "kkpyutil"
-version = "1.22.2"
+version = "1.23.0"
 description = "Building blocks for sysadmin and DevOps"
 authors = ["Beinan Li <li.beinan@gmail.com>"]
 maintainers = ["Beinan Li <li.beinan@gmail.com>"]
