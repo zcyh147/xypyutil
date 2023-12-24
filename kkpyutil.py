@@ -761,7 +761,7 @@ class RerunLock:
 
     def __init__(self, name, folder=None, logger=None, max_instances=1):
         folder = folder or osp.join(get_platform_tmp_dir(), '_util')
-        filename = f'lock_{osp.basename(name)}.{os.getpid()}.lock.json'
+        filename = f'lock_{extract_path_stem(name)}.{os.getpid()}.lock.json'
         self.name = name
         self.lockFile = osp.join(folder, filename)
         self.nMaxInstances = max_instances
@@ -802,7 +802,7 @@ class RerunLock:
                 signal.signal(sig, self.handle_signal)
 
     def lock(self):
-        locks = glob.glob(osp.join(osp.dirname(self.lockFile), f'lock_{osp.basename(self.name)}.*.lock.json'))
+        locks = glob.glob(osp.join(osp.dirname(self.lockFile), f'lock_{extract_path_stem(self.name)}.*.lock.json'))
         is_locked = len(locks) >= self.nMaxInstances
         if is_locked:
             locker_pids = [int(lock.split(".")[1]) for lock in locks]
