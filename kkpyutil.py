@@ -796,7 +796,7 @@ class RerunLock:
 
     def lock(self):
         if self.is_locked():
-            self.logger.warning('Locked by pid: {}. Will stay locked until it ends.'.format(os.getpid()))
+            self.logger.warning('Locked by process: {}. Will block new instances until that process ends.'.format(os.getpid()))
             return False
         save_json(self.lockFile, {'pid': os.getpid()})
         # CAUTION: race condition: saving needs a sec, it's up to application to await lockfile
