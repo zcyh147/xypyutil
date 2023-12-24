@@ -802,13 +802,10 @@ class RerunLock:
                 signal.signal(sig, self.handle_signal)
 
     def lock(self):
-        """
-        -
-        """
         locks = glob.glob(osp.join(osp.dirname(self.lockFile), f'lock_{osp.basename(self.name)}.*.lock.json'))
         is_locked = len(locks) >= self.nMaxInstances
         if is_locked:
-            locker_pids = [lock.split(".")[1] for lock in locks]
+            locker_pids = [int(lock.split(".")[1]) for lock in locks]
             self.logger.warning(f'{self.name} is locked by processes: {locker_pids}. Will block new instances until unlocked.')
             return False
         save_json(self.lockFile, {

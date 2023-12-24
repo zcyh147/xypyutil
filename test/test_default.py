@@ -4,6 +4,7 @@ tests that don't need external data
 import copy
 import datetime
 import getpass
+import glob
 import json
 import platform
 import shutil
@@ -572,11 +573,11 @@ def test_rerunlock_class(monkeypatch):
     def _mock_os_remove(*args, **kwargs):
         raise Exception("Mocked exception")
 
-    lock_file = osp.join(util.get_platform_tmp_dir(), '_util', 'lock_test.json')
+    lock_file = osp.join(util.get_platform_tmp_dir(), '_util', 'lock_test.0.lock.json')
     util.safe_remove(lock_file)
     run_lock = util.RerunLock(name='test')
     run_lock.lock()
-    assert osp.isfile(lock_file)
+    assert glob.glob(osp.join(util.get_platform_tmp_dir(), '_util', 'lock_test.*.lock.json'))
     run_lock.unlock()
     assert not osp.isfile(lock_file)
     # reenter
