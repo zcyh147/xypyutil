@@ -800,6 +800,11 @@ class RerunLock:
             ]
             for sig in common_sigs + plat_sigs:
                 signal.signal(sig, self.handle_signal)
+        # cleanup zombie locks due to runtime exceptions
+        locks = [osp.basename(lock) for lock in glob.glob(osp.join(osp.dirname(self.lockFile), f'lock_{extract_path_stem(self.name)}.*.lock.json'))]
+        zombie_locks = [lock for lock in locks if not is_pid_running(int(lock.split(".")[1]))]
+        for lock in zombie_locks:
+            os.remove(osp.join(osp.dirname(self.lockFile), lock))
 
     def lock(self):
         locks = [osp.basename(lock) for lock in glob.glob(osp.join(osp.dirname(self.lockFile), f'lock_{extract_path_stem(self.name)}.*.lock.json'))]
@@ -875,6 +880,17 @@ def rerun_lock(name, folder=None, logger=glogger, max_instances=1):
         return wrapper
 
     return decorator
+
+
+def is_pid_running(pid):
+    try:
+        # os.kill(pid, 0) doesn't actually kill the process but sends a harmless signal
+        # This will throw an OSError exception if the PID is not running, and do nothing otherwise
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    else:
+        return True
 
 
 def await_while(condition, timeout_ms, step_ms=10):

@@ -2179,3 +2179,8 @@ def test_merge_namespaces():
         theirs='hello world',
         overwritten=[100, 200, 300],
     )
+
+
+def test_is_pid_running():
+    assert util.is_pid_running(os.getpid())
+    assert not util.is_pid_running(99999)
