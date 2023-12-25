@@ -804,7 +804,7 @@ class RerunLock:
         locks = [osp.basename(lock) for lock in glob.glob(osp.join(osp.dirname(self.lockFile), f'lock_{extract_path_stem(self.name)}.*.lock.json'))]
         zombie_locks = [lock for lock in locks if not is_pid_running(int(lock.split(".")[1]))]
         for lock in zombie_locks:
-            os.remove(osp.join(osp.dirname(self.lockFile), lock))
+            safe_remove(osp.join(osp.dirname(self.lockFile), lock))
 
     def lock(self):
         locks = [osp.basename(lock) for lock in glob.glob(osp.join(osp.dirname(self.lockFile), f'lock_{extract_path_stem(self.name)}.*.lock.json'))]
