@@ -802,7 +802,7 @@ class RerunLock:
                 signal.signal(sig, self.handle_signal)
 
     def lock(self):
-        locks = glob.glob(osp.join(osp.dirname(self.lockFile), f'lock_{extract_path_stem(self.name)}.*.lock.json'))
+        locks = [osp.basename(lock) for lock in glob.glob(osp.join(osp.dirname(self.lockFile), f'lock_{extract_path_stem(self.name)}.*.lock.json'))]
         is_locked = len(locks) >= self.nMaxInstances
         if is_locked:
             locker_pids = [int(lock.split(".")[1]) for lock in locks]
