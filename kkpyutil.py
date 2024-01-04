@@ -1047,7 +1047,7 @@ def save_winreg_record(full_key, var, value, value_type=winreg.REG_EXPAND_SZ if 
             winreg.SetValueEx(key, var, 0, value_type, value)
 
 
-def run_cmd(cmd, cwd=None, logger=None, check=True, shell=False, verbose=False, useexception=True, env=None):
+def run_cmd(cmd, cwd=None, logger=None, check=True, shell=False, verbose=False, useexception=True, env=None, hidedoswin=True):
     """
     - Use shell==True with autotools where new shell is needed to treat the entire command option sequence as a command,
     e.g., shell=True means running sh -c ./configure CFLAGS="..."
@@ -1063,7 +1063,10 @@ cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
 """
     logger.info(cmd_log)
     try:
-        proc = subprocess.run(cmd, check=check, shell=shell, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd, env=env)
+        startupinfo = subprocess.STARTUPINFO()
+        if hidedoswin and PLATFORM == 'Windows':
+            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        proc = subprocess.run(cmd, check=check, shell=shell, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd, env=env, startupinfo=startupinfo)
         stdout_log = safe_decode_bytes(proc.stdout)
         stderr_log = safe_decode_bytes(proc.stderr)
         if stdout_log:
@@ -1092,7 +1095,7 @@ cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
     return proc
 
 
-def run_daemon(cmd, cwd=None, logger=None, shell=False, useexception=True, env=None):
+def run_daemon(cmd, cwd=None, logger=None, shell=False, useexception=True, env=None, hidedoswin=True):
     """
     - if returned proc is None, means
     """
@@ -1104,7 +1107,10 @@ cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
     # fake the same proc interface
     proc = None
     try:
-        proc = subprocess.Popen(cmd, shell=shell, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd, env=env)
+        startupinfo = subprocess.STARTUPINFO()
+        if hidedoswin and PLATFORM == 'Windows':
+            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        proc = subprocess.Popen(cmd, shell=shell, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd, env=env, startupinfo=startupinfo)
         # won't be able to retrieve log from background
     # subprocess fails to start
     except Exception as e:
@@ -1117,7 +1123,7 @@ cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
     return proc
 
 
-def watch_cmd(cmd, cwd=None, logger=None, shell=False, verbose=False, useexception=True, prompt=None, timeout=None, env=None):
+def watch_cmd(cmd, cwd=None, logger=None, shell=False, verbose=False, useexception=True, prompt=None, timeout=None, env=None, hidedoswin=True):
     """
     realtime output
     """
@@ -1134,8 +1140,11 @@ cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
 """
     logger.info(cmd_log)
     try:
+        startupinfo = subprocess.STARTUPINFO()
+        if hidedoswin and PLATFORM == 'Windows':
+            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
         # Start the subprocess with the slave ends as its stdout and stderr
-        proc = subprocess.Popen(cmd, cwd=cwd, shell=shell, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
+        proc = subprocess.Popen(cmd, cwd=cwd, shell=shell, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env, startupinfo=startupinfo)
         stdout_queue, stderr_queue = queue.Queue(), queue.Queue()
         # Start separate threads to read from stdout and stderr
         stdout_thread = threading.Thread(target=read_stream, args=(proc.stdout, stdout_queue))
