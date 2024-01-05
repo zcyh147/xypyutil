@@ -1063,10 +1063,12 @@ cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
 """
     logger.info(cmd_log)
     try:
-        startupinfo = subprocess.STARTUPINFO()
         if hidedoswin and PLATFORM == 'Windows':
+            startupinfo = subprocess.STARTUPINFO()
             startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-        proc = subprocess.run(cmd, check=check, shell=shell, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd, env=env, startupinfo=startupinfo)
+            proc = subprocess.run(cmd, check=check, shell=shell, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd, env=env, startupinfo=startupinfo)
+        else:
+            proc = subprocess.run(cmd, check=check, shell=shell, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd, env=env)
         stdout_log = safe_decode_bytes(proc.stdout)
         stderr_log = safe_decode_bytes(proc.stderr)
         if stdout_log:
@@ -1107,10 +1109,12 @@ cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
     # fake the same proc interface
     proc = None
     try:
-        startupinfo = subprocess.STARTUPINFO()
         if hidedoswin and PLATFORM == 'Windows':
+            startupinfo = subprocess.STARTUPINFO()
             startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-        proc = subprocess.Popen(cmd, shell=shell, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd, env=env, startupinfo=startupinfo)
+            proc = subprocess.Popen(cmd, shell=shell, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd, env=env, startupinfo=startupinfo)
+        else:
+            proc = subprocess.Popen(cmd, shell=shell, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd, env=env)
         # won't be able to retrieve log from background
     # subprocess fails to start
     except Exception as e:
@@ -1140,11 +1144,13 @@ cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
 """
     logger.info(cmd_log)
     try:
-        startupinfo = subprocess.STARTUPINFO()
         if hidedoswin and PLATFORM == 'Windows':
+            startupinfo = subprocess.STARTUPINFO()
             startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-        # Start the subprocess with the slave ends as its stdout and stderr
-        proc = subprocess.Popen(cmd, cwd=cwd, shell=shell, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env, startupinfo=startupinfo)
+            # Start the subprocess with the slave ends as its stdout and stderr
+            proc = subprocess.Popen(cmd, cwd=cwd, shell=shell, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env, startupinfo=startupinfo)
+        else:
+            proc = subprocess.Popen(cmd, cwd=cwd, shell=shell, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
         stdout_queue, stderr_queue = queue.Queue(), queue.Queue()
         # Start separate threads to read from stdout and stderr
         stdout_thread = threading.Thread(target=read_stream, args=(proc.stdout, stdout_queue))
