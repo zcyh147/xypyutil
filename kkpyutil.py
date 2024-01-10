@@ -1996,9 +1996,9 @@ def open_in_editor(path, foreground=False):
     path = normalize_paths([path])[0]
     cmd = [cmds[PLATFORM], path]
     if foreground:
-        run_cmd(cmd, check=PLATFORM != 'Windows')
+        run_cmd(cmd, check=PLATFORM != 'Windows', hidedoswin=False)
         return
-    run_daemon(cmd)
+    run_daemon(cmd, hidedoswin=False)
 
 
 def flatten_nested_lists(mylist):
