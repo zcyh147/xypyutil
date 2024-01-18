@@ -2252,12 +2252,14 @@ def touch(file, withmtime=True):
     return file
 
 
-def lazy_load_listfile(single_or_listfile: str, ext='.list'):
+def lazy_load_listfile(single_or_listfile: str, ext=('.list', '.csv', '.tsv')):
     """
     - we don't force return type-hint to be -> list for reusing args.path str
     - assume list can be text of any nature, i.e., not just paths
     """
-    if is_single_item := osp.splitext(single_or_listfile)[1] != ext:
+    if isinstance(ext, str):
+        ext = [ext]
+    if is_single_item := osp.splitext(single_or_listfile)[1] not in ext:
         # we don't care whether it exists or not
         return [single_or_listfile]
     if not osp.isfile(single_or_listfile):
@@ -2285,7 +2287,7 @@ def normalize_paths(paths, mode='native'):
     return [normalize_path(p, mode) for p in paths]
 
 
-def lazy_load_filepaths(single_or_listfile: str, ext='.list', root=''):
+def lazy_load_filepaths(single_or_listfile: str, ext=('.list', '.csv', '.tsv'), root=''):
     """
     - we don't force return type-hint to be -> list for reusing args.path str
     - listfile can have \\ or /, so can root and litfile path
@@ -2299,7 +2301,9 @@ def lazy_load_filepaths(single_or_listfile: str, ext='.list', root=''):
     if not osp.isabs(single_or_listfile):
         abs_list_file = normalize_path(single_or_listfile, mode='posix')
         abs_list_file = osp.abspath(f'{root}/{abs_list_file}')
-    if is_single_file := osp.splitext(abs_list_file)[1] != ext:
+    if isinstance(ext, str):
+        ext = [ext]
+    if is_single_file := osp.splitext(abs_list_file)[1] not in ext:
         # we don't care whether it exists or not
         return [single_or_listfile]
     if not osp.isfile(abs_list_file):

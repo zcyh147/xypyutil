@@ -603,7 +603,7 @@ def test_rerunlock_class(monkeypatch):
 def test_rerun_lock(monkeypatch):
     @util.rerun_lock('test', _gen_dir)
     def _worker():
-        assert osp.isfile(osp.join(_gen_dir, 'lock_test.json'))
+        assert osp.isfile(glob.glob(osp.abspath(f'{_gen_dir}/lock_test*json'))[0])
         util.touch(osp.join(_gen_dir, 'entered'))
         print('entered')
 
@@ -629,18 +629,19 @@ def test_rerun_lock(monkeypatch):
     cmd2 = ['poetry', 'run', 'python', reenter, '1']
     proc2 = util.run_cmd(cmd2, cwd=_org_dir, useexception=True)
     assert not osp.isfile(save)
-    assert 'Locked by pid' in proc2.stderr.decode(util.TXT_CODEC)
+    assert 'is locked by processes' in proc2.stderr.decode(util.TXT_CODEC)
     proc1.communicate()
     assert not osp.isfile(lockfile)
     for file in (save, lockfile):
         util.safe_remove(file)
     # decorator
-    lock_file = osp.join(_gen_dir, 'lock_test.json')
-    util.safe_remove(lock_file)
+    for lock_file in glob.glob(osp.abspath(f'{_gen_dir}/lock_test*json')):
+        util.safe_remove(lock_file)
     _worker()
-    assert not osp.isfile(lock_file)
+    assert not glob.glob(osp.abspath(f'{_gen_dir}/lock_test*json'))
     util.safe_remove(_gen_dir)
     # lock it in advance
+    lock_file = osp.join(_gen_dir, f'lock_test.{os.getpid()}.lock.json')
     util.touch(lock_file)
     _worker()
     assert not osp.isfile(osp.join(_gen_dir, 'entered'))
