@@ -2252,19 +2252,29 @@ def touch(file, withmtime=True):
     return file
 
 
-def lazy_load_listfile(single_or_listfile: str, ext=('.list', '.csv', '.tsv')):
+def lazy_load_listfile(single_or_listfile: typing.Union[str, list[str]], ext=('.list', '.csv', '.tsv')):
     """
     - we don't force return type-hint to be -> list for reusing args.path str
     - assume list can be text of any nature, i.e., not just paths
+    - allow for single-item list containing a listfile so that frontend can offer a listview for this case
     """
+    def _load_listfile(lst_file):
+        if not osp.isfile(lst_file):
+            raise FileNotFoundError(f'Missing list file: {lst_file}')
+        return load_lines(lst_file, rmlineend=True)
     if isinstance(ext, str):
         ext = [ext]
+    if isinstance(single_or_listfile, (list, tuple,)) and single_or_listfile:
+        # e.g. [my_name]
+        # e.g. [my_name.txt]
+        if osp.splitext(possible_lst_file := single_or_listfile[0])[1] not in ext:
+            return single_or_listfile
+        # e.g. [my_name.list]
+        return _load_listfile(possible_lst_file)
     if is_single_item := osp.splitext(single_or_listfile)[1] not in ext:
         # we don't care whether it exists or not
         return [single_or_listfile]
-    if not osp.isfile(single_or_listfile):
-        raise FileNotFoundError(f'Missing list file: {single_or_listfile}')
-    return load_lines(single_or_listfile, rmlineend=True)
+    return _load_listfile(single_or_listfile)
 
 
 def normalize_path(path, mode='native'):
@@ -2274,7 +2284,7 @@ def normalize_path(path, mode='native'):
         return path.replace('\\', '/')
     if mode == 'win':
         return path.replace('/', '\\')
-    raise NotImplementedError(f'Unsupported path noralization mode: {mode}')
+    raise NotImplementedError(f'Unsupported path normalization mode: {mode}')
 
 
 def normalize_paths(paths, mode='native'):
@@ -2287,31 +2297,44 @@ def normalize_paths(paths, mode='native'):
     return [normalize_path(p, mode) for p in paths]
 
 
-def lazy_load_filepaths(single_or_listfile: str, ext=('.list', '.csv', '.tsv'), root=''):
+def lazy_load_filepaths(single_or_listfile: typing.Union[str, list[str]], ext=('.list', '.csv', '.tsv'), root=''):
     """
     - we don't force return type-hint to be -> list for reusing args.path str
     - listfile can have \\ or /, so can root and litfile path
     - we must normalize for file paths
     """
+    def _load_listfile(lst_file, root_path):
+        if not osp.isfile(lst_file):
+            raise FileNotFoundError(f'Missing list file: {lst_file}')
+        # native win-paths remain the same;
+        # posix-format win-paths are converted to native
+        paths = [osp.normpath(path) for path in load_lines(lst_file, rmlineend=True)]
+        return [path if osp.isabs(path) else osp.abspath(f'{root_path}/{path}') for path in paths]
+    if not single_or_listfile:
+        return []
     # if not file path, then user must give root for relative paths
     root = root or os.getcwd()
     # prepare for path normalization: must input posix paths for windows
     root = normalize_path(root, mode='posix')
-    abs_list_file = single_or_listfile
-    if not osp.isabs(single_or_listfile):
-        abs_list_file = normalize_path(single_or_listfile, mode='posix')
-        abs_list_file = osp.abspath(f'{root}/{abs_list_file}')
     if isinstance(ext, str):
         ext = [ext]
-    if is_single_file := osp.splitext(abs_list_file)[1] not in ext:
+    if isinstance(single_or_listfile, (list, tuple,)) and single_or_listfile:
+        # e.g. [my_name.txt]
+        # e.g. [my_name.list]
+        abs_file = single_or_listfile[0]
+        if not osp.isabs(abs_file):
+            abs_file = osp.abspath(f"{root}/{normalize_path(abs_file, mode='posix')}")
+        if is_single := osp.splitext(abs_file)[1] not in ext:
+            # we don't care whether it exists or not
+            return single_or_listfile
+        return _load_listfile(abs_file, root)
+    abs_file = single_or_listfile
+    if not osp.isabs(abs_file):
+        abs_file = osp.abspath(f"{root}/{normalize_path(abs_file, mode='posix')}")
+    if is_single := osp.splitext(abs_file)[1] not in ext:
         # we don't care whether it exists or not
         return [single_or_listfile]
-    if not osp.isfile(abs_list_file):
-        raise FileNotFoundError(f'Missing list file: {abs_list_file}')
-    # native win-paths remain the same;
-    # posix-format win-paths are converted to native
-    paths = [osp.normpath(path) for path in load_lines(abs_list_file, rmlineend=True)]
-    return [path if osp.isabs(path) else osp.abspath(f'{root}/{path}') for path in paths]
+    return _load_listfile(abs_file, root)
 
 
 def read_link(link_path, encoding=TXT_CODEC):

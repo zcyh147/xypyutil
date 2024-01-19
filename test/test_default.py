@@ -1241,9 +1241,17 @@ def test_touch():
 
 
 def test_lazy_load_listfile():
+    lst = ['a', 'b', 'c']
+    assert util.lazy_load_listfile(lst) == lst
     single_file = osp.join(_gen_dir, 'my.file')
     assert util.lazy_load_listfile(single_file) == [single_file]
     list_file = osp.join(_org_dir, 'my.list')
+    assert util.lazy_load_listfile(list_file) == [
+        'first line',
+        'second line',
+        'third line',
+    ]
+    list_file = [osp.join(_org_dir, 'my.list')]
     assert util.lazy_load_listfile(list_file) == [
         'first line',
         'second line',
@@ -1284,7 +1292,9 @@ def test_normalize_paths():
 def test_lazy_load_filepaths():
     if util.PLATFORM == 'Windows':
         single_path = 'c:\\path\\to\\file'
-        assert util.lazy_load_filepaths(single_path) == ['c:\\path\\to\\file']
+        assert util.lazy_load_filepaths(single_path) == single_path
+        paths = ['c:\\path\\to\\file1', 'c:\\path\\to\\file2', 'c:\\path\\to\\file3']
+        assert util.lazy_load_filepaths(single_path) == paths
         list_file = osp.join(_org_dir, 'files_abs_win.list')
         assert util.lazy_load_filepaths(list_file) == [
             'c:\\path\\to\\file1',
@@ -1298,7 +1308,14 @@ def test_lazy_load_filepaths():
     else:
         single_path = '/path/to/file'
         assert util.lazy_load_filepaths(single_path) == ['/path/to/file']
+        single_path = ['/path/to/file1', '/path/to/file2', '/path/to/file3']
+        assert util.lazy_load_filepaths(single_path) == single_path
         list_file = osp.join(_org_dir, 'files_abs_posix.list')
+        assert util.lazy_load_filepaths(list_file) == [
+            '/path/to/file1',
+            '/path/to/file2',
+        ]
+        list_file = [osp.join(_org_dir, 'files_abs_posix.list')]
         assert util.lazy_load_filepaths(list_file) == [
             '/path/to/file1',
             '/path/to/file2',
