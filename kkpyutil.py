@@ -2799,7 +2799,6 @@ def thread_timeout(seconds):
     return decorator
 
 
-@thread_timeout(1)
 def _test():
     print(say('hello'))
 
