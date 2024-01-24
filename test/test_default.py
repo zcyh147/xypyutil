@@ -2205,10 +2205,18 @@ def test_is_pid_running():
 
 
 @util.thread_timeout(1)
-def _do_it_until_timeout(sec):
+def _do_it_until_thread_timeout(sec):
     time.sleep(sec)
 
 
+@util.process_timeout(1)
+def _do_it_until_proc_timeout():
+    cmd = ['poetry', 'run', 'python', osp.join(_org_dir, 'timeout_proc.py')]
+    util.run_cmd(cmd, cwd=_org_dir)
+
+
 def test_timeout():
-    with pytest.raises(RuntimeError):
-        _do_it_until_timeout(2)
+    with pytest.raises(TimeoutError):
+        _do_it_until_thread_timeout(2)
+    with pytest.raises(TimeoutError):
+        _do_it_until_proc_timeout()

@@ -2794,7 +2794,38 @@ def thread_timeout(seconds):
             thread.join(seconds)
             if thread.is_alive():
                 # Terminate the thread if it's still running
-                raise RuntimeError(f"{func.__name__} timed out after {seconds} seconds")
+                raise TimeoutError(f"{func.__name__} timed out after {seconds} seconds")
+        return wrapper
+    return decorator
+
+
+def _run_container(func, cont_queue, args, kwargs):
+    module_name, func_name = func.rsplit('.', 1)
+    module = importlib.import_module(module_name)
+    func = getattr(module, func_name)
+    try:
+        result = func(*args, **kwargs)
+        cont_queue.put(result)
+    except Exception as e:
+        cont_queue.put(e)
+
+
+def process_timeout(seconds):
+    def decorator(func):
+        func_name = f'{func.__module__}.{func.__name__}'
+
+        def wrapper(*args, **kwargs):
+            # Create a thread to run the function
+            cont_queue = multiprocessing.Queue()
+            proc = multiprocessing.Process(target=_run_container, args=(func_name, cont_queue, args,), kwargs=kwargs)
+            proc.start()
+            try:
+                result = cont_queue.get(timeout=seconds)
+                return result
+            except multiprocessing.queues.Empty:
+                proc.terminate()
+                proc.join()
+                raise TimeoutError(f"{func_name} timed out after {seconds} seconds")
         return wrapper
     return decorator
 
