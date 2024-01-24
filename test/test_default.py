@@ -2202,3 +2202,11 @@ def test_merge_namespaces():
 def test_is_pid_running():
     assert util.is_pid_running(os.getpid())
     assert not util.is_pid_running(99999)
+
+
+def test_timeout():
+    @util.timeout(3)
+    def _do_it_until_timeout():
+        time.sleep(5)
+    with pytest.raises(RuntimeError):
+        _do_it_until_timeout()
