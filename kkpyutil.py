@@ -2780,13 +2780,15 @@ def merge_namespaces(to_ns: types.SimpleNamespace, from_ns: types.SimpleNamespac
     return to_ns
 
 
-def thread_timeout(seconds):
+def thread_timeout(seconds, bypass=False):
     """
     - for single-process function only
     - will not work if decorated function spawns subprocesses
     """
     def decorator(func):
         def wrapper(*args, **kwargs):
+            if bypass:
+                return func(*args, **kwargs)
             # Create a thread to run the function
             thread = threading.Thread(target=func, args=args, kwargs=kwargs)
             thread.start()
@@ -2810,11 +2812,13 @@ def _run_container(func, cont_queue, args, kwargs):
         cont_queue.put(e)
 
 
-def process_timeout(seconds):
+def process_timeout(seconds, bypass=False):
     def decorator(func):
         func_name = f'{func.__module__}.{func.__name__}'
 
         def wrapper(*args, **kwargs):
+            if bypass:
+                return func(*args, **kwargs)
             # Create a thread to run the function
             cont_queue = multiprocessing.Queue()
             proc = multiprocessing.Process(target=_run_container, args=(func_name, cont_queue, args,), kwargs=kwargs)

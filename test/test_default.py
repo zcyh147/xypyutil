@@ -2215,8 +2215,21 @@ def _do_it_until_proc_timeout():
     util.run_cmd(cmd, cwd=_org_dir)
 
 
+@util.thread_timeout(1, True)
+def _do_it_until_thread_timeout_bypassed(sec):
+    time.sleep(sec)
+
+
+@util.process_timeout(1, True)
+def _do_it_until_proc_timeout_bypassed():
+    cmd = ['poetry', 'run', 'python', osp.join(_org_dir, 'timeout_proc.py')]
+    util.run_cmd(cmd, cwd=_org_dir)
+
+
 def test_timeout():
     with pytest.raises(TimeoutError):
         _do_it_until_thread_timeout(2)
     with pytest.raises(TimeoutError):
         _do_it_until_proc_timeout()
+    _do_it_until_thread_timeout_bypassed(2)
+    _do_it_until_proc_timeout_bypassed()
