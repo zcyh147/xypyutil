@@ -2204,9 +2204,11 @@ def test_is_pid_running():
     assert not util.is_pid_running(99999)
 
 
+@util.thread_timeout(1)
+def _do_it_until_timeout(sec):
+    time.sleep(sec)
+
+
 def test_timeout():
-    @util.timeout(3)
-    def _do_it_until_timeout():
-        time.sleep(5)
     with pytest.raises(RuntimeError):
-        _do_it_until_timeout()
+        _do_it_until_timeout(2)

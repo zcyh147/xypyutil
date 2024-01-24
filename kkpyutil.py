@@ -2780,36 +2780,26 @@ def merge_namespaces(to_ns: types.SimpleNamespace, from_ns: types.SimpleNamespac
     return to_ns
 
 
-def _run_decorated(func, container_queue, args, kwargs):
-    try:
-        func(*args, **kwargs)
-        container_queue.put(None)  # Signal that the test passed
-    except Exception as e:
-        container_queue.put(e)  # Signal that the test raised an exception
-
-
-def timeout(seconds):
+def thread_timeout(seconds):
+    """
+    - for single-process function only
+    - will not work if decorated function spawns subprocesses
+    """
     def decorator(func):
         def wrapper(*args, **kwargs):
-            # Helper function to run the test in a separate process
-            # Create a process to run the function
-            container_queue = multiprocessing.Queue()
-            proc = multiprocessing.Process(target=_run_decorated, args=(container_queue,))
-            proc.start()
-
-            # Wait for the process to finish or timeout
-            try:
-                result = container_queue.get(timeout=seconds)
-                if result is not None:
-                    raise result
-            except multiprocessing.queues.Empty:
-                # Terminate the process if it's still running
-                os.kill(proc.pid, signal.SIGTERM)
-                raise RuntimeError(f"function {func.__name__} timed out after {seconds} seconds")
+            # Create a thread to run the function
+            thread = threading.Thread(target=func, args=args, kwargs=kwargs)
+            thread.start()
+            # Wait for the thread to finish or timeout
+            thread.join(seconds)
+            if thread.is_alive():
+                # Terminate the thread if it's still running
+                raise RuntimeError(f"{func.__name__} timed out after {seconds} seconds")
         return wrapper
     return decorator
 
 
+@thread_timeout(1)
 def _test():
     print(say('hello'))
 
