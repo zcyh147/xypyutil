@@ -1053,12 +1053,14 @@ def run_cmd(cmd, cwd=None, logger=None, check=True, shell=False, verbose=False, 
     e.g., shell=True means running sh -c ./configure CFLAGS="..."
     - we do not use check=False to supress exception because that'd leave app no way to tell if child-proc succeeded or not
     - instead, we catch CallProcessError but avoid rethrow, and then return error code and other key diagnostics to app
+    - allow user to input non-str options, e.g., int, bool, etc., and auto-convert to str for subprocess
     """
+    cmd = [comp if isinstance(comp, str) else str(comp) for comp in cmd]
     logger = logger or glogger
     console_info = logger.info if logger and verbose else logger.debug
     # show cmdline with or without exceptions
     cmd_log = f"""\
-{' '.join([str(comp) for comp in cmd])}
+{' '.join(cmd)}
 cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
 """
     logger.info(cmd_log)
@@ -1101,9 +1103,10 @@ def run_daemon(cmd, cwd=None, logger=None, shell=False, useexception=True, env=N
     """
     - if returned proc is None, means
     """
+    cmd = [comp if isinstance(comp, str) else str(comp) for comp in cmd]
     logger = logger or glogger
     logger.debug(f"""run in background:
-{' '.join([str(comp) for comp in cmd])}
+{' '.join(cmd)}
 cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
 """)
     # fake the same proc interface
@@ -1135,11 +1138,11 @@ def watch_cmd(cmd, cwd=None, logger=None, shell=False, verbose=False, useexcepti
     def read_stream(stream, output_queue):
         for line in iter(stream.readline, b''):
             output_queue.put(line)
-
+    cmd = [comp if isinstance(comp, str) else str(comp) for comp in cmd]
     logger = logger or glogger
     # show cmdline with or without exceptions
     cmd_log = f"""\
-{' '.join([str(comp) for comp in cmd])}
+{' '.join(cmd)}
 cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
 """
     logger.info(cmd_log)

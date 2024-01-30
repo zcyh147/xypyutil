@@ -767,6 +767,9 @@ def test_run_cmd():
     assert proc.returncode == 2
     err_log = proc.stderr.decode(util.LOCALE_CODEC)
     assert 'missing' in err_log or '[WinError 2]' in err_log
+    cmd = [py, osp.join(_org_dir, 'my_cmd.py'), 100]
+    proc = util.run_cmd(cmd, useexception=False)
+    assert proc.returncode == 0, 'expected util.run_cmd() to have converted number to str'
 
 
 def test_run_daemon():
