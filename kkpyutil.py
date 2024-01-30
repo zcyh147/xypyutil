@@ -1058,7 +1058,7 @@ def run_cmd(cmd, cwd=None, logger=None, check=True, shell=False, verbose=False, 
     console_info = logger.info if logger and verbose else logger.debug
     # show cmdline with or without exceptions
     cmd_log = f"""\
-{' '.join(cmd)}
+{' '.join([str(comp) for comp in cmd])}
 cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
 """
     logger.info(cmd_log)
@@ -1103,7 +1103,7 @@ def run_daemon(cmd, cwd=None, logger=None, shell=False, useexception=True, env=N
     """
     logger = logger or glogger
     logger.debug(f"""run in background:
-{" ".join(cmd)}
+{' '.join([str(comp) for comp in cmd])}
 cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
 """)
     # fake the same proc interface
@@ -1139,7 +1139,7 @@ def watch_cmd(cmd, cwd=None, logger=None, shell=False, verbose=False, useexcepti
     logger = logger or glogger
     # show cmdline with or without exceptions
     cmd_log = f"""\
-{' '.join(cmd)}
+{' '.join([str(comp) for comp in cmd])}
 cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
 """
     logger.info(cmd_log)
