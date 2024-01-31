@@ -2772,14 +2772,17 @@ def collect_file_tree(root):
     return [file for file in glob.glob(osp.join(root, '**'), recursive=True) if osp.isfile(file)]
 
 
-def merge_namespaces(to_ns: types.SimpleNamespace, from_ns: types.SimpleNamespace):
+def merge_namespaces(to_ns: types.SimpleNamespace, from_ns: types.SimpleNamespace, trim_from=False):
     """
     - merge from_ns into to_ns
     - to_ns must be a namespace
     - from_ns can be a dict or a namespace
     """
-    for k, v in vars(from_ns).items():
-        setattr(to_ns, k, v)
+    from_ = vars(from_ns)
+    to_ = vars(to_ns)
+    from_keys = [key for key in from_ if key in to_] if trim_from else list(from_.keys())
+    for k in from_keys:
+        setattr(to_ns, k, from_[k])
     return to_ns
 
 

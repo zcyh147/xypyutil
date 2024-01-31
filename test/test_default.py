@@ -2195,6 +2195,10 @@ def test_merge_namespaces():
         theirs='hello world',
         overwritten=[100, 200, 300],
     )
+    assert util.merge_namespaces(to_ns, from_ns, True) == types.SimpleNamespace(
+        mine=100,
+        overwritten=[100, 200, 300],
+    )
     assert util.merge_namespaces(to_ns, from_ns) == types.SimpleNamespace(
         mine=100,
         theirs='hello world',
