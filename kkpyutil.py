@@ -521,11 +521,11 @@ def save_plist(path, my_map, binary=False):
         plistlib.dump(my_map, fp, fmt=fmt)
 
 
-def substitute_keywords_in_file(file, str_map, useliteral=False):
-    with open(file) as f:
+def substitute_keywords_in_file(file, str_map, useliteral=False, encoding=TXT_CODEC):
+    with open(file, encoding=encoding) as f:
         original = f.read()
         updated = substitute_keywords(original, str_map, useliteral)
-    with open(file, 'w') as f:
+    with open(file, 'w', encoding=encoding) as f:
         f.write(updated)
 
 
