@@ -872,7 +872,8 @@ def rerun_lock(name, folder=None, logger=glogger, max_instances=1):
                     raise e
                 my_lock.unlock()
             except Exception as e:
-                my_lock.unlock()
+                if my_lock:
+                    my_lock.unlock()
                 # leave exception to its upper handler or let the program crash
                 raise e
             return ret
