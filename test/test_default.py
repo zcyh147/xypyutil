@@ -2240,3 +2240,8 @@ def test_timeout():
         _do_it_until_proc_timeout()
     _do_it_until_thread_timeout_bypassed(2)
     _do_it_until_proc_timeout_bypassed()
+
+
+def test_remove_unsupported_dict_keys():
+    my_dict = {'a': 1, 'b': 2, 'c': 3}
+    assert util.remove_unsupported_dict_keys(my_dict, {'c'}) == {'c': 3}

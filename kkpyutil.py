@@ -2841,6 +2841,14 @@ def process_timeout(seconds, bypass=False):
     return decorator
 
 
+def remove_unsupported_dict_keys(mydict: dict, supported_keys: set):
+    # use set arithmetic to remove unsupported keys
+    unsupported = set(mydict) - supported_keys
+    for key in unsupported:
+        mydict.pop(key)
+    return mydict
+
+
 def _test():
     print(say('hello'))
 
