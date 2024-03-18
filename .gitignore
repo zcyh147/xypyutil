@@ -2,6 +2,8 @@
 test/_gen
 test/skip_slow_tests.cfg.txt
 # JetBrains
+.idea/copilot
+.idea/poetry.xml
 .idea/workspace.xml
 .idea/kkpyutil.iml
 .idea/misc.xml

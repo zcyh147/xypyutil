@@ -585,7 +585,11 @@ def get_clipboard_content():
 
 def alert(content, title='Debug', action='Close'):
     if PLATFORM == 'Windows':
-        cmd = ['mshta', f'vbscript:Execute("msgbox ""{content}"", 0,""{title}"":{action}")']
+        # Escape double quotes inside content and title for VBScript
+        content = content.replace('"', '""')
+        title = title.replace('"', '""')
+        vbs = f'msgbox ""{content}"", 0, ""{title}"":{action}"'
+        cmd = ['mshta', f'vbscript:Execute("{vbs}")']
         os.system(' '.join(cmd))
         return cmd
     if PLATFORM == 'Darwin':
