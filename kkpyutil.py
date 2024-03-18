@@ -588,15 +588,21 @@ def alert(content, title='Debug', action='Close'):
     - on Windows, mshta msgbox does not support custom button text
     - so "action" is ignored on windows
     - multiline message uses \n as line separator
+    - mshta (ms html application host) tend to open vbs using text editor; so we use dedicated vbscript cli instead
     """
     if PLATFORM == 'Windows':
         # Escape double quotes inside content and title for VBScript
         # vbs uses its own line-end
         content = content.replace('\n', '" & vbCrLf & "').replace('"', '""')
         title = title.replace('"', '""')
-        vbs = f'msgbox ""{content}"", 0, ""{title}""'
-        cmd = ['mshta', f'vbscript:Execute("{vbs}")']
-        os.system(' '.join(cmd))
+        # Construct the VBScript command for the message box
+        vbs_content = f'MsgBox "{content}", 0, "{title}"'
+        vbs = osp.join(get_platform_tmp_dir(), 'msg.vbs')
+        save_text(vbs, vbs_content)
+        cmd = ['cscript', '//Nologo', vbs]
+        subprocess.run(cmd, shell=True)
+        # Clean up the temporary file
+        os.remove(vbs)
         return cmd
     if PLATFORM == 'Darwin':
         cmd = ['osascript', '-e', f'display alert "{title}" message "{content}"']
