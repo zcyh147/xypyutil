@@ -584,11 +584,17 @@ def get_clipboard_content():
 
 
 def alert(content, title='Debug', action='Close'):
+    """
+    - on Windows, mshta msgbox does not support custom button text
+    - so "action" is ignored on windows
+    - multiline message uses \n as line separator
+    """
     if PLATFORM == 'Windows':
         # Escape double quotes inside content and title for VBScript
-        content = content.replace('"', '""')
+        # vbs uses its own line-end
+        content = content.replace('\n', '" & vbCrLf & "').replace('"', '""')
         title = title.replace('"', '""')
-        vbs = f'msgbox ""{content}"", 0, ""{title}"":{action}"'
+        vbs = f'msgbox ""{content}"", 0, ""{title}""'
         cmd = ['mshta', f'vbscript:Execute("{vbs}")']
         os.system(' '.join(cmd))
         return cmd
