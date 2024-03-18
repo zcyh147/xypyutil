@@ -591,17 +591,15 @@ def alert(content, title='Debug', action='Close'):
     - mshta (ms html application host) tend to open vbs using text editor; so we use dedicated vbscript cli instead
     """
     if PLATFORM == 'Windows':
-        # Escape double quotes inside content and title for VBScript
         # vbs uses its own line-end
-        content = content.replace('\n', '" & vbCrLf & "').replace('"', '""')
-        title = title.replace('"', '""')
+        lines = [f'"{line}"' for line in content.split('\n')]
+        vbs_lines = ' & vbCrLf & '.join(lines)
         # Construct the VBScript command for the message box
-        vbs_content = f'MsgBox "{content}", 0, "{title}"'
+        vbs_content = f'MsgBox {vbs_lines}, vbOKOnly, "{title}"'
         vbs = osp.join(get_platform_tmp_dir(), 'msg.vbs')
         save_text(vbs, vbs_content)
         cmd = ['cscript', '//Nologo', vbs]
-        subprocess.run(cmd, shell=True)
-        # Clean up the temporary file
+        subprocess.run(cmd)
         os.remove(vbs)
         return cmd
     if PLATFORM == 'Darwin':
@@ -2866,7 +2864,8 @@ def remove_unsupported_dict_keys(mydict: dict, supported_keys: set):
 
 
 def _test():
-    print(say('hello'))
+    # print(say('hello'))
+    alert('line1\nline2')
 
 
 if __name__ == '__main__':
