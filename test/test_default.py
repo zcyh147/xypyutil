@@ -1598,6 +1598,7 @@ def test_convert_compound_cases():
     assert util.convert_compound_cases('page1', style='ONEWORD') == 'PAGE1', 'taken as camel'
     assert util.convert_compound_cases('page1', style='pascal') == 'Page1', 'taken as camel'
     assert util.convert_compound_cases('page1', style='title') == 'Page1', 'taken as camel'
+    assert util.convert_compound_cases('p1_xyz', style='camel') == 'p1Xyz', 'snakecase with mixed alphanumeric sections should be recognized'
 
 
 def test_append_lineends_to_lines():

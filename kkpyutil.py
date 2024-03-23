@@ -1514,7 +1514,7 @@ def convert_compound_cases(text, style='pascal', instyle='auto'):
 
     def _detect_casing(txt):
         case_patterns = {
-            'snake': r'^[a-z]+(_[a-zA_Z0-9]+)*$',
+            'snake': r'^[a-z][a-z0-9]*(_[a-zA_Z0-9]+)*$',
             'SNAKE': r'^[A-Z]+(_[A-Z0-9]+)*$',
             'camel': r'^[a-z]+([A-Z][a-z0-9]*)*$',
             'kebab': r'^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)+$',
@@ -2864,8 +2864,7 @@ def remove_unsupported_dict_keys(mydict: dict, supported_keys: set):
 
 
 def _test():
-    # print(say('hello'))
-    alert('line1\nline2')
+    print(say('hello'))
 
 
 if __name__ == '__main__':
