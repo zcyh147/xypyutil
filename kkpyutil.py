@@ -1671,7 +1671,8 @@ def is_number_text(text):
     """
     # Remove leading/trailing whitespace
     text = text.strip()
-
+    if not text:
+        return False
     # Check for negative numbers
     if text.startswith('-'):
         text = text[1:]

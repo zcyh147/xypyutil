@@ -2169,8 +2169,8 @@ def test_indent():
 
 
 def test_is_number():
-    test_strings = ["123", "-123", "6.", "123.45", "abc", "12.12.12", "-", "-6.", "-6.5"]
-    expected = [True, True, True, True, False, False, False, True, True]
+    test_strings = ["123", "-123", "6.", "123.45", "abc", "12.12.12", "-", "-6.", "-6.5", ""]
+    expected = [True, True, True, True, False, False, False, True, True, False]
     for s, ts in enumerate(test_strings):
         assert util.is_number_text(ts) == expected[s]
 
