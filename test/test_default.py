@@ -2124,6 +2124,13 @@ def test_http_post(monkeypatch):
     assert resp.content.decode() == mock_content
 
 
+def test_lazy_download():
+    url = 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Tsunami_by_hokusai_19th_century.jpg/320px-Tsunami_by_hokusai_19th_century.jpg'
+    file = osp.join(_gen_dir, 'tsunami.jpg')
+    assert osp.isfile(util.lazy_download(file, url))
+    util.safe_remove(_gen_dir)
+
+
 def test_get_environment():
     assert {'os', 'pyExe', 'pyVersion', 'pyPath', 'osPath'} == set(util.get_environment().keys())
 

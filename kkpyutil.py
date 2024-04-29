@@ -2712,6 +2712,18 @@ def http_post(url, data: dict, encoding=TXT_CODEC):
     return resp
 
 
+def lazy_download(local_file, url, file_open_mode='wb', logger=None):
+    if osp.isfile(local_file):
+        return local_file
+    os.makedirs(osp.dirname(local_file), exist_ok=True)
+    logger = logger or glogger
+    with open(local_file, file_open_mode) as fp:
+        with urllib.request.urlopen(url) as response:
+            logger.info(f'Downloading: {url} => {local_file}')
+            fp.write(response.read())
+    return local_file
+
+
 def get_environment():
     return {
         'os': platform.platform(),
