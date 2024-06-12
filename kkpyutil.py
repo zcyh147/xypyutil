@@ -1731,6 +1731,7 @@ def copy_file(src, dst, isdstdir=False, keepmeta=False):
         copyfunc(src, dst)
     except shutil.SameFileError:
         glogger.warning(f'source and destination are identical. will SKIP: {osp.abspath(src)} -> {osp.abspath(dst)}.')
+    return dst if not isdstdir else osp.join(dst, osp.basename(src))
 
 
 def move_file(src, dst, isdstdir=False):
@@ -1751,6 +1752,7 @@ def move_file(src, dst, isdstdir=False):
 - detail: {e}
 - advice: manually remove source
 - ignored""")
+    return dst if not isdstdir else osp.join(dst, osp.basename(src))
 
 
 def compare_dirs(dir1, dir2, ignoreddirpatterns=(), ignoredfilepatterns=(), showdiff=True):
