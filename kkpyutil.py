@@ -319,7 +319,10 @@ def format_xml(elem, indent='    ', encoding='utf-8'):
     from xml.dom import minidom
     rough_string = ET.tostring(elem, encoding)
     reparsed = minidom.parseString(rough_string)
-    return reparsed.toprettyxml(indent=indent, encoding=encoding).decode(encoding)
+    raw = reparsed.toprettyxml(indent=indent, encoding=encoding).decode(encoding)
+    lines = raw.split('\n')
+    non_empty_lines = [line for line in lines if line.strip() != '']
+    return '\n'.join(non_empty_lines)
 
 
 def throw(err_cls, detail, advice):

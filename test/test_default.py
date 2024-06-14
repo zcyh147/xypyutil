@@ -2270,8 +2270,7 @@ def test_format_xml():
 <root>
     <child>Hello</child>
     <child>World</child>
-</root>
-'''
+</root>'''
 
     # Call the function
     formatted_xml = util.format_xml(root)
