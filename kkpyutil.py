@@ -319,7 +319,7 @@ def format_xml(elem, indent='    ', encoding='utf-8'):
     from xml.dom import minidom
     rough_string = ET.tostring(elem, encoding)
     reparsed = minidom.parseString(rough_string)
-    return reparsed.toprettyxml(indent=indent)
+    return reparsed.toprettyxml(indent=indent, encoding=encoding).decode(encoding)
 
 
 def throw(err_cls, detail, advice):
