@@ -2266,7 +2266,7 @@ def test_format_xml():
     child2.text = 'World'
 
     # Expected formatted XML string
-    expected_output = '''<?xml version="1.0" ?>
+    expected_output = '''<?xml version="1.0" encoding="utf-8"?>
 <root>
     <child>Hello</child>
     <child>World</child>
