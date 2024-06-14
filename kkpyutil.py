@@ -314,6 +314,14 @@ def format_error(expected, got):
 {log_got}"""
 
 
+def format_xml(elem, indent='    ', encoding='utf-8'):
+    import xml.etree.ElementTree as ET
+    from xml.dom import minidom
+    rough_string = ET.tostring(elem, encoding)
+    reparsed = minidom.parseString(rough_string)
+    return reparsed.toprettyxml(indent=indent)
+
+
 def throw(err_cls, detail, advice):
     raise err_cls(f"""
 {format_brief('Detail', detail if isinstance(detail, list) else [detail])}
@@ -2876,6 +2884,10 @@ def remove_unsupported_dict_keys(mydict: dict, supported_keys: set):
     for key in unsupported:
         mydict.pop(key)
     return mydict
+
+
+
+
 
 
 def _test():

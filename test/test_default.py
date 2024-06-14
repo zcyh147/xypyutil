@@ -2253,3 +2253,28 @@ def test_timeout():
 def test_remove_unsupported_dict_keys():
     my_dict = {'a': 1, 'b': 2, 'c': 3}
     assert util.remove_unsupported_dict_keys(my_dict, {'c'}) == {'c': 3}
+
+
+def test_format_xml():
+    import xml.etree.ElementTree as ET
+
+    # Create an XML element
+    root = ET.Element('root')
+    child1 = ET.SubElement(root, 'child')
+    child2 = ET.SubElement(root, 'child')
+    child1.text = 'Hello'
+    child2.text = 'World'
+
+    # Expected formatted XML string
+    expected_output = '''<?xml version="1.0" ?>
+<root>
+    <child>Hello</child>
+    <child>World</child>
+</root>
+'''
+
+    # Call the function
+    formatted_xml = util.format_xml(root)
+
+    # Assert the output is as expected
+    assert formatted_xml == expected_output, f"Expected:\n{expected_output}\nBut got:\n{formatted_xml}"
