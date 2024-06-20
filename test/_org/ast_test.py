@@ -12,7 +12,7 @@ def main():
     """
     this is main docstring
     """
-    my_func(100, 0.5, s='bar', cls=Caller, lst=[3, 4], attr=__file__.Caller, unsupported={'x': 100})
+    my_func(100, 0.5, s='bar', cls=Caller, lst=[3, 4], attr=__file__.Caller, unsupported={'x': 100}, dtype=list[str])
     obj = MyClass()
     obj.my_method(99, 0.99, s='BAR')
 
@@ -29,7 +29,7 @@ class Caller:
         obj.my_method(99, 0.99, s='BAR')
 
 
-def my_func(i, f, s='foo', cls=Caller, lst=(1, 2), attr=None, unsupported=None):
+def my_func(i, f, s='foo', cls=Caller, lst=(1, 2), attr=None, unsupported=None, dtype=list[str]):
     pass
 
 

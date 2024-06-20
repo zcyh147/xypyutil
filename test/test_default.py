@@ -831,7 +831,7 @@ def test_extract_call_args():
     # called by function
     func_calls, method_calls = util.extract_call_args(src_file, 'main', 'my_func')
     # breakpoint()
-    assert func_calls == [{'args': [100, 0.5], 'kwargs': {'attr': 'Caller', 'cls': 'Caller', 'lst': [3, 4], 's': 'bar', 'unsupported': None}, 'lineno': 15, 'end_lineno': 15}]
+    assert func_calls == [{'args': [100, 0.5], 'kwargs': {'attr': 'Caller', 'cls': 'Caller', 'lst': [3, 4], 's': 'bar', 'unsupported': None, 'dtype': 'list[str]'}, 'lineno': 15, 'end_lineno': 15}]
     assert not method_calls
     func_calls, method_calls = util.extract_call_args(src_file, 'main', 'my_method')
     assert not func_calls

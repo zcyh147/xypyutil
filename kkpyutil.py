@@ -1242,6 +1242,10 @@ def extract_call_args(file, caller, callee):
             return [elem.value if isinstance(elem, ast.Constant) else None for elem in argument.elts]
         elif use_type_map := isinstance(argument, ast.Attribute):
             return argument.attr
+        elif use_typed_list := isinstance(argument, ast.Subscript):
+            coll_type = argument.value.id
+            elem_type = argument.slice.id if coll_type.startswith('list') or coll_type.startswith('tuple') else argument.slice.dims[0].id
+            return f'{coll_type}[{elem_type}]'
         glogger.error(f'Unsupported syntax node: {argument}. Will fallback to None.')
         return None
 
