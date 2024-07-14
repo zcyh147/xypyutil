@@ -6,6 +6,7 @@ import datetime
 import getpass
 import glob
 import json
+import math
 import platform
 import shutil
 import signal
@@ -2277,3 +2278,66 @@ def test_format_xml():
 
     # Assert the output is as expected
     assert formatted_xml == expected_output, f"Expected:\n{expected_output}\nBut got:\n{formatted_xml}"
+
+
+def test_create_parameter():
+    param = util.create_parameter('integer', default='10')
+    assert param['name'] == 'integer'
+    assert param['default'] == 10
+    assert param['type'] == 'int'
+    assert param['range'] == [float('-inf'), float('inf')]
+    assert param['step'] == 1
+    param = util.create_parameter('integer', default='10', val_range=[10, None])
+    assert param['name'] == 'integer'
+    assert param['default'] == 10
+    assert param['type'] == 'int'
+    assert param['range'] == [10, float('inf')]
+    assert param['step'] == 1
+    param = util.create_parameter('integer', default='10', val_range=[0, 10], step=10)
+    assert param['name'] == 'integer'
+    assert param['default'] == 10
+    assert param['type'] == 'int'
+    assert param['range'] == [0, 10]
+    assert param['step'] == 10
+
+    param = util.create_parameter('float', default='1.0', val_range=[10, None])
+    assert param['name'] == 'float'
+    assert math.isclose(param['default'], 1.0)
+    assert param['type'] == 'float'
+    assert param['range'] == [10, float('inf')]
+    assert math.isclose(param['step'], 0.1)
+    assert param['precision'] == 2
+    param = util.create_parameter('float', default='1.0', step=0.01, precision=3)
+    assert param['name'] == 'float'
+    assert math.isclose(param['default'], 1.0)
+    assert param['type'] == 'float'
+    assert param['range'] == [float('-inf'), float('inf')]
+    assert math.isclose(param['step'], 0.01)
+    assert param['precision'] == 3
+
+    param = util.create_parameter('single-selection', default='opt1', val_range=('opt1', 'opt2', 'opt3'))
+    assert param['name'] == 'single-selection'
+    assert param['default'] == 'opt1'
+    assert param['type'] == 'option'
+    assert param['range'] == ('opt1', 'opt2', 'opt3')
+    param = util.create_parameter('multi-selection', default='opt1 opt2', val_range=('opt1', 'opt2', 'opt3'))
+    assert param['name'] == 'multi-selection'
+    assert param['default'] == ('opt1', 'opt2')
+    assert param['type'] == 'option'
+    assert param['range'] == ('opt1', 'opt2', 'opt3')
+    param = util.create_parameter('multi-selection', default='opt1, opt2', val_range=('opt1', 'opt2', 'opt3'), delim=',')
+    assert param['name'] == 'multi-selection'
+    assert param['default'] == ('opt1', 'opt2')
+    assert param['type'] == 'option'
+    assert param['range'] == ('opt1', 'opt2', 'opt3')
+
+    param = util.create_parameter('text', default='Hello')
+    assert param['name'] == 'text'
+    assert param['default'] == 'Hello'
+    assert param['type'] == 'str'
+
+    # Create a parameter with no default value
+    param = util.create_parameter('boolean', default='false')
+    assert param['name'] == 'boolean'
+    assert not param['default']
+    assert param['type'] == 'bool'

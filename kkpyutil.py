@@ -1698,6 +1698,48 @@ def is_number_text(text):
     return False
 
 
+def is_bool_text(text):
+    return text.lower() in ('true', 'false')
+
+
+def create_parameter(name, default: str, val_range=None, step=0.1, precision: int = 2, delim=' '):
+    """
+    - a single user text input may carry polymorphic primitive data types
+    - so we need to convert it to a good enough data record that a frontend can understand
+    - step is for numbers only, and precision is for floats only
+    - some frontend may offer fine-tuning, a good practice is to use step/10 for that, but this low-level API does not offer fine-tuning for minimalism
+    - for numbers, null xrange or null component means no range limit
+    - for options, range is a tuple of options; single-selection uses a literal str as default; multi-selection uses a space-separated str 'opt1 opt2'
+    """
+    if options := isinstance(val_range, tuple):
+        assert len(val_range)
+        try:
+            i_default = val_range.index(default)
+            # single-select
+            default_opts = default
+        except ValueError:
+            # multi-select
+            default_opts = tuple([opt.strip() for opt in default.split(delim)])
+        return {'name': name, 'type': 'option', 'default': default_opts, 'range': val_range}
+    if is_bool_text(default):
+        return {'name': name, 'type': 'bool', 'default': default.lower() == 'true'}
+    if is_number_text(default):
+        # edge cases: None, (None, 1.0), (1.0, None), (None, None)
+        if val_range is None:
+            val_range = [float('-inf'), float('inf')]
+        else:
+            assert len(val_range) == 2
+            if val_range[0] is None:
+                val_range[0] = '-inf'
+            if val_range[1] is None:
+                val_range[1] = 'inf'
+            val_range = [float(val_range[0]), float(val_range[1])]
+        if is_float_text(default):
+            return {'name': name, 'type': 'float', 'default': float(default), 'range': val_range, 'step': step, 'precision': precision}
+        return {'name': name, 'type': 'int', 'default': int(default), 'range': val_range, 'step': max(int(step), 1)}
+    return {'name': name, 'type': 'str', 'default': default}
+
+
 def compare_dsv_lines(line1, line2, delim=' ', float_rel_tol=1e-6, float_abs_tol=1e-6, striptext=True, randomidok=False, logger=None):
     """
     - compare two lines of delimiter-separated values, with numerical and uuid comparison in mind
