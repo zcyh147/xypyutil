@@ -1730,13 +1730,13 @@ def create_parameter(name, default: str, val_range=None, step=0.1, precision: in
         else:
             assert len(val_range) == 2
             if val_range[0] is None:
-                val_range[0] = '-inf'
+                val_range[0] = float('-inf')
             if val_range[1] is None:
-                val_range[1] = 'inf'
+                val_range[1] = float('inf')
         if is_float_text(default):
             val_range = [float(val_range[0]), float(val_range[1])]
             return {'name': name, 'type': 'float', 'default': float(default), 'range': val_range, 'step': step, 'precision': precision}
-        val_range = [int(val_range[0]), int(val_range[1])]
+        val_range = [-2 ** 32 + 1 if val_range[0] in (float('-inf'), float('inf')) else int(val_range[0]), 2 ** 32 - 1 if val_range[1] in (float('inf'), float('-inf')) else int(val_range[1])]
         return {'name': name, 'type': 'int', 'default': int(default), 'range': val_range, 'step': max(int(step), 1)}
     return {'name': name, 'type': 'str', 'default': default}
 

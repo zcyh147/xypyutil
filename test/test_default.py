@@ -2285,13 +2285,13 @@ def test_create_parameter():
     assert param['name'] == 'integer'
     assert param['default'] == 10
     assert param['type'] == 'int'
-    assert param['range'] == [float('-inf'), float('inf')]
+    assert param['range'] == [-4294967295, 4294967295]
     assert param['step'] == 1
     param = util.create_parameter('integer', default='10', val_range=[10, None])
     assert param['name'] == 'integer'
     assert param['default'] == 10
     assert param['type'] == 'int'
-    assert param['range'] == [10, float('inf')]
+    assert param['range'] == [10, 4294967295]
     assert param['step'] == 1
     param = util.create_parameter('integer', default='10', val_range=[0, 10], step=10)
     assert param['name'] == 'integer'
