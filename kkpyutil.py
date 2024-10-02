@@ -2936,8 +2936,20 @@ def remove_unsupported_dict_keys(mydict: dict, supported_keys: set):
     return mydict
 
 
+def json_to_text(obj, use_unicode=True, pretty=False):
+    try:
+        json_str = json.dumps(obj, ensure_ascii=not use_unicode, indent=4 if pretty else None)
+        return json_str, None
+    except TypeError as e:
+        return None, e
 
 
+def json_from_text(json_str):
+    try:
+        data = json.loads(json_str)
+        return data, None
+    except json.JSONDecodeError as e:
+        return None, e
 
 
 def _test():

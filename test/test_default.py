@@ -2341,3 +2341,34 @@ def test_create_parameter():
     assert param['name'] == 'boolean'
     assert not param['default']
     assert param['type'] == 'bool'
+
+
+def test_json_to_text():
+    data = {'a': 1, 'b': "中文", 'c': 3}
+    assert util.json_to_text(data) == ("""{"a": 1, "b": "中文", "c": 3}""", None)
+    assert util.json_to_text(data, pretty=True) == ("""{
+    "a": 1,
+    "b": "中文",
+    "c": 3
+}""", None)
+    data = {
+        "name": "Leóna",
+        "age": 3,
+        "favorite_food": "🍕",
+        "languages": ["English", "中文", "Français"],
+        "unsupported_type": {1, 2, 3}  # Sets are not JSON serializable
+    }
+    # Try to serialize the dict with a set
+    text, exc = util.json_to_text(data)
+    assert text is None
+    assert isinstance(exc, TypeError)
+
+
+def test_json_from_text():
+    text = """{"a": 1, "b": "中文", "c": 3}"""
+    assert util.json_from_text(text) == ({'a': 1, 'b': '中文', 'c': 3}, None)
+    # test exception
+    text = """{"a": 1, "b": "中文", "c": 3"""
+    obj, exc = util.json_from_text(text)
+    assert obj is None
+    assert isinstance(exc, json.decoder.JSONDecodeError)
