@@ -2372,3 +2372,12 @@ def test_json_from_text():
     obj, exc = util.json_from_text(text)
     assert obj is None
     assert isinstance(exc, json.decoder.JSONDecodeError)
+
+
+def test_offline_json():
+    oj = util.OfflineJSON(osp.join(_gen_dir, 'test.json'))
+    oj.save({'a': 1, 'b': 2})
+    assert oj.load() == {'a': 1, 'b': 2}
+    data = oj.merge({'a': 1, 'b': 200, 'c': '中文'})
+    assert data == {'a': 1, 'b': 200, 'c': '中文'}
+    util.safe_remove(_gen_dir)

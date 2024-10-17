@@ -2952,8 +2952,31 @@ def json_from_text(json_str):
         return None, e
 
 
+class OfflineJSON:
+    def __init__(self, file_path):
+        self.path = file_path
+
+    def exists(self):
+        return osp.isfile(self.path)
+
+    def load(self):
+        return load_json(self.path) if self.exists() else None
+
+    def save(self, data: dict):
+        save_json(self.path, data)
+
+    def merge(self, props: dict):
+        data = self.load()
+        if not data:
+            return self.save(props)
+        data.update(props)
+        self.save(data)
+        return data
+
+
 def _test():
-    print(say('hello'))
+    # print(say('hello'))
+    print(create_guid())
 
 
 if __name__ == '__main__':
