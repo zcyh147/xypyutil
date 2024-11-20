@@ -58,9 +58,8 @@ import uuid
 import warnings
 from types import SimpleNamespace
 
-#
-# Globals
-#
+# region globals
+
 _script_dir = osp.abspath(osp.dirname(__file__))
 TXT_CODEC = 'utf-8'  # Importable.
 LOCALE_CODEC = locale.getpreferredencoding()
@@ -70,6 +69,10 @@ PLATFORM = platform.system()
 if PLATFORM == 'Windows':
     import winreg
 
+# endregion
+
+
+# region classes
 
 class SingletonDecorator:
     """
@@ -127,6 +130,288 @@ class BandPassLogFilter(object):
         return self.__levelbounds[0] <= log.levelno <= self.__levelbounds[1]
 
 
+class OfflineJSON:
+    def __init__(self, file_path):
+        self.path = file_path
+
+    def exists(self):
+        return osp.isfile(self.path)
+
+    def load(self):
+        return load_json(self.path) if self.exists() else None
+
+    def save(self, data: dict):
+        save_json(self.path, data)
+
+    def merge(self, props: dict):
+        data = self.load()
+        if not data:
+            return self.save(props)
+        data.update(props)
+        self.save(data)
+        return data
+
+
+def get_platform_tmp_dir():
+    plat_dir_map = {
+        'Windows': osp.join(str(os.getenv('LOCALAPPDATA')), 'Temp'),
+        'Darwin': osp.expanduser('~/Library/Caches'),
+        'Linux': '/tmp'
+    }
+    return plat_dir_map.get(PLATFORM)
+
+
+class RerunLock:
+    """
+    - Lock process from reentering when seeing lock file on disk
+    - use semaphore-like behaviour with an instance limit
+    - Because lockfile is created by pyutil, we also save the occupier pid and .py path (name) in it
+    - if name is a path, e.g., __file__, then lockfile will be named after its basename
+    """
+
+    def __init__(self, name, folder=None, logger=None, max_instances=1):
+        folder = folder or osp.join(get_platform_tmp_dir(), '_util')
+        filename = f'lock_{extract_path_stem(name)}.{os.getpid()}.lock.json'
+        self.name = name
+        self.lockFile = osp.join(folder, filename)
+        self.nMaxInstances = max_instances
+        self.logger = logger or glogger
+        # CAUTION:
+        # - windows grpc server crashes with signals:
+        #   - ValueError: signal only works in main thread of the main interpreter
+        # - signals are disabled for windows
+        if threading.current_thread() is threading.main_thread():
+            common_sigs = [
+                signal.SIGABRT,
+                signal.SIGFPE,
+                signal.SIGILL,
+                signal.SIGINT,
+                signal.SIGSEGV,
+                signal.SIGTERM,
+            ]
+            plat_sigs = [
+                signal.SIGBREAK,
+                # CAUTION
+                # - CTRL_C_EVENT, CTRL_BREAK_EVENT not working on Windows
+                # signal.CTRL_C_EVENT,
+                # signal.CTRL_BREAK_EVENT,
+            ] if PLATFORM == 'Windows' else [
+                # CAUTION:
+                # - SIGCHLD as an alias is safe to ignore
+                # - SIGKILL must be handled by os.kill()
+                signal.SIGALRM,
+                signal.SIGBUS,
+                # signal.SIGCHLD,
+                # - SIGCONT: CTRL+Z is allowed for bg process
+                # signal.SIGCONT,
+                signal.SIGHUP,
+                # signal.SIGKILL,
+                signal.SIGPIPE,
+            ]
+            for sig in common_sigs + plat_sigs:
+                signal.signal(sig, self.handle_signal)
+        # cleanup zombie locks due to runtime exceptions
+        locks = [osp.basename(lock) for lock in glob.glob(osp.join(osp.dirname(self.lockFile), f'lock_{extract_path_stem(self.name)}.*.lock.json'))]
+        zombie_locks = [lock for lock in locks if not is_pid_running(int(lock.split(".")[1]))]
+        for lock in zombie_locks:
+            safe_remove(osp.join(osp.dirname(self.lockFile), lock))
+
+    def lock(self):
+        locks = [osp.basename(lock) for lock in glob.glob(osp.join(osp.dirname(self.lockFile), f'lock_{extract_path_stem(self.name)}.*.lock.json'))]
+        is_locked = len(locks) >= self.nMaxInstances
+        if is_locked:
+            locker_pids = [int(lock.split(".")[1]) for lock in locks]
+            self.logger.warning(f'{self.name} is locked by processes: {locker_pids}. Will block new instances until unlocked.')
+            return False
+        save_json(self.lockFile, {
+            'pid': os.getpid(),
+            'name': self.name,
+        })
+        # CAUTION: race condition: saving needs a sec, it's up to application to await lockfile
+        return True
+
+    def unlock(self):
+        try:
+            os.remove(self.lockFile)
+        except FileNotFoundError:
+            self.logger.warning(f'{self.name} already unlocked. Safely ignored.')
+            return False
+        except Exception:
+            failure = traceback.format_exc()
+            self.logger.error(f""""\
+Failed to unlock {self.name}:
+Details:
+{failure}
+
+Advice: 
+- Delete the lock by hand: {self.lockFile}""")
+            return False
+        return True
+
+    def unlock_all(self):
+        locks = glob.glob(osp.join(osp.dirname(self.lockFile), f'lock_{osp.basename(self.name)}.*.lock.json'))
+        for lock in locks:
+            os.remove(lock)
+        return True
+
+    def is_locked(self):
+        return osp.isfile(self.lockFile)
+
+    def handle_signal(self, sig, frame):
+        msg = f'Terminated due to signal: {signal.Signals(sig).name}; Will unlock'
+        self.logger.warning(msg)
+        self.unlock()
+        raise RuntimeError(msg)
+
+
+class Tracer:
+    """
+    - custom module-ignore rules
+    - trace calls and returns
+    - exclude first, then include
+    - usage: use in source code
+      - tracer = util.Tracer(exclude_funcname_pattern='stop')
+      - tracer.start()
+      - # add traceable code here
+      - tracer.stop()
+    """
+
+    def __init__(self,
+                 excluded_modules: set[str] = None,
+                 exclude_filename_pattern: str = None,
+                 include_filename_pattern: str = None,
+                 exclude_funcname_pattern: str = None,
+                 include_funcname_pattern: str = None,
+                 trace_func=None,
+                 exclude_builtins=True):
+        self.exclMods = {'builtins'} if excluded_modules is None else excluded_modules
+        self.exclFilePatt = re.compile(exclude_filename_pattern) if exclude_filename_pattern else None
+        self.inclFilePatt = re.compile(include_filename_pattern) if include_filename_pattern else None
+        self.exclFuncPatt = re.compile(exclude_funcname_pattern) if exclude_funcname_pattern else None
+        self.inclFuncPatt = re.compile(include_funcname_pattern) if include_funcname_pattern else None
+        self.traceFunc = trace_func
+        if exclude_builtins:
+            self.ignore_stdlibs()
+
+    def start(self):
+        sys.settrace(self.traceFunc or self._trace_calls_and_returns)
+
+    @staticmethod
+    def stop():
+        sys.settrace(None)
+
+    def ignore_stdlibs(self):
+        def _get_stdlib_module_names():
+            import distutils.sysconfig
+            stdlib_dir = distutils.sysconfig.get_python_lib(standard_lib=True)
+            return {f.replace(".py", "") for f in os.listdir(stdlib_dir)}
+
+        py_ver = sys.version_info
+        std_libs = set(sys.stdlib_module_names) if py_ver.major >= 3 and py_ver.minor >= 10 else _get_stdlib_module_names()
+        self.exclMods.update(std_libs)
+
+    def _trace_calls_and_returns(self, frame, event, arg):
+        """
+        track hook for function calls. Usage:
+        sys.settrace(trace_calls_and_returns)
+        """
+        if event not in ('call', 'return'):
+            return
+        module_name = frame.f_globals.get('__name__')
+        if module_name is not None and module_name in self.exclMods:
+            return
+        filename = frame.f_code.co_filename
+        if self.exclFilePatt and self.exclFuncPatt.search(filename):
+            return
+        if self.inclFilePatt and not self.inclFilePatt.search(filename):
+            return
+        func_name = frame.f_code.co_name
+        if self.exclFuncPatt and self.exclFuncPatt.search(func_name):
+            return
+        if self.inclFuncPatt and not self.inclFuncPatt.search(func_name):
+            return
+        line_number = frame.f_lineno
+        line = linecache.getline(filename, line_number).strip()
+        if event == 'call':
+            args = ', '.join(f'{arg}={repr(frame.f_locals[arg])}' for arg in frame.f_code.co_varnames[:frame.f_code.co_argcount])
+            print(f'Call: {module_name}.{func_name}({args}) - {line}')
+            return self._trace_calls_and_returns
+        print(f'Call: {module_name}.{func_name} => {arg} - {line}')
+
+
+class Cache:
+    """
+    cross-session caching: using temp-file to retrieve data based on hash changes
+    - constraints:
+      - data retrieval/parsing is expensive
+      - one cache per data-source
+    - cache is a mediator b/w app and data-source as a retriever only, cuz user's saving intent is always towards source, no need to cache a saving action
+    - for cross-session caching, save hash into cache, then when instantiate cache object, always load hash from cache to compare with incoming hash
+    - app must provide retriever function: retriever(src) -> json_data
+      - because it'd cost the same to retrieve data from a json-file source as from cache, so no json default is provided
+    - e.g., loading a complex tree-structure from a file:
+      - tree_cache = Cache('/path/to/file.tree', lambda: src: load_data(src), '/tmp/my_app')
+      - # ... later
+      - cached_tree_data = tree_cache.retrieve()
+    """
+
+    def __init__(self, data_source, data_retriever, cache_dir=get_platform_tmp_dir(), cache_type='cache', algo='checksum', source_seed='6ba7b810-9dad-11d1-80b4-00c04fd430c8'):
+        assert algo in ['checksum', 'mtime']
+        self.srcURL = data_source
+        self.retriever = data_retriever
+        # use a fixed namespace for each data-source to ensure inter-session consistency
+        namespace = uuid.UUID(str(source_seed))
+        uid = str(uuid.uuid5(namespace, self.srcURL))
+        self.cacheFile = osp.join(cache_dir, f'{uid}.{cache_type}.json')
+        self.hashAlgo = algo
+        # first comparison needs
+        self.prevSrcHash = load_json(self.cacheFile).get('hash') if osp.isfile(self.cacheFile) else None
+
+    def retrieve(self):
+        if self._compare_hash():
+            return self.update()
+        return load_json(self.cacheFile)['data']
+
+    def update(self):
+        """
+        - update cache directly
+        - useful when app needs to force update cache
+        """
+        data = self.retriever(self.srcURL)
+        container = {
+            'data': data,
+            'hash': self.prevSrcHash,
+        }
+        save_json(self.cacheFile, container)
+        return data
+
+    def _compare_hash(self):
+        in_src_hash = self._compute_hash()
+        if changed := in_src_hash != self.prevSrcHash or self.prevSrcHash is None:
+            self.prevSrcHash = in_src_hash
+        return changed
+
+    def _compute_hash(self):
+        hash_algo_map = {
+            'checksum': self._compute_hash_as_checksum,
+            'mtime': self._compute_hash_as_modified_time,
+        }
+        return hash_algo_map[self.hashAlgo]()
+
+    def _compute_hash_as_checksum(self):
+        return get_md5_checksum(self.srcURL)
+
+    def _compute_hash_as_modified_time(self):
+        try:
+            return osp.getmtime(self.srcURL)
+        except FileNotFoundError:
+            return None
+
+# endregion
+
+
+# region functions
+
 def get_platform_home_dir():
     home_envvar = 'USERPROFILE' if PLATFORM == 'Windows' else 'HOME'
     return os.getenv(home_envvar)
@@ -137,15 +422,6 @@ def get_platform_appdata_dir(winroam=True):
         'Windows': os.getenv('APPDATA' if winroam else 'LOCALAPPDATA'),
         'Darwin': osp.expanduser('~/Library/Application Support'),
         'Linux': osp.expanduser('~/.config')
-    }
-    return plat_dir_map.get(PLATFORM)
-
-
-def get_platform_tmp_dir():
-    plat_dir_map = {
-        'Windows': osp.join(str(os.getenv('LOCALAPPDATA')), 'Temp'),
-        'Darwin': osp.expanduser('~/Library/Caches'),
-        'Linux': '/tmp'
     }
     return plat_dir_map.get(PLATFORM)
 
@@ -230,6 +506,10 @@ def build_default_logger(logdir, name=None, verbose=False):
         logging_config['loggers'][name] = logging_config['loggers']['default']
     logging.config.dictConfig(logging_config)
     return logging.getLogger(name or 'default')
+
+
+def find_log_path(logger):
+    return next((handler.baseFilename for handler in logger.handlers if isinstance(handler, logging.FileHandler)), None)
 
 
 glogger = build_default_logger(logdir=osp.join(get_platform_tmp_dir(), '_util'), name='util', verbose=True)
@@ -358,81 +638,6 @@ def save_json(path, config, encoding=TXT_CODEC):
     os.makedirs(par_dir, exist_ok=True)
     with open(path, 'w', encoding=encoding) as f:
         return json.dump(dict_config, f, ensure_ascii=False, indent=4)
-
-
-class Tracer:
-    """
-    - custom module-ignore rules
-    - trace calls and returns
-    - exclude first, then include
-    - usage: use in source code
-      - tracer = util.Tracer(exclude_funcname_pattern='stop')
-      - tracer.start()
-      - # add traceable code here
-      - tracer.stop()
-    """
-
-    def __init__(self,
-                 excluded_modules: set[str] = None,
-                 exclude_filename_pattern: str = None,
-                 include_filename_pattern: str = None,
-                 exclude_funcname_pattern: str = None,
-                 include_funcname_pattern: str = None,
-                 trace_func=None,
-                 exclude_builtins=True):
-        self.exclMods = {'builtins'} if excluded_modules is None else excluded_modules
-        self.exclFilePatt = re.compile(exclude_filename_pattern) if exclude_filename_pattern else None
-        self.inclFilePatt = re.compile(include_filename_pattern) if include_filename_pattern else None
-        self.exclFuncPatt = re.compile(exclude_funcname_pattern) if exclude_funcname_pattern else None
-        self.inclFuncPatt = re.compile(include_funcname_pattern) if include_funcname_pattern else None
-        self.traceFunc = trace_func
-        if exclude_builtins:
-            self.ignore_stdlibs()
-
-    def start(self):
-        sys.settrace(self.traceFunc or self._trace_calls_and_returns)
-
-    @staticmethod
-    def stop():
-        sys.settrace(None)
-
-    def ignore_stdlibs(self):
-        def _get_stdlib_module_names():
-            import distutils.sysconfig
-            stdlib_dir = distutils.sysconfig.get_python_lib(standard_lib=True)
-            return {f.replace(".py", "") for f in os.listdir(stdlib_dir)}
-
-        py_ver = sys.version_info
-        std_libs = set(sys.stdlib_module_names) if py_ver.major >= 3 and py_ver.minor >= 10 else _get_stdlib_module_names()
-        self.exclMods.update(std_libs)
-
-    def _trace_calls_and_returns(self, frame, event, arg):
-        """
-        track hook for function calls. Usage:
-        sys.settrace(trace_calls_and_returns)
-        """
-        if event not in ('call', 'return'):
-            return
-        module_name = frame.f_globals.get('__name__')
-        if module_name is not None and module_name in self.exclMods:
-            return
-        filename = frame.f_code.co_filename
-        if self.exclFilePatt and self.exclFuncPatt.search(filename):
-            return
-        if self.inclFilePatt and not self.inclFilePatt.search(filename):
-            return
-        func_name = frame.f_code.co_name
-        if self.exclFuncPatt and self.exclFuncPatt.search(func_name):
-            return
-        if self.inclFuncPatt and not self.inclFuncPatt.search(func_name):
-            return
-        line_number = frame.f_lineno
-        line = linecache.getline(filename, line_number).strip()
-        if event == 'call':
-            args = ', '.join(f'{arg}={repr(frame.f_locals[arg])}' for arg in frame.f_code.co_varnames[:frame.f_code.co_argcount])
-            print(f'Call: {module_name}.{func_name}({args}) - {line}')
-            return self._trace_calls_and_returns
-        print(f'Call: {module_name}.{func_name} => {arg} - {line}')
 
 
 def get_md5_checksum(file):
@@ -774,109 +979,6 @@ def match_files_except_lines(file1, file2, excluded=None):
         content1 = [cont for c, cont in enumerate(content1) if c not in excluded]
         content2 = [cont for c, cont in enumerate(content2) if c not in excluded]
     return content1 == content2
-
-
-class RerunLock:
-    """
-    - Lock process from reentering when seeing lock file on disk
-    - use semaphore-like behaviour with an instance limit
-    - Because lockfile is created by pyutil, we also save the occupier pid and .py path (name) in it
-    - if name is a path, e.g., __file__, then lockfile will be named after its basename
-    """
-
-    def __init__(self, name, folder=None, logger=None, max_instances=1):
-        folder = folder or osp.join(get_platform_tmp_dir(), '_util')
-        filename = f'lock_{extract_path_stem(name)}.{os.getpid()}.lock.json'
-        self.name = name
-        self.lockFile = osp.join(folder, filename)
-        self.nMaxInstances = max_instances
-        self.logger = logger or glogger
-        # CAUTION:
-        # - windows grpc server crashes with signals:
-        #   - ValueError: signal only works in main thread of the main interpreter
-        # - signals are disabled for windows
-        if threading.current_thread() is threading.main_thread():
-            common_sigs = [
-                signal.SIGABRT,
-                signal.SIGFPE,
-                signal.SIGILL,
-                signal.SIGINT,
-                signal.SIGSEGV,
-                signal.SIGTERM,
-            ]
-            plat_sigs = [
-                signal.SIGBREAK,
-                # CAUTION
-                # - CTRL_C_EVENT, CTRL_BREAK_EVENT not working on Windows
-                # signal.CTRL_C_EVENT,
-                # signal.CTRL_BREAK_EVENT,
-            ] if PLATFORM == 'Windows' else [
-                # CAUTION:
-                # - SIGCHLD as an alias is safe to ignore
-                # - SIGKILL must be handled by os.kill()
-                signal.SIGALRM,
-                signal.SIGBUS,
-                # signal.SIGCHLD,
-                # - SIGCONT: CTRL+Z is allowed for bg process
-                # signal.SIGCONT,
-                signal.SIGHUP,
-                # signal.SIGKILL,
-                signal.SIGPIPE,
-            ]
-            for sig in common_sigs + plat_sigs:
-                signal.signal(sig, self.handle_signal)
-        # cleanup zombie locks due to runtime exceptions
-        locks = [osp.basename(lock) for lock in glob.glob(osp.join(osp.dirname(self.lockFile), f'lock_{extract_path_stem(self.name)}.*.lock.json'))]
-        zombie_locks = [lock for lock in locks if not is_pid_running(int(lock.split(".")[1]))]
-        for lock in zombie_locks:
-            safe_remove(osp.join(osp.dirname(self.lockFile), lock))
-
-    def lock(self):
-        locks = [osp.basename(lock) for lock in glob.glob(osp.join(osp.dirname(self.lockFile), f'lock_{extract_path_stem(self.name)}.*.lock.json'))]
-        is_locked = len(locks) >= self.nMaxInstances
-        if is_locked:
-            locker_pids = [int(lock.split(".")[1]) for lock in locks]
-            self.logger.warning(f'{self.name} is locked by processes: {locker_pids}. Will block new instances until unlocked.')
-            return False
-        save_json(self.lockFile, {
-            'pid': os.getpid(),
-            'name': self.name,
-        })
-        # CAUTION: race condition: saving needs a sec, it's up to application to await lockfile
-        return True
-
-    def unlock(self):
-        try:
-            os.remove(self.lockFile)
-        except FileNotFoundError:
-            self.logger.warning(f'{self.name} already unlocked. Safely ignored.')
-            return False
-        except Exception:
-            failure = traceback.format_exc()
-            self.logger.error(f""""\
-Failed to unlock {self.name}:
-Details:
-{failure}
-
-Advice: 
-- Delete the lock by hand: {self.lockFile}""")
-            return False
-        return True
-
-    def unlock_all(self):
-        locks = glob.glob(osp.join(osp.dirname(self.lockFile), f'lock_{osp.basename(self.name)}.*.lock.json'))
-        for lock in locks:
-            os.remove(lock)
-        return True
-
-    def is_locked(self):
-        return osp.isfile(self.lockFile)
-
-    def handle_signal(self, sig, frame):
-        msg = f'Terminated due to signal: {signal.Signals(sig).name}; Will unlock'
-        self.logger.warning(msg)
-        self.unlock()
-        raise RuntimeError(msg)
 
 
 def rerun_lock(name, folder=None, logger=glogger, max_instances=1):
@@ -2534,75 +2636,6 @@ def inspect_obj(obj):
     return {'type': type_name, 'attrs': attrs, 'repr': repr(obj), 'details': details}
 
 
-class Cache:
-    """
-    cross-session caching: using temp-file to retrieve data based on hash changes
-    - constraints:
-      - data retrieval/parsing is expensive
-      - one cache per data-source
-    - cache is a mediator b/w app and data-source as a retriever only, cuz user's saving intent is always towards source, no need to cache a saving action
-    - for cross-session caching, save hash into cache, then when instantiate cache object, always load hash from cache to compare with incoming hash
-    - app must provide retriever function: retriever(src) -> json_data
-      - because it'd cost the same to retrieve data from a json-file source as from cache, so no json default is provided
-    - e.g., loading a complex tree-structure from a file:
-      - tree_cache = Cache('/path/to/file.tree', lambda: src: load_data(src), '/tmp/my_app')
-      - # ... later
-      - cached_tree_data = tree_cache.retrieve()
-    """
-
-    def __init__(self, data_source, data_retriever, cache_dir=get_platform_tmp_dir(), cache_type='cache', algo='checksum', source_seed='6ba7b810-9dad-11d1-80b4-00c04fd430c8'):
-        assert algo in ['checksum', 'mtime']
-        self.srcURL = data_source
-        self.retriever = data_retriever
-        # use a fixed namespace for each data-source to ensure inter-session consistency
-        namespace = uuid.UUID(str(source_seed))
-        uid = str(uuid.uuid5(namespace, self.srcURL))
-        self.cacheFile = osp.join(cache_dir, f'{uid}.{cache_type}.json')
-        self.hashAlgo = algo
-        # first comparison needs
-        self.prevSrcHash = load_json(self.cacheFile).get('hash') if osp.isfile(self.cacheFile) else None
-
-    def retrieve(self):
-        if self._compare_hash():
-            return self.update()
-        return load_json(self.cacheFile)['data']
-
-    def update(self):
-        """
-        - update cache directly
-        - useful when app needs to force update cache
-        """
-        data = self.retriever(self.srcURL)
-        container = {
-            'data': data,
-            'hash': self.prevSrcHash,
-        }
-        save_json(self.cacheFile, container)
-        return data
-
-    def _compare_hash(self):
-        in_src_hash = self._compute_hash()
-        if changed := in_src_hash != self.prevSrcHash or self.prevSrcHash is None:
-            self.prevSrcHash = in_src_hash
-        return changed
-
-    def _compute_hash(self):
-        hash_algo_map = {
-            'checksum': self._compute_hash_as_checksum,
-            'mtime': self._compute_hash_as_modified_time,
-        }
-        return hash_algo_map[self.hashAlgo]()
-
-    def _compute_hash_as_checksum(self):
-        return get_md5_checksum(self.srcURL)
-
-    def _compute_hash_as_modified_time(self):
-        try:
-            return osp.getmtime(self.srcURL)
-        except FileNotFoundError:
-            return None
-
-
 def mem_caching(maxsize=None):
     """
     - per-process lru caching for multiple data sources
@@ -2844,18 +2877,6 @@ def indent(code_or_lines, spaces_per_indent=4):
     return '\n'.join(indented) if isinstance(code_or_lines, str) else indented
 
 
-def find_log_path(logger):
-    """
-    - logger must be a python logger
-    """
-    for handler in logger.handlers:
-        if isinstance(handler, logging.FileHandler):
-            return handler.baseFilename
-    # use next() to get the first handler
-    # if not found, raise StopIteration
-    return next(filter(lambda h: isinstance(h, logging.FileHandler), logger.handlers), None)
-
-
 def collect_file_tree(root):
     return [file for file in glob.glob(osp.join(root, '**'), recursive=True) if osp.isfile(file)]
 
@@ -2951,27 +2972,7 @@ def json_from_text(json_str):
     except json.JSONDecodeError as e:
         return None, e
 
-
-class OfflineJSON:
-    def __init__(self, file_path):
-        self.path = file_path
-
-    def exists(self):
-        return osp.isfile(self.path)
-
-    def load(self):
-        return load_json(self.path) if self.exists() else None
-
-    def save(self, data: dict):
-        save_json(self.path, data)
-
-    def merge(self, props: dict):
-        data = self.load()
-        if not data:
-            return self.save(props)
-        data.update(props)
-        self.save(data)
-        return data
+# endregion
 
 
 def _test():
