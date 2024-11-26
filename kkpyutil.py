@@ -74,22 +74,25 @@ if PLATFORM == 'Windows':
 
 # region classes
 
-class SingletonDecorator:
-    """
-    Decorator to build Singleton class, single-inheritance only.
-    Usage:
-        class MyClass: ...
-        myobj = SingletonDecorator(MyClass, args, kwargs)
-    """
+class ClassicSingleton:
+    def __new__(cls):
+        if not hasattr(cls, 'instance'):
+            cls.instance = super(ClassicSingleton, cls).__new__(cls)
+        return cls.instance
 
-    def __init__(self, klass, *args, **kwargs):
-        self.klass = klass
-        self.instance = None
 
-    def __call__(self, *args, **kwargs):
-        if self.instance is None:
-            self.instance = self.klass(*args, **kwargs)
-        return self.instance
+class BorgSingleton:
+    """
+    - Borg pattern: all instances share the same state, but not the same identity
+    - override _shared_borg_state to avoid child polluting states of parent instances
+    - ref: https://www.geeksforgeeks.org/singleton-pattern-in-python-a-complete-guide/
+    """
+    _shared_borg_state = {}
+
+    def __new__(cls, *args, **kwargs):
+        obj = super(BorgSingleton, cls).__new__(cls, *args, **kwargs)
+        obj.__dict__ = cls._shared_borg_state
+        return obj
 
 
 class LowPassLogFilter(object):

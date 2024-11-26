@@ -2381,3 +2381,73 @@ def test_offline_json():
     data = oj.merge({'a': 1, 'b': 200, 'c': '中文'})
     assert data == {'a': 1, 'b': 200, 'c': '中文'}
     util.safe_remove(_gen_dir)
+
+
+def test_borg_singleton():
+    class BorgNoShareWithParent(util.BorgSingleton):
+        _shared_borg_state = {}
+
+        def __init__(self):
+            super().__init__()
+            self.a = 1
+
+    b1 = BorgNoShareWithParent()
+    b2 = BorgNoShareWithParent()
+    assert b1 is not b2
+    assert b1.a == 1
+    assert b2.a == 1
+    b1.a = 100
+    assert b2.a == 100
+    b2.a = 200
+    assert b1.a == 200
+    b0 = util.BorgSingleton()
+    b0.a = 999
+    assert b0 is not b1
+    assert b0.a == 999
+    assert b1.a == 200
+
+
+def test_classic_singleton():
+    class Singleton(util.ClassicSingleton):
+        def __init__(self):
+            self.a = 1
+
+    class NonSingleton:
+        def __init__(self):
+            self.a = 1
+
+    class NonSingletonChild(NonSingleton):
+        def __init__(self):
+            super().__init__()
+            self.b = False
+
+    b1 = Singleton()
+    b2 = Singleton()
+    assert b1 is b2
+    assert b1.a == 1
+    assert b2.a == 1
+    b1.a = 100
+    assert b2.a == 100
+    b2.a = 200
+    assert b1.a == 200
+    b0 = util.ClassicSingleton()
+    b0.a = 999
+    assert b0 is not b1
+    assert b0.a == 999, 'parent gets injected with new child attribute'
+    assert b1.a == 200, 'child attribute should not affect or be affected by parent'
+    c1 = NonSingleton()
+    c2 = NonSingleton()
+    assert c1 is not c2
+    c2.a = 100
+    assert c1.a != c2.a
+    c3 = NonSingletonChild()
+    c4 = NonSingletonChild()
+    assert c3 is not c4
+    c4.a = 999
+    assert c3.a != c4.a
+    assert c4.a != c2.a
+    assert not c4.b
+    with pytest.raises(AttributeError):
+        print(c1.b)
+    c1.b = True
+    print(c1.b)
