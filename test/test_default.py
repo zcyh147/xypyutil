@@ -2421,16 +2421,15 @@ def test_classic_singleton():
             super().__init__()
             self.b = False
 
-    b1 = Singleton()
-    b2 = Singleton()
-    assert b1 is b2
+    b1 = Singleton.instance()
     assert b1.a == 1
-    assert b2.a == 1
     b1.a = 100
+    b2 = Singleton.instance()
+    assert b1 is b2
     assert b2.a == 100
     b2.a = 200
     assert b1.a == 200
-    b0 = util.ClassicSingleton()
+    b0 = util.ClassicSingleton.instance()
     b0.a = 999
     assert b0 is not b1
     assert b0.a == 999, 'parent gets injected with new child attribute'

@@ -74,11 +74,35 @@ if PLATFORM == 'Windows':
 
 # region classes
 
+# class ClassicSingleton:
+#     _instances = {}
+#
+#     def __new__(cls, *args, **kwargs):
+#         if cls not in cls._instances:
+#             print(f"Creating new instance for {cls}")
+#             cls._instances[cls] = super(ClassicSingleton, cls).__new__(cls, *args, **kwargs)
+#         else:
+#             print(f"Reusing instance for {cls}")
+#         return cls._instances[cls]
+
+
 class ClassicSingleton:
-    def __new__(cls):
-        if not hasattr(cls, 'instance'):
-            cls.instance = super(ClassicSingleton, cls).__new__(cls)
-        return cls.instance
+    _instances = {}
+
+    @classmethod
+    def instance(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            # Create instance using `object.__new__` directly to avoid triggering overridden `__new__`
+            cls._instances[cls] = object.__new__(cls)
+            cls._instances[cls].__init__(*args, **kwargs)
+        return cls._instances[cls]
+
+    def __new__(cls, *args, **kwargs):
+        if cls in cls._instances:
+            # Allow the instance to exist if already created
+            return cls._instances[cls]
+            # Otherwise, raise error if someone tries to use `cls()` directly
+        raise RuntimeError("Use `cls.instance()` to access the singleton instance.")
 
 
 class BorgSingleton:
@@ -93,6 +117,23 @@ class BorgSingleton:
         obj = super(BorgSingleton, cls).__new__(cls, *args, **kwargs)
         obj.__dict__ = cls._shared_borg_state
         return obj
+
+
+class SingletonDecorator:
+    """
+    - Decorator to build Singleton class, single-inheritance only.
+    - Usage:
+        class MyClass: ...
+        myobj = SingletonDecorator(MyClass, args, kwargs)
+    """
+    def __init__(self, klass, *args, **kwargs):
+        self.klass = klass
+        self.instance = None
+
+    def __call__(self, *args, **kwargs):
+        if self.instance is None:
+            self.instance = self.klass(*args, **kwargs)
+        return self.instance
 
 
 class LowPassLogFilter(object):
