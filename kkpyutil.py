@@ -105,6 +105,18 @@ class ClassicSingleton:
         raise RuntimeError("Use `cls.instance()` to access the singleton instance.")
 
 
+class MetaSingleton(type):
+    """
+    - usage: class MyClass(metaclass=MetaSingleton)
+    """
+    _instances = {}
+
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            cls._instances[cls] = super(MetaSingleton, cls).__call__(*args, **kwargs)
+        return cls._instances[cls]
+
+
 class BorgSingleton:
     """
     - Borg pattern: all instances share the same state, but not the same identity

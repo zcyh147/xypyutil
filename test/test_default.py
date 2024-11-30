@@ -2450,3 +2450,31 @@ def test_classic_singleton():
         print(c1.b)
     c1.b = True
     print(c1.b)
+
+
+def test_meta_singleton():
+    class Singleton(metaclass=util.MetaSingleton):
+        def __init__(self):
+            self.a = 1
+
+    class Child(Singleton):
+        def __init__(self):
+            super().__init__()
+            self.b = 2
+
+    b1 = Singleton()
+    assert b1.a == 1
+    b1.a = 100
+    b2 = Singleton()
+    assert b1 is b2
+    assert b2.a == 100
+    b2.a = 200
+    assert b1.a == 200
+    assert b1.a == 200
+    c1 = Child()
+    c1.a = 2
+    assert b1.a == 200
+    c2 = Child()
+    assert c1 is c2
+    assert c2.a == 2
+    assert c1 is not b1
