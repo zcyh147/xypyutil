@@ -2489,3 +2489,9 @@ def test_exceptable_thread():
     et.start()
     with pytest.raises(ValueError):
         et.join()
+
+
+def test_format_callstack():
+    callstack = util.format_callstack()
+    assert 'test_default.py' in callstack
+    assert 'inspect.stack()' in callstack

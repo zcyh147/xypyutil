@@ -667,6 +667,24 @@ def format_xml(elem, indent='    ', encoding='utf-8'):
     return '\n'.join(non_empty_lines)
 
 
+def format_callstack():
+    """
+    - traceback in worker thread is hard to propagate to main thread
+    - so we wrap around inspect.stack() before passing it
+    """
+    import inspect
+    stack = inspect.stack()
+    formatted_stack = []
+    for frame_info in reversed(stack):  # Reverse to match traceback's order
+        filename = frame_info.filename
+        lineno = frame_info.lineno
+        function = frame_info.function
+        code_context = frame_info.code_context[0].strip() if frame_info.code_context else ''
+        # Format each frame like traceback
+        formatted_stack.append(f'  File "{filename}", line {lineno}, in {function}\n    {code_context}\n')
+    return ''.join(formatted_stack)
+
+
 def throw(err_cls, detail, advice):
     raise err_cls(f"""
 {format_brief('Detail', detail if isinstance(detail, list) else [detail])}
