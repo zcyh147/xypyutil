@@ -2478,3 +2478,14 @@ def test_meta_singleton():
     assert c1 is c2
     assert c2.a == 2
     assert c1 is not b1
+
+
+def test_exceptable_thread():
+    def _do_it():
+        time.sleep(1)
+        raise ValueError('test')
+
+    et = util.ExceptableThread(target=_do_it)
+    et.start()
+    with pytest.raises(ValueError):
+        et.join()

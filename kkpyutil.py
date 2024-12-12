@@ -74,18 +74,6 @@ if PLATFORM == 'Windows':
 
 # region classes
 
-# class ClassicSingleton:
-#     _instances = {}
-#
-#     def __new__(cls, *args, **kwargs):
-#         if cls not in cls._instances:
-#             print(f"Creating new instance for {cls}")
-#             cls._instances[cls] = super(ClassicSingleton, cls).__new__(cls, *args, **kwargs)
-#         else:
-#             print(f"Reusing instance for {cls}")
-#         return cls._instances[cls]
-
-
 class ClassicSingleton:
     _instances = {}
 
@@ -146,6 +134,24 @@ class SingletonDecorator:
         if self.instance is None:
             self.instance = self.klass(*args, **kwargs)
         return self.instance
+
+
+class ExceptableThread(threading.Thread):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.exception = None
+
+    def run(self):
+        try:
+            if self._target:
+                self._target(*self._args, **self._kwargs)
+        except Exception as e:
+            self.exception = e
+
+    def join(self, *args, **kwargs):
+        super().join(*args, **kwargs)
+        if self.exception:
+            raise self.exception
 
 
 class LowPassLogFilter(object):
