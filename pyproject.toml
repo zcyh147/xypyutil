@@ -3,12 +3,12 @@ name = "xypyutil"
 version = "1.0.0"
 description = "Building blocks for sysadmin and DevOps"
 authors = [
-    "Beinan Li <li.beinan@gmail.com>",
-    "Xi Ye <zcyh147@gmail.com>"
+    "Xi Ye <zcyh147@gmail.com>",
+    "Beinan Li <li.beinan@gmail.com>"
 ]
 maintainers = [
-    "Beinan Li <li.beinan@gmail.com>",
-    "Xi Ye <zcyh147@gmail.com>"
+    "Xi Ye <zcyh147@gmail.com>",
+    "Beinan Li <li.beinan@gmail.com>"
 ]
 license = "MIT"
 readme = "README.md"
