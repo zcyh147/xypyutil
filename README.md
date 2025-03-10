@@ -10,5 +10,5 @@ Premises
 ## INSTALL
 
 ```shell
-pip3 install kkpyutil
+pip3 install xypyutil
 ```

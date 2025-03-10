@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/kkpyutil.iml" filepath="$PROJECT_DIR$/.idea/kkpyutil.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/xypyutil.iml" filepath="$PROJECT_DIR$/.idea/xypyutil.iml" />
     </modules>
   </component>
 </project>

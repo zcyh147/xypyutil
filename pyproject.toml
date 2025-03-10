@@ -1,14 +1,20 @@
 [tool.poetry]
-name = "kkpyutil"
-version = "1.45.0"
+name = "xypyutil"
+version = "1.0.0"
 description = "Building blocks for sysadmin and DevOps"
-authors = ["Beinan Li <li.beinan@gmail.com>"]
-maintainers = ["Beinan Li <li.beinan@gmail.com>"]
+authors = [
+    "Beinan Li <li.beinan@gmail.com>",
+    "Xi Ye <zcyh147@gmail.com>"
+]
+maintainers = [
+    "Beinan Li <li.beinan@gmail.com>",
+    "Xi Ye <zcyh147@gmail.com>"
+]
 license = "MIT"
 readme = "README.md"
-homepage = ""
-repository = "https://github.com/kakyoism/kkpyutil/"
-documentation = "https://github.com/kakyoism/kkpyutil/README.md"
+homepage = "https://github.com/zcyh147/xypyutil/"
+repository = "https://github.com/zcyh147/xypyutil/"
+documentation = "https://github.com/zcyh147/xypyutil/README.md"
 keywords = [
     "utility",
     "logging",
@@ -22,7 +28,7 @@ include = [
 [tool.poetry.dependencies]
 python = "^3.9"
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 pytest = "*"
 coverage = "*"
 
@@ -31,4 +37,4 @@ requires = ["poetry-core>=1.3.9"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.urls]
-issues = "https://github.com/kakyoism/kkpyutil/issues"
+issues = "https://github.com/zcyh147/xypyutil//issues"
