@@ -492,11 +492,19 @@ def get_posix_shell_cfgfile():
     return os.path.expanduser('~/.bash_profile' if os.getenv('SHELL') == '/bin/bash' else '~/.zshrc')
 
 
-def build_default_logger(logdir, name=None, verbose=False):
+def build_default_logger(logdir, name=None, verbose=False, use_rotating_handler=True, max_mb=5, backup_count=5):
     """
-    create logger sharing global logging config except log file path
+    Create logger sharing global logging config except log file path
     - 'filename' in config is a filename; must prepend folder path to it.
     - name is log-id in config, and will get overwritten by subsequent in-process calls; THEREFORE, never build logger with the same name twice!
+
+    Parameters:
+    - logdir: Directory to store log files
+    - name: Logger name, defaults to directory basename
+    - verbose: Whether to enable verbose logging
+    - use_rotating_handler: Whether to use RotatingFileHandler to limit log file size
+    - max_mb: Maximum size of log file before rotation in MB
+    - backup_count: Number of backup files to keep
     """
     os.makedirs(logdir, exist_ok=True)
     filename = name or osp.basename(osp.basename(logdir.strip('\\/')))
@@ -545,9 +553,11 @@ def build_default_logger(logdir, name=None, verbose=False):
             "file": {
                 "level": "DEBUG",
                 "formatter": "file",
-                "class": "logging.FileHandler",
+                "class": "logging.handlers.RotatingFileHandler" if use_rotating_handler else "logging.FileHandler",
                 "encoding": "utf-8",
-                "filename": log_path
+                "filename": log_path,
+                "maxBytes": max_mb * 1024 * 1024 if use_rotating_handler else 0,
+                "backupCount": backup_count if use_rotating_handler else 0
             }
         },
         "loggers": {
