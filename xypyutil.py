@@ -1091,6 +1091,35 @@ def rerun_lock(name, folder=None, logger=glogger, max_instances=1):
 
 
 def is_pid_running(pid):
+    """
+    Determines if a process with the specified PID is currently running.
+
+    This function checks for the existence of a process given its process ID (PID).
+    - On Windows, it utilizes the `tasklist` command to verify if the process is active
+    - On Unix/Linux, it uses the `os.kill` method with signal 0 to check for the process's existence
+
+    Parameters:
+    - pid (int): The process ID to check
+
+    Returns:
+    - bool: True if the process is running, False otherwise.
+    """
+    if platform.system() == 'Windows':
+        try:
+            # Use tasklist command to find the process
+            # /FI filter condition "PID eq <pid>" to only look for specific PID
+            # /NH no header line
+            # /FO CSV output in CSV format for easier parsing
+            output = subprocess.check_output(['tasklist', '/FI', f'PID eq {pid}', '/NH', '/FO', 'CSV'],
+                                             stderr=subprocess.STDOUT,
+                                             universal_newlines=True)
+            # If the output contains the PID, the process exists
+            return str(pid) in output
+        except (subprocess.SubprocessError, OSError):
+            # Command execution failed, assume process doesn't exist
+            return False
+    
+    # Linux / macOS, send signal 0 to check if process exists
     try:
         # os.kill(pid, 0) doesn't actually kill the process but sends a harmless signal
         # This will throw an OSError exception if the PID is not running, and do nothing otherwise
