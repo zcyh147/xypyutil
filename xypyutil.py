@@ -231,7 +231,7 @@ class RerunLock:
     - if name is a path, e.g., __file__, then lockfile will be named after its basename
     """
 
-    def __init__(self, name, folder=None, logger=None, max_instances=1, max_retries=3, base_delay_sec=0.5):
+    def __init__(self, name, folder=None, logger=None, max_instances=1, max_retries=3, retrieve_delay_sec=0.1):
         folder = folder or osp.join(get_platform_tmp_dir(), '_util')
         filename = f'lock_{extract_path_stem(name)}.{os.getpid()}.lock.json'
         self.name = name
@@ -239,7 +239,7 @@ class RerunLock:
         self.nMaxInstances = max_instances
         self.logger = logger or glogger
         self.maxRetries = max_retries
-        self.baseDelaySec = base_delay_sec
+        self.retrieveDelaySec = retrieve_delay_sec
         self._setup_signal_handlers()
         self._cleanup_zombie_locks()
 
@@ -252,8 +252,8 @@ class RerunLock:
                 # PID is at index 1 after splitting by '.' e.g. "lock_test.12345.lock.json" -> PID is 12345
                 locker_pids = [int(lock.split(".")[1]) for lock in locks]
                 if retry < self.maxRetries:
-                    self.logger.info(f'{self.name} is locked by processes: {locker_pids}. Retry {retry + 1}/{self.maxRetries} after {self.baseDelaySec}s')
-                    time.sleep(self.baseDelaySec)
+                    self.logger.info(f'{self.name} is locked by processes: {locker_pids}. Retry {retry + 1}/{self.maxRetries} after {self.retrieveDelaySec}s')
+                    time.sleep(self.retrieveDelaySec)
                     continue
                 else:
                     self.logger.warning(f'{self.name} is locked by processes: {locker_pids}. Max retries ({self.maxRetries}) reached. Will block new instances until unlocked.')
@@ -1093,7 +1093,7 @@ def match_files_except_lines(file1, file2, excluded=None):
     return content1 == content2
 
 
-def rerun_lock(name, folder=None, logger=glogger, max_instances=1, max_retries=3, base_delay_sec=0.5):
+def rerun_lock(name, folder=None, logger=glogger, max_instances=1, max_retries=3, retrieve_delay_sec=0.1):
     """Decorator for reentrance locking on functions"""
 
     def decorator(f):
@@ -1101,7 +1101,7 @@ def rerun_lock(name, folder=None, logger=glogger, max_instances=1, max_retries=3
         def wrapper(*args, **kwargs):
             my_lock = None
             try:
-                my_lock = RerunLock(name, folder, logger, max_instances, max_retries, base_delay_sec)
+                my_lock = RerunLock(name, folder, logger, max_instances, max_retries, retrieve_delay_sec)
                 if not my_lock.lock():
                     return 1
                 try:
