@@ -581,7 +581,7 @@ glogger.setLevel(logging.DEBUG)
 def catch_unknown_exception(exc_type, exc_value, exc_traceback):
     """Global exception to handle uncaught exceptions"""
     exc_info = exc_type, exc_value, exc_traceback
-    glogger.error('Unhandled exception: ', exc_info=exc_info)
+    glogger.error('Unhandled exception:', exc_info=exc_info)
     # _logger.exception('Unhandled exception: ')  # try-except block only.
     # sys.__excepthook__(*exc_info)  # Keep commented out to avoid msg dup.
 
@@ -1260,8 +1260,7 @@ def _log_subprocess_command(cmd, cwd, logger, func_name="subprocess"):
     cmd_log = f"""\
 {func_name}:
 {' '.join(cmd)}
-cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
-"""
+cwd: {osp.abspath(cwd) if cwd else os.getcwd()}"""
     logger.info(cmd_log)
 
 
@@ -1344,9 +1343,9 @@ def run_cmd(cmd, cwd=None, logger=None, check=True, shell=False, verbose=False, 
         stdout_log = safe_decode_bytes(proc.stdout)
         stderr_log = safe_decode_bytes(proc.stderr)
         if stdout_log:
-            console_info(f'stdout:\n{stdout_log}')
+            console_info(f'stdout:\n{stdout_log.rstrip()}')
         if stderr_log:
-            logger.error(f'stderr:\n{stderr_log}')
+            logger.error(f'stderr:\n{stderr_log.rstrip()}')
     # subprocess started but failed halfway: check=True, proc returns non-zero
     except subprocess.CalledProcessError as e:
         stdout_log = safe_decode_bytes(e.stdout)
@@ -1354,9 +1353,9 @@ def run_cmd(cmd, cwd=None, logger=None, check=True, shell=False, verbose=False, 
 
         # Log subprocess output with clear separation
         if stdout_log:
-            logger.info(f'Process stdout:\n{stdout_log}')
+            logger.info(f'stdout:\n{stdout_log.rstrip()}')
         if stderr_log:
-            logger.error(f'Process stderr:\n{stderr_log}')
+            logger.error(f'stderr:\n{stderr_log.rstrip()}')
 
         # Log structured error message
         situation = "Subprocess completed with non-zero exit code"
