@@ -264,6 +264,20 @@ class RerunLock:
                 'pid': os.getpid(),
                 'name': self.name,
             })
+            
+            # Double-check: verify we didn't exceed max instances after creating our lock
+            # This handles the race condition where multiple processes create locks simultaneously
+            locks_after = self._get_existing_locks()
+            if len(locks_after) > self.nMaxInstances:
+                # exceeded the limit, remove our lock and retry
+                self.logger.info(f'Race condition detected: {len(locks_after)} locks found after creation (max: {self.nMaxInstances}). Removing our lock and retrying.')
+                self.unlock()
+                if retry < self.maxRetries:
+                    time.sleep(self.retrieveDelaySec)
+                    continue
+                else:
+                    return False
+            
             return True
 
     def unlock(self):
