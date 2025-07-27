@@ -1022,7 +1022,7 @@ def kill_process_by_name(name, forcekill=False):
     cmd_map = {
         'Windows': {
             'softKill': ['taskkill', '/IM', name],
-            'hardKill': ['wmic', 'process', 'where', f"name='{name}'", 'delete'],
+            'hardKill': ['taskkill', '/F', '/IM', name],
         },
         "*": {
             'softKill': ['pkill', name],

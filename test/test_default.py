@@ -27,7 +27,7 @@ import pytest
 # project
 _script_dir = osp.abspath(osp.dirname(__file__))
 sys.path.insert(0, repo_root := osp.abspath(f'{_script_dir}/..'))
-import kkpyutil as util
+import xypyutil as util
 
 _case_dir = _script_dir
 _src_dir = osp.abspath(osp.dirname(_case_dir))
