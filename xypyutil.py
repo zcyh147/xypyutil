@@ -1398,9 +1398,9 @@ cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
         if hidedoswin and PLATFORM == 'Windows':
             startupinfo = subprocess.STARTUPINFO()
             startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-            proc = subprocess.Popen(cmd, shell=shell, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd, env=env, startupinfo=startupinfo)
+            proc = subprocess.Popen(cmd, shell=shell, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd, env=env, startupinfo=startupinfo)
         else:
-            proc = subprocess.Popen(cmd, shell=shell, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd, env=env)
+            proc = subprocess.Popen(cmd, shell=shell, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd, env=env)
         # won't be able to retrieve log from background
     # subprocess fails to start
     except Exception as e:
