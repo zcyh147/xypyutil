@@ -627,7 +627,7 @@ glogger.setLevel(logging.DEBUG)
 def catch_unknown_exception(exc_type, exc_value, exc_traceback):
     """Global exception to handle uncaught exceptions"""
     exc_info = exc_type, exc_value, exc_traceback
-    glogger.error('Unhandled exception: ', exc_info=exc_info)
+    glogger.error('Unhandled exception:', exc_info=exc_info)
     # _logger.exception('Unhandled exception: ')  # try-except block only.
     # sys.__excepthook__(*exc_info)  # Keep commented out to avoid msg dup.
 
@@ -1330,23 +1330,84 @@ def save_winreg_record(full_key, var, value, value_type=winreg.REG_EXPAND_SZ if 
             winreg.SetValueEx(key, var, 0, value_type, value)
 
 
+def _log_subprocess_command(cmd, cwd, logger, func_name="subprocess"):
+    """Helper function to log subprocess command consistently"""
+    cmd_log = f"""\
+{func_name}:
+{' '.join(cmd)}
+cwd: {osp.abspath(cwd) if cwd else os.getcwd()}"""
+    logger.info(cmd_log)
+
+
+def _log_subprocess_startup_error(e, cmd, logger, useexception=True):
+    """Helper function to log subprocess startup errors with structured format"""
+    error_type = type(e).__name__
+    cmd_str = ' '.join(cmd)
+
+    # Create structured error message based on error type
+    if isinstance(e, FileNotFoundError):
+        situation = "Command not found"
+        detail = [f"Command: {cmd_str}", f"Error: {error_type}"]
+        advice = [
+            "Check if the command is installed and available in PATH",
+            "Verify the command name spelling",
+            "Use absolute path if the command is in a specific location"
+        ]
+    elif isinstance(e, PermissionError):
+        situation = "Permission denied"
+        detail = [f"Command: {cmd_str}", f"Error: {error_type}"]
+        advice = [
+            "Check if you have permission to execute the command",
+            "Try running with elevated privileges if necessary",
+            "Verify file permissions on the executable"
+        ]
+    else:
+        situation = "Subprocess failed to start"
+        detail = [f"Command: {cmd_str}", f"Error: {error_type}: {str(e)}"]
+        advice = [
+            "Check if the command exists and is executable",
+            "Verify all command arguments are valid",
+            "Check system resources and environment"
+        ]
+
+    error_msg = format_log(situation, detail=detail, advice=advice)
+    logger.error(error_msg)
+
+    if useexception:
+        raise e
+    return types.SimpleNamespace(returncode=2, stdout='', stderr=safe_encode_text(str(e), encoding=LOCALE_CODEC))
+
+
 def run_cmd(cmd, cwd=None, logger=None, check=True, shell=False, verbose=False, useexception=True, env=None, hidedoswin=True):
     """
-    - Use shell==True with autotools where new shell is needed to treat the entire command option sequence as a command,
-    e.g., shell=True means running sh -c ./configure CFLAGS="..."
-    - we do not use check=False to supress exception because that'd leave app no way to tell if child-proc succeeded or not
-    - instead, we catch CallProcessError but avoid rethrow, and then return error code and other key diagnostics to app
-    - allow user to input non-str options, e.g., int, bool, etc., and auto-convert to str for subprocess
+    Run a subprocess command and wait for completion.
+
+    Args:
+        cmd: Command list (non-str items auto-converted to str)
+        cwd: Working directory (default: current directory)
+        logger: Logger instance (default: glogger)
+        check: Whether to raise exception on non-zero exit (default: True)
+        shell: Whether to use shell (default: False)
+        verbose: Whether to log stdout at INFO level vs DEBUG (default: False)
+        useexception: Whether to raise exceptions vs return error info (default: True)
+        env: Environment variables (default: None)
+        hidedoswin: Whether to hide DOS window on Windows (default: True)
+
+    Returns:
+        subprocess.CompletedProcess on success, or SimpleNamespace with error info
+
+    Best practices:
+        - Use useexception=False for optional commands that may fail
+        - Use verbose=True to see subprocess output in logs
+        - Use shell=True only when needed (e.g., shell built-ins, complex commands)
+        - Use check=False with useexception=False for commands where failure is expected
     """
     cmd = [comp if isinstance(comp, str) else str(comp) for comp in cmd]
     logger = logger or glogger
     console_info = logger.info if logger and verbose else logger.debug
-    # show cmdline with or without exceptions
-    cmd_log = f"""\
-{' '.join(cmd)}
-cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
-"""
-    logger.info(cmd_log)
+
+    # Log command execution
+    _log_subprocess_command(cmd, cwd, logger, "run_cmd")
     try:
         if hidedoswin and PLATFORM == 'Windows':
             startupinfo = subprocess.STARTUPINFO()
@@ -1357,43 +1418,75 @@ cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
         stdout_log = safe_decode_bytes(proc.stdout)
         stderr_log = safe_decode_bytes(proc.stderr)
         if stdout_log:
-            console_info(f'stdout:\n{stdout_log}')
+            console_info(f'stdout:\n{stdout_log.rstrip()}')
         if stderr_log:
-            logger.error(f'stderr:\n{stderr_log}')
+            logger.error(f'stderr:\n{stderr_log.rstrip()}')
     # subprocess started but failed halfway: check=True, proc returns non-zero
-    # won't trigger this exception when useexception=True
     except subprocess.CalledProcessError as e:
-        # generic error, grandchild_cmd error with noexception enabled
-        stdout_log = f'stdout:\n{safe_decode_bytes(e.stdout)}'
-        stderr_log = f'stderr:\n{safe_decode_bytes(e.stderr)}'
-        logger.info(stdout_log)
-        logger.error(stderr_log)
+        stdout_log = safe_decode_bytes(e.stdout)
+        stderr_log = safe_decode_bytes(e.stderr)
+
+        # Log subprocess output with clear separation
+        if stdout_log:
+            logger.info(f'stdout:\n{stdout_log.rstrip()}')
+        if stderr_log:
+            logger.error(f'stderr:\n{stderr_log.rstrip()}')
+
+        # Log structured error message
+        situation = "Subprocess completed with non-zero exit code"
+        detail = [
+            f"Command: {' '.join(cmd)}",
+            f"Exit code: {e.returncode}",
+            f"Has stdout: {'Yes' if stdout_log else 'No'}",
+            f"Has stderr: {'Yes' if stderr_log else 'No'}"
+        ]
+        error_msg = format_log(situation, detail=detail)
+        logger.error(error_msg)
+
         if useexception:
             raise e
         return types.SimpleNamespace(returncode=1, stdout=e.stdout, stderr=e.stderr)
     # subprocess fails to start
     except Exception as e:
-        # cmd missing ...FileNotFound
-        # PermissionError, OSError, TimeoutExpired
-        logger.error(e)
-        if useexception:
-            raise e
-        return types.SimpleNamespace(returncode=2, stdout='', stderr=safe_encode_text(str(e), encoding=LOCALE_CODEC))
+        return _log_subprocess_startup_error(e, cmd, logger, useexception)
     return proc
 
 
-def run_daemon(cmd, cwd=None, logger=None, shell=False, useexception=True, env=None, hidedoswin=True):
+def run_daemon(cmd, cwd=None, logger=None, shell=False, verbose=False, useexception=True, env=None, hidedoswin=True):
     """
-    - if returned proc is None, means
+    Start a subprocess in the background (non-blocking).
+
+    Args:
+        cmd: Command list (non-str items auto-converted to str)
+        cwd: Working directory (default: current directory)
+        logger: Logger instance (default: glogger)
+        shell: Whether to use shell (default: False)
+        verbose: Whether to log at INFO level vs DEBUG (default: False)
+        useexception: Whether to raise exceptions vs return error info (default: True)
+        env: Environment variables (default: None)
+        hidedoswin: Whether to hide DOS window on Windows (default: True)
+
+    Returns:
+        subprocess.Popen object on success, or SimpleNamespace with error info
+
+    Best practices:
+        - Use for long-running processes or fire-and-forget commands
+        - Call proc.communicate() or proc.wait() to get final results
+        - Use verbose=True to see command execution in logs
+        - Background processes won't show stdout/stderr in logs automatically
+        - Use useexception=False for optional background processes
+
+    Note:
+        Background processes capture stdout/stderr but don't log them automatically.
+        Call proc.communicate() to retrieve output when the process completes.
     """
     cmd = [comp if isinstance(comp, str) else str(comp) for comp in cmd]
     logger = logger or glogger
-    logger.debug(f"""run in background:
-{' '.join(cmd)}
-cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
-""")
-    # fake the same proc interface
-    proc = None
+
+    # Log command execution with appropriate level
+    log_func = logger.info if verbose else logger.debug
+    _log_subprocess_command(cmd, cwd, logger, "run_daemon")
+
     try:
         if hidedoswin and PLATFORM == 'Windows':
             startupinfo = subprocess.STARTUPINFO()
@@ -1401,16 +1494,14 @@ cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
             proc = subprocess.Popen(cmd, shell=shell, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd, env=env, startupinfo=startupinfo)
         else:
             proc = subprocess.Popen(cmd, shell=shell, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd, env=env)
-        # won't be able to retrieve log from background
+
+        # Log successful startup
+        log_func(f"Background process started successfully (PID: {proc.pid})")
+        return proc
+
     # subprocess fails to start
     except Exception as e:
-        # cmd missing ...FileNotFound
-        # PermissionError, OSError, TimeoutExpired
-        logger.error(e)
-        if useexception:
-            raise e
-        return types.SimpleNamespace(returncode=2, stdout='', stderr=safe_encode_text(str(e), encoding=LOCALE_CODEC))
-    return proc
+        return _log_subprocess_startup_error(e, cmd, logger, useexception)
 
 
 def watch_cmd(cmd, cwd=None, logger=None, shell=False, verbose=False, useexception=True, prompt=None, timeout=None, env=None, hidedoswin=True):
@@ -1423,12 +1514,9 @@ def watch_cmd(cmd, cwd=None, logger=None, shell=False, verbose=False, useexcepti
             output_queue.put(line)
     cmd = [comp if isinstance(comp, str) else str(comp) for comp in cmd]
     logger = logger or glogger
-    # show cmdline with or without exceptions
-    cmd_log = f"""\
-{' '.join(cmd)}
-cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
-"""
-    logger.info(cmd_log)
+
+    # Log command execution
+    _log_subprocess_command(cmd, cwd, logger, "watch_cmd")
     try:
         if hidedoswin and PLATFORM == 'Windows':
             startupinfo = subprocess.STARTUPINFO()
@@ -1472,11 +1560,7 @@ cwd: {osp.abspath(cwd) if cwd else os.getcwd()}
         return proc
     # subprocess fails to start
     except Exception as e:
-        # no need to have header, exception has it all
-        logger.error(e)
-        if useexception:
-            raise e
-        return types.SimpleNamespace(returncode=2, stdout='', stderr=safe_encode_text(str(e), encoding=LOCALE_CODEC))
+        return _log_subprocess_startup_error(e, cmd, logger, useexception)
 
 
 def extract_call_args(file, caller, callee):
