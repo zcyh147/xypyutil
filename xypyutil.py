@@ -2425,11 +2425,40 @@ def flatten_nested_lists(mylist):
     return functools.reduce(operator.iconcat, mylist, [])
 
 
-def show_results(succeeded, detail, advice, dryrun=False):
-    banner = '** DRYRUN **' if dryrun else '*** SUCCEEDED ***' if succeeded else '* FAILED *'
-    detail_title = 'Detail:'
+def show_results(succeeded, detail, advice, dryrun=False, lang='en'):
+    """
+    Display results with localized messages.
+    
+    Args:
+        succeeded: Whether the operation succeeded
+        detail: Detailed information
+        advice: Advice or next steps
+        dryrun: Whether this is a dry run
+        lang: Language code ('en' for English, 'zh' for Chinese). Default: 'en'
+    """
+    translations = {
+        'en': {
+            'dryrun': '** DRYRUN **',
+            'succeeded': '*** SUCCEEDED ***',
+            'failed': '* FAILED *',
+            'detail': 'Detail:',
+            'next': 'Next:',
+            'advice': 'Advice:'
+        },
+        'zh': {
+            'dryrun': '** 空运行（DryRun） **',
+            'succeeded': '*** 成功 ***',
+            'failed': '* 失败 *',
+            'detail': '详情：',
+            'next': '下一步：',
+            'advice': '建议：'
+        }
+    }
+    t = translations.get(lang, translations['en'])
+    banner = t['dryrun'] if dryrun else t['succeeded'] if succeeded else t['failed']
+    detail_title = t['detail']
     detail_block = detail if detail else '- (N/A)'
-    advice_title = 'Next:' if succeeded else 'Advice:'
+    advice_title = t['next'] if succeeded else t['advice']
     advice_block = advice if advice else '- (N/A)'
     report = f"""
 {banner}

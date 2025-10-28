@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "xypyutil"
-version = "1.0.9"
+version = "1.0.10"
 description = "Building blocks for sysadmin and DevOps"
 authors = [
     "Xi Ye <zcyh147@gmail.com>",
@@ -22,7 +22,7 @@ keywords = [
 ]
 
 include = [
-    { path = "kkpyutil_helper", format = ["sdist", "wheel"] },
+    { path = "xypyutil_helper", format = ["sdist", "wheel"] },
 ]
 
 [tool.poetry.dependencies]
@@ -37,4 +37,4 @@ requires = ["poetry-core>=1.3.9"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.urls]
-issues = "https://github.com/zcyh147/xypyutil//issues"
+issues = "https://github.com/zcyh147/xypyutil/issues"
