@@ -419,7 +419,7 @@ class Tracer:
         if module_name is not None and module_name in self.exclMods:
             return
         filename = frame.f_code.co_filename
-        if self.exclFilePatt and self.exclFuncPatt.search(filename):
+        if self.exclFilePatt and self.exclFilePatt.search(filename):
             return
         if self.inclFilePatt and not self.inclFilePatt.search(filename):
             return

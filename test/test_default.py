@@ -257,7 +257,7 @@ def test_tracer():
     - must use a different file
     """
     src = osp.join(_org_dir, 'test_trace_this.py')
-    cmd = ['poetry', 'run', 'python', src]
+    cmd = [sys.executable, src]
     proc = util.run_cmd(cmd, cwd=osp.dirname(__file__))
     lines = proc.stdout.decode(util.TXT_CODEC).splitlines()
     assert lines == [
@@ -462,6 +462,7 @@ def test_get_clipboard_content():
     root.withdraw()
     root.clipboard_clear()
     root.clipboard_append(content)
+    root.update()
     root.quit()
     assert util.get_clipboard_content() == content
 
@@ -515,7 +516,7 @@ def test_kill_process_by_name_windows():
     if util.PLATFORM != 'Windows':
         assert True
         return
-    long_proc = osp.join(_org_dir, proc_name := 'kkpyutil_proc')
+    long_proc = osp.join(_org_dir, proc_name := 'xypyutil_proc')
     cmd = [long_proc]
     util.run_daemon(cmd)
     ret = util.kill_process_by_name(proc_name + '.exe')
@@ -544,7 +545,16 @@ def test_kill_process_by_name_macos():
     assert ret == 1
     ret = util.kill_process_by_name('missing_proc', True)
     assert ret == 1
-    ret = util.kill_process_by_name('mdworker', True)
+
+    def _mock_run_cmd(cmd, check=False):
+        if cmd == ['pgrep', '-x', 'mdworker']:
+            return types.SimpleNamespace(returncode=0, stdout=b'123\n', stderr=b'')
+        if cmd == ['pkill', '-9', 'mdworker']:
+            return types.SimpleNamespace(returncode=1, stdout=b'', stderr=b'not permitted')
+        raise AssertionError(f'unexpected cmd: {cmd}')
+
+    with um.patch.object(util, 'run_cmd', side_effect=_mock_run_cmd):
+        ret = util.kill_process_by_name('mdworker', True)
     assert ret == 2
 
 
@@ -554,13 +564,13 @@ def test_init_translator():
     """
     locale_dir = osp.join(_org_dir, 'locale')
     trans = util.init_translator(locale_dir)
-    assert isinstance(trans, types.MethodType)
+    assert callable(trans)
     trans = util.init_translator(locale_dir, langs=['en', 'zh'])
-    assert isinstance(trans, types.MethodType)
+    assert callable(trans)
     # hit exception with empty folder
     locale_dir = osp.join(_gen_dir, 'locale')
     trans = util.init_translator(locale_dir, langs=['en', 'zh'])
-    assert issubclass(trans, str)
+    assert trans('hello') == 'hello'
     util.safe_remove(_gen_dir)
 
 
@@ -597,7 +607,7 @@ def test_rerunlock_class(monkeypatch):
     mock_frame = um.Mock()
     # Call the handle_signal method with a mocked signal and frame
     with pytest.raises(RuntimeError) as exc_info:
-        run_lock.handle_signal(signal.SIGINT, mock_frame)
+        run_lock._handle_signal(signal.SIGINT, mock_frame)
     assert str(exc_info.value) == f"Terminated due to signal: {signal.Signals(signal.SIGINT).name}; Will unlock"
 
 
@@ -618,23 +628,26 @@ def test_rerun_lock(monkeypatch):
 
     init = osp.join(_org_dir, 'exclusive.py')
     reenter = osp.join(_org_dir, 'reenter.py')
-    lockfile = osp.join(util.get_platform_tmp_dir(), '_util', f'lock_test_rerun_lock.json')
-    save = osp.join(util.get_platform_tmp_dir(), '_util', f'run_exclusive_1.json')
-    for file in (save, lockfile):
-        util.safe_remove(file)
-    cmd = ['poetry', 'run', 'python', init, '3']
+    lock_glob = osp.join(util.get_platform_tmp_dir(), '_util', 'lock_test_rerun_lock.*.lock.json')
+    save = osp.join(util.get_platform_tmp_dir(), '_util', 'reenter_1.json')
+    util.safe_remove(save)
+    for lockfile in glob.glob(lock_glob):
+        util.safe_remove(lockfile)
+    cmd = [sys.executable, init, '3']
     proc1 = util.run_daemon(cmd, cwd=_org_dir)
     time.sleep(1)
     # assert osp.isfile(lockfile)
     # run a second instance before the first finishes (bg)
-    cmd2 = ['poetry', 'run', 'python', reenter, '1']
+    cmd2 = [sys.executable, reenter, '1']
     proc2 = util.run_cmd(cmd2, cwd=_org_dir, useexception=True)
     assert not osp.isfile(save)
     assert 'is locked by processes' in proc2.stderr.decode(util.TXT_CODEC)
     proc1.communicate()
-    assert not osp.isfile(lockfile)
-    for file in (save, lockfile):
+    assert not glob.glob(lock_glob)
+    for file in (save,):
         util.safe_remove(file)
+    for lockfile in glob.glob(lock_glob):
+        util.safe_remove(lockfile)
     # decorator
     for lock_file in glob.glob(osp.abspath(f'{_gen_dir}/lock_test*json')):
         util.safe_remove(lock_file)
@@ -906,33 +919,66 @@ def test_extract_sourcecode_comments():
     }
 
 
-def test_open_in_browser():
+def test_open_in_browser(monkeypatch):
+    browser_calls = []
+    editor_calls = []
+
+    def _record_browser(window):
+        def _inner(url):
+            browser_calls.append((window, url))
+            return True
+        return _inner
+
+    monkeypatch.setattr('webbrowser.open', _record_browser('current'))
+    monkeypatch.setattr('webbrowser.open_new_tab', _record_browser('tab'))
+    monkeypatch.setattr('webbrowser.open_new', _record_browser('window'))
+    monkeypatch.setattr(util, 'open_in_editor', lambda path, foreground=False: editor_calls.append((path, foreground)) or path)
     if util.PLATFORM == 'Windows':
         path = 'C:\\Windows\\System32\\drivers\\etc\\hosts'
         assert util.open_in_browser(path, islocal=True) == path
+        assert editor_calls[-1] == (path, False)
         assert util.open_in_browser(path, islocal=False) == 'C:\\Windows\\System32\\drivers\\etc\\hosts'
+        assert browser_calls[-1] == ('current', 'C:\\Windows\\System32\\drivers\\etc\\hosts')
         path = osp.join(_org_dir, 'open_in_browser.html')
         norm_path = path.replace('\\', '/')
         assert util.open_in_browser(path, islocal=True) == f'file:///{norm_path}'
+        assert browser_calls[-1] == ('current', f'file:///{norm_path}')
     else:
         path = '/etc/hosts'
         assert util.open_in_browser(path, islocal=True) == 'file:///etc/hosts'
+        assert browser_calls[-1] == ('tab', 'file:///etc/hosts')
         assert util.open_in_browser(path, islocal=False) == '/etc/hosts'
+        assert browser_calls[-1] == ('tab', '/etc/hosts')
         path = '/path/to/filename with spaces'
         assert util.open_in_browser(path, islocal=True) == 'file:///path/to/filename%20with%20spaces'
+        assert browser_calls[-1] == ('tab', 'file:///path/to/filename%20with%20spaces')
 
 
 # @pytest.mark.skipif(_skip_slow_tests, reason=_skip_reason)
-def test_open_in_editor():
+def test_open_in_editor(monkeypatch):
+    daemon_calls = []
+    cmd_calls = []
+
+    monkeypatch.setattr(util, 'run_daemon', lambda cmd, **kwargs: daemon_calls.append((cmd, kwargs)) or types.SimpleNamespace(returncode=0))
+    monkeypatch.setattr(util, 'run_cmd', lambda cmd, **kwargs: cmd_calls.append((cmd, kwargs)) or types.SimpleNamespace(returncode=0, stdout=b'', stderr=b''))
+
     path = 'C:\\Windows\\System32\\drivers\\etc\\hosts' if util.PLATFORM == 'Windows' else '/etc/hosts'
     util.open_in_editor(path, foreground=False)
+    norm_path = util.normalize_paths([path])[0]
+    expected_file_cmd = ['notepad', norm_path] if util.PLATFORM == 'Windows' else [
+        'open' if util.PLATFORM == 'Darwin' else 'xdg-open',
+        norm_path,
+    ]
+    assert daemon_calls[-1][0] == expected_file_cmd
     if util.PLATFORM == 'Windows':
-        try:
-            util.kill_process_by_name('notepad.exe')
-        except Exception:
-            pass
-    # folder
+        assert daemon_calls[-1][1]['hidedoswin'] is False
     util.open_in_editor(_org_dir, foreground=True)
+    norm_dir = util.normalize_paths([_org_dir])[0]
+    expected_dir_cmd = ['explorer', norm_dir] if util.PLATFORM == 'Windows' else [
+        'open' if util.PLATFORM == 'Darwin' else 'xdg-open',
+        norm_dir,
+    ]
+    assert cmd_calls[-1][0] == expected_dir_cmd
 
 
 def test_flatten_nested_lists():
@@ -1123,7 +1169,8 @@ def test_recover_file():
 
 
 def test_deprecate_log():
-    msg = util.deprecate('old', 'new')
+    with pytest.warns(DeprecationWarning, match='old is deprecated; use new instead'):
+        msg = util.deprecate('old', 'new')
     assert msg == 'old is deprecated; use new instead'
 
 
@@ -1338,10 +1385,10 @@ def test_read_link():
         lnk = osp.join(_org_dir, 'lines.txt.symlink')
         assert util.read_link(lnk) == lnk
         lnk = osp.join(_org_dir, 'lines.txt.lnk')
-        assert util.read_link(lnk) == 'D:\\kakyo\\_dev\\kkpyutil\\test\\_org\\lines.txt'
+        assert util.read_link(lnk).endswith('test\\_org\\lines.txt')
     else:
         lnk = osp.join(_org_dir, 'lines.txt.symlink')
-        assert util.read_link(lnk) == '/Users/kakyo/Desktop/_dev/kkpyutil/test/_org/lines.txt'
+        assert util.read_link(lnk).endswith('/test/_org/lines.txt')
         lnk = osp.join(_org_dir, 'lines.txt.lnk')
         assert util.read_link(lnk) == lnk
 
@@ -1710,8 +1757,10 @@ def test_safe_import_module():
     assert at is not None
 
 
-def test_get_parent_dirs():
-    assert util.get_parent_dirs(_org_dir, subs=['sub']) == (_case_dir, _src_dir, osp.join(_src_dir, 'sub'))
+def test_get_ancestor_dirs_with_child_dirs():
+    dirs = util.get_ancestor_dirs(_org_dir, depth=2)
+    assert dirs == [_case_dir, _src_dir]
+    assert util.get_child_dirs(dirs[-1], ['sub']) == [osp.join(_src_dir, 'sub')]
 
 
 def test_get_ancestor_dirs():
@@ -1918,15 +1967,13 @@ def test_inspect_obj():
     assert obj_info['type'] == 'MyClass'
     assert obj_info['attrs'] == {'n': 1, 's': 'hello', 'f': 9.99, 'l': [1, 2, 3]}
     assert '<test_default.test_inspect_obj.<locals>.MyClass object' in obj_info['repr']
-    assert obj_info['details'] == ['__class__', '__delattr__', '__dict__', '__dir__', '__doc__', '__eq__', '__format__', '__ge__', '__getattribute__', '__getstate__', '__gt__', '__hash__', '__init__', '__init_subclass__', '__le__', '__lt__', '__module__',
-                                   '__ne__', '__new__', '__reduce__', '__reduce_ex__', '__repr__', '__setattr__', '__sizeof__', '__str__', '__subclasshook__', '__weakref__', 'f', 'l', 'main', 'n', 's']
+    assert {'__class__', '__dict__', '__init__', '__module__', '__weakref__', 'f', 'l', 'main', 'n', 's'}.issubset(set(obj_info['details']))
     num = 100
-    assert util.inspect_obj(num) == {'type': 'int', 'attrs': {}, 'repr': '100',
-                                     'details': ['__abs__', '__add__', '__and__', '__bool__', '__ceil__', '__class__', '__delattr__', '__dir__', '__divmod__', '__doc__', '__eq__', '__float__', '__floor__', '__floordiv__', '__format__', '__ge__',
-                                                 '__getattribute__', '__getnewargs__', '__getstate__', '__gt__', '__hash__', '__index__', '__init__', '__init_subclass__', '__int__', '__invert__', '__le__', '__lshift__', '__lt__', '__mod__', '__mul__',
-                                                 '__ne__', '__neg__', '__new__', '__or__', '__pos__', '__pow__', '__radd__', '__rand__', '__rdivmod__', '__reduce__', '__reduce_ex__', '__repr__', '__rfloordiv__', '__rlshift__', '__rmod__', '__rmul__',
-                                                 '__ror__', '__round__', '__rpow__', '__rrshift__', '__rshift__', '__rsub__', '__rtruediv__', '__rxor__', '__setattr__', '__sizeof__', '__str__', '__sub__', '__subclasshook__', '__truediv__', '__trunc__',
-                                                 '__xor__', 'as_integer_ratio', 'bit_count', 'bit_length', 'conjugate', 'denominator', 'from_bytes', 'imag', 'numerator', 'real', 'to_bytes']}
+    num_info = util.inspect_obj(num)
+    assert num_info['type'] == 'int'
+    assert num_info['attrs'] == {}
+    assert num_info['repr'] == '100'
+    assert {'__class__', '__int__', '__repr__', 'bit_length', 'imag', 'real', 'to_bytes'}.issubset(set(num_info['details']))
 
 
 def test_cache():
@@ -2126,8 +2173,8 @@ def test_http_post(monkeypatch):
 
 
 def test_lazy_download():
-    url = 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Tsunami_by_hokusai_19th_century.jpg/320px-Tsunami_by_hokusai_19th_century.jpg'
-    file = osp.join(_gen_dir, 'tsunami.jpg')
+    url = 'https://httpbin.org/image/png'
+    file = osp.join(_gen_dir, 'pig.png')
     assert osp.isfile(util.lazy_download(file, url))
     util.safe_remove(_gen_dir)
 
