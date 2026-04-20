@@ -1,7 +1,9 @@
 import sys
 import os.path as osp
-sys.path.append(osp.abspath(f'{__file__}/../../..'))
-import kkpyutil as util
+
+_script_dir = osp.abspath(osp.dirname(__file__))
+sys.path.insert(0, osp.abspath(f'{_script_dir}/../..'))
+import xypyutil as util
 
 
 def hello(n, s, f):
